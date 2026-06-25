@@ -1,0 +1,13 @@
+supergraph:
+  listen: 0.0.0.0:4000
+  path: /graphql
+  introspection: true
+
+sandbox:
+  enabled: true
+
+homepage:
+  enabled: true
+
+include_subgraph_errors:
+   all: true

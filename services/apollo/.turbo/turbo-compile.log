@@ -1,0 +1,9 @@
+[6n[?9001h[?1004h[m]0;C:\Users\User\.bun\bin\bun.exe[?25h[35m[2m$[m [1m[2mbun ./src/scripts/compose_supergraph.sh.ts
+[22m[34m[INFO]: dist already exists.
+[mgRPC server Base server is running in port 4001
+Enabling inline tracing for this subgraph. To disable, use ApolloServerPluginInlineTraceDisabled.
+Server running at http://[::1]:5001/
+merging supergraph schema files
+
+Supergraph Schema was printed to C:\Users\User\Desktop\projects\rnd1\services\apollo\dist\supergraph.graphql
+[?9001l[?1004l

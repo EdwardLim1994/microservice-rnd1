@@ -1,0 +1,15 @@
+{
+  "name": "apollo",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "@apollo/rover": "^0.40.0",
+    "lib": "workspace:*"
+  },
+  "scripts": {
+    "compile": "bun ./src/scripts/compose_supergraph.sh.ts"
+  }
+}

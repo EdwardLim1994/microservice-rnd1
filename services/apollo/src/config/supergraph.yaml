@@ -1,0 +1,5 @@
+subgraphs:
+   demo1:
+      routing_url: http://host.docker.internal:5001
+      schema:
+        file: ../../../../servers/demo1/src/schema/graphql/demo1.graphql

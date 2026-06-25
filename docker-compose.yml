@@ -1,0 +1,3 @@
+include:
+  - ./services/apollo/docker-compose.yml
+  - ./services/kafka/docker-compose.yml
