@@ -7,7 +7,7 @@ sandbox:
   enabled: true
 
 homepage:
-  enabled: true
+  enabled: false
 
 include_subgraph_errors:
-   all: true
+  all: true

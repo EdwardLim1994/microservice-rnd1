@@ -8,5 +8,5 @@ type Demo1 @key(fields: "id") {
 }
 
 type Query {
-  demo: Demo1
+  demo1: Demo1
 }

@@ -45,6 +45,28 @@
       },
     },
     "servers/demo1": {
+      "name": "demo2",
+      "dependencies": {
+        "@grpc/grpc-js": "^1.14.4",
+        "api": "workspace:*",
+        "graphql": "^16.11.0",
+        "lib": "workspace:*",
+        "ts-proto": "^2.11.8",
+      },
+      "devDependencies": {
+        "@bufbuild/buf": "^1.70.0",
+        "@graphql-codegen/add": "^7.0.1",
+        "@graphql-codegen/cli": "^7.1.2",
+        "@graphql-codegen/schema-ast": "^6.0.1",
+        "@graphql-codegen/typescript": "^6.0.2",
+        "@graphql-codegen/typescript-resolvers": "^6.0.2",
+        "@types/bun": "latest",
+        "biome": "^0.3.3",
+        "protoc": "^35.1.0",
+        "zx": "^8.8.5",
+      },
+    },
+    "servers/demo2": {
       "name": "demo1",
       "dependencies": {
         "@grpc/grpc-js": "^1.14.4",
@@ -509,7 +531,9 @@
 
     "delayed-stream": ["delayed-stream@1.0.0", "", {}, "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ=="],
 
-    "demo1": ["demo1@workspace:servers/demo1"],
+    "demo1": ["demo1@workspace:servers/demo2"],
+
+    "demo2": ["demo2@workspace:servers/demo1"],
 
     "depd": ["depd@2.0.0", "", {}, "sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw=="],
 
@@ -1106,6 +1130,8 @@
     "cliui/wrap-ansi": ["wrap-ansi@9.0.2", "", { "dependencies": { "ansi-styles": "^6.2.1", "string-width": "^7.0.0", "strip-ansi": "^7.1.0" } }, "sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww=="],
 
     "demo1/graphql": ["graphql@16.14.2", "", {}, "sha512-Chq1s4CY7jmh8gO2qvLIJyfCDIN+EHLFW/9iShnp1z8FjBQMoodWP1kDC36VAMXXIvAjj4ARa7ntfAV2BrjsbA=="],
+
+    "demo2/graphql": ["graphql@16.14.2", "", {}, "sha512-Chq1s4CY7jmh8gO2qvLIJyfCDIN+EHLFW/9iShnp1z8FjBQMoodWP1kDC36VAMXXIvAjj4ARa7ntfAV2BrjsbA=="],
 
     "dprint-node/detect-libc": ["detect-libc@1.0.3", "", { "bin": { "detect-libc": "./bin/detect-libc.js" } }, "sha512-pGjwhsmsp4kL2RTz08wcOlGN83otlqHeD/Z5T8GXZB+/YcpQ/dgo+lbU8ZsGxV0HIvqqxo9l7mqYwyYMD9bKDg=="],
 

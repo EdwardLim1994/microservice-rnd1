@@ -1,7 +1,7 @@
 export default abstract class BaseServer {
 
   protected port: number = 3000;
-  protected host: string = "localhost";
+  protected host: string = "0.0.0.0";
   protected name: string = "Base server";
 
 

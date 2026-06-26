@@ -1,0 +1,1 @@
+export type Demo2ContextType = Record<string, never>;

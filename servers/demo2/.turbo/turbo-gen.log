@@ -1,13 +1,13 @@
 [6n[?9001h[?1004h[m]0;C:\Users\User\.bun\bin\bun.exe[?25h[35m[2m$[m [1m[2mbun ./src/scripts/generate_api.sh.ts
 [22m[34m[INFO]: GraphQL Codegen is installed. Compiling...
-[m[34m[INFO]: ../../packages/api/generated/demo1/graphql already exists.
+[m[34m[INFO]: ../../packages/api/generated/demo2/graphql already exists.
 [m❯ Parse Configuration
 ✔ Parse Configuration
 ❯ Generate outputs
-❯ Generate to ../../packages/api/generated/demo1/graphql/resolvers.ts
-❯ Generate to ../../packages/api/generated/demo1/graphql/context.ts
-❯ Generate to ../../packages/api/generated/demo1/graphql/typedefs.graphql
-❯ Generate to ../../packages/api/generated/demo1/graphql/typedefs.ts
+❯ Generate to ../../packages/api/generated/demo2/graphql/resolvers.ts
+❯ Generate to ../../packages/api/generated/demo2/graphql/context.ts
+❯ Generate to ../../packages/api/generated/demo2/graphql/typedefs.graphql
+❯ Generate to ../../packages/api/generated/demo2/graphql/typedefs.ts
 ❯ Load GraphQL schemas
 ❯ Load GraphQL schemas
 ❯ Load GraphQL schemas
@@ -30,15 +30,15 @@
 ❯ Generate
 ✔ Generate
 ✔ Generate
-✔ Generate to ../../packages/api/generated/demo1/graphql/context.ts
-✔ Generate to ../../packages/api/generated/demo1/graphql/typedefs.ts
+✔ Generate to ../../packages/api/generated/demo2/graphql/context.ts
+✔ Generate to ../../packages/api/generated/demo2/graphql/typedefs.ts
 ✔ Generate
 ✔ Generate
-✔ Generate to ../../packages/api/generated/demo1/graphql/resolvers.ts
-✔ Generate to ../../packages/api/generated/demo1/graphql/typedefs.graphql
+✔ Generate to ../../packages/api/generated/demo2/graphql/resolvers.ts
+✔ Generate to ../../packages/api/generated/demo2/graphql/typedefs.graphql
 ✔ Generate outputs
 [32m[SUCCESS]: GraphQL Codegen compiled successfully[m
 [34m[INFO]: Protoc is installed. Compiling...[m
-[34m[INFO]: ../../packages/api/generated/demo1/proto already exists.[m
+[34m[INFO]: ../../packages/api/generated/demo2/proto already exists.[m
 [32m[SUCCESS]: Protoc compiled successfully[m
 [?9001l[?1004l

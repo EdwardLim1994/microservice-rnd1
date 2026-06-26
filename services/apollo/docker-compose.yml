@@ -9,7 +9,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./config/router.yaml:${APOLLO_ROUTER_CONFIG_PATH:-/etc/router.yaml}
+      - ./src/config/router.yaml:${APOLLO_ROUTER_CONFIG_PATH:-/etc/router.yaml}
       - ./dist/supergraph.graphql:${APOLLO_ROUTER_SUPERGRAPH_PATH:-/etc/supergraph.graphql}
     env_file:
       - .env

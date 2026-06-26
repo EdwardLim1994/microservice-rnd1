@@ -1,5 +1,5 @@
 import type { GraphQLResolveInfo } from 'graphql';
-import type { Demo1ContextType } from './context';
+import type { Demo2ContextType } from './context';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 /** All built-in and custom scalars, mapped to their actual values */
@@ -14,13 +14,19 @@ export type Scalars = {
 
 export type Demo1 = {
   __typename?: 'Demo1';
+  demo2?: Maybe<Array<Maybe<Demo2>>>;
+  id: Scalars['ID']['output'];
+};
+
+export type Demo2 = {
+  __typename?: 'Demo2';
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
 };
 
 export type Query = {
   __typename?: 'Query';
-  demo1?: Maybe<Demo1>;
+  demo2?: Maybe<Demo2>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -105,6 +111,7 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 /** Mapping of federation types */
 export type FederationTypes = ResolversObject<{
   Demo1: Demo1;
+  Demo2: Demo2;
 }>;
 
 /** Mapping of federation reference types */
@@ -112,6 +119,9 @@ export type FederationReferenceTypes = ResolversObject<{
   Demo1:
     ( { __typename: 'Demo1' }
     & GraphQLRecursivePick<FederationTypes['Demo1'], {"id":true}> );
+  Demo2:
+    ( { __typename: 'Demo2' }
+    & GraphQLRecursivePick<FederationTypes['Demo2'], {"id":true}> );
 }>;
 
 
@@ -120,6 +130,7 @@ export type FederationReferenceTypes = ResolversObject<{
 export type ResolversTypes = ResolversObject<{
   Demo1: ResolverTypeWrapper<Demo1>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  Demo2: ResolverTypeWrapper<Demo2>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
@@ -129,23 +140,30 @@ export type ResolversTypes = ResolversObject<{
 export type ResolversParentTypes = ResolversObject<{
   Demo1: Demo1 | FederationReferenceTypes['Demo1'];
   ID: Scalars['ID']['output'];
+  Demo2: Demo2 | FederationReferenceTypes['Demo2'];
   String: Scalars['String']['output'];
   Query: Record<PropertyKey, never>;
   Boolean: Scalars['Boolean']['output'];
 }>;
 
-export type Demo1Resolvers<ContextType = Demo1ContextType, ParentType extends ResolversParentTypes['Demo1'] = ResolversParentTypes['Demo1'], FederationReferenceType extends FederationReferenceTypes['Demo1'] = FederationReferenceTypes['Demo1']> = ResolversObject<{
+export type Demo1Resolvers<ContextType = Demo2ContextType, ParentType extends ResolversParentTypes['Demo1'] = ResolversParentTypes['Demo1'], FederationReferenceType extends FederationReferenceTypes['Demo1'] = FederationReferenceTypes['Demo1']> = ResolversObject<{
   __resolveReference?: ReferenceResolver<Maybe<ResolversTypes['Demo1']> | FederationReferenceType, FederationReferenceType, ContextType>;
+  demo2?: Resolver<Maybe<Array<Maybe<ResolversTypes['Demo2']>>>, ParentType, ContextType>;
+}>;
+
+export type Demo2Resolvers<ContextType = Demo2ContextType, ParentType extends ResolversParentTypes['Demo2'] = ResolversParentTypes['Demo2'], FederationReferenceType extends FederationReferenceTypes['Demo2'] = FederationReferenceTypes['Demo2']> = ResolversObject<{
+  __resolveReference?: ReferenceResolver<Maybe<ResolversTypes['Demo2']> | FederationReferenceType, FederationReferenceType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
-export type QueryResolvers<ContextType = Demo1ContextType, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
-  demo1?: Resolver<Maybe<ResolversTypes['Demo1']>, ParentType, ContextType>;
+export type QueryResolvers<ContextType = Demo2ContextType, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
+  demo2?: Resolver<Maybe<ResolversTypes['Demo2']>, ParentType, ContextType>;
 }>;
 
-export type Resolvers<ContextType = Demo1ContextType> = ResolversObject<{
+export type Resolvers<ContextType = Demo2ContextType> = ResolversObject<{
   Demo1?: Demo1Resolvers<ContextType>;
+  Demo2?: Demo2Resolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
 }>;
 
