@@ -6,16 +6,16 @@ export const log = {
     success: (message: string) => console.log(chalk.green(`[SUCCESS]: ${message}`))
 }
 export const createFolder = async (folderPath: string) => {
-    if (! await fs.existsSync(folderPath)) {
-        log.info(`${folderPath} is not found, creating...`);
-
-        await fs.mkdirSync(folderPath, { recursive: true })
-
-        log.success(`${folderPath} is created successfully.`)
-    } else {
-      log.info(`${folderPath} already exists.`)
+    if (await fs.existsSync(folderPath)) {
+        log.info(`${folderPath} already exists.`)
+        return;
     }
+    log.info(`${folderPath} is not found, creating...`);
+
+    await fs.mkdirSync(folderPath, { recursive: true })
+
+    log.success(`${folderPath} is created successfully.`)
 }
-export const checkDependency =  async (dependency: string) => {
+export const checkDependency = async (dependency: string) => {
     return await fs.existsSync(`node_modules/.bin/${dependency}`)
 }

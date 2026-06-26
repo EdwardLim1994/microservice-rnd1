@@ -1,9 +1,9 @@
 import type { BaseServer } from "../shared";
 
 export default class ServerApp {
-  private sidecar?: BaseServer | undefined;
+  private sidecar?: BaseServer;
 
-  private constructor(private app: BaseServer) { }
+  private constructor(private readonly app: BaseServer) { }
 
   public static init(app: BaseServer) {
     return new ServerApp(app);

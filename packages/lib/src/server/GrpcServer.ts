@@ -7,7 +7,7 @@ import { isEmpty } from "lodash";
 import type { GrpcController } from "../controllers";
 import { BaseServer } from "../shared";
 
-type GrpcServerOptions= {
+type GrpcServerOptions = {
 	port: number;
 	host?: string;
 	name?: string;
@@ -17,7 +17,7 @@ type GrpcServerOptions= {
 export default class GrpcServer extends BaseServer {
 	protected credential: ServerCredentials = ServerCredentials.createInsecure();
 	private callback?: () => void;
-	private controllers: GrpcController<UntypedServiceImplementation>[] = [];
+	private readonly controllers: GrpcController<UntypedServiceImplementation>[] = [];
 
 	constructor({ port, host, name, credential }: GrpcServerOptions) {
 		super();

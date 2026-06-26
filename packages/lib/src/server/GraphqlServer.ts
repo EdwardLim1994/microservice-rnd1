@@ -14,7 +14,7 @@ type GraphqlServerType = {
 export default class GraphqlServer extends BaseServer {
 	private callback?: () => void;
 	private controller?: GraphqlController;
-	private federation: boolean = false;
+	private readonly federation: boolean;
 	constructor({ port, host, name, federation }: GraphqlServerType) {
 		super();
 
@@ -24,7 +24,7 @@ export default class GraphqlServer extends BaseServer {
 
 		if (name) this.name = name;
 
-		if (federation) this.federation = federation;
+		this.federation = federation ?? false;
 	}
 
 	public withCallback(callback: () => void) {
@@ -43,29 +43,29 @@ export default class GraphqlServer extends BaseServer {
 		const { typeDefs, resolvers } = this.controller.register();
 		const schema = this.federation
 			? {
-					schema: buildSubgraphSchema({
-						typeDefs,
-						resolvers: resolvers as any,
-					}),
-					graphqlEndpoint: `/graphql`,
-					introspection: true,
+				schema: buildSubgraphSchema({
+					typeDefs,
+					resolvers: resolvers as any,
+				}),
+				graphqlEndpoint: `/graphql`,
+				introspection: true,
 
-				}
-      : { typeDefs, resolvers };
+			}
+			: { typeDefs, resolvers };
 
 
 		const server = new ApolloServer(schema);
-    const { url } = await startStandaloneServer(server, {
-      listen: {
-        port: this.port,
-        host: this.host
-      },
+		const { url } = await startStandaloneServer(server, {
+			listen: {
+				port: this.port,
+				host: this.host
+			},
 		})
 
-    if (this.callback) {
-      this.callback();
-    } else {
-      console.info(`Server running at ${url}`);
+		if (this.callback) {
+			this.callback();
+		} else {
+			console.info(`Server running at ${url}`);
 		}
 	}
 }
