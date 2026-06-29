@@ -4,7 +4,7 @@ import {
 	type UntypedServiceImplementation,
 } from '@grpc/grpc-js';
 import { isEmpty } from 'lodash';
-import type { GrpcController } from '../controller';
+import type { GrpcRouter } from '../router';
 import { BaseServer } from '../shared';
 
 type GrpcServerOptions = {
@@ -17,7 +17,7 @@ type GrpcServerOptions = {
 export default class GrpcServer extends BaseServer {
 	protected credential: ServerCredentials = ServerCredentials.createInsecure();
 	private callback?: () => void;
-	private readonly controllers: GrpcController<UntypedServiceImplementation>[] =
+	private readonly controllers: GrpcRouter<UntypedServiceImplementation>[] =
 		[];
 
 	private readonly _server: Server = new Server();
@@ -38,7 +38,7 @@ export default class GrpcServer extends BaseServer {
 	}
 
 	public withController(
-		controller: GrpcController<UntypedServiceImplementation>,
+		controller: GrpcRouter<UntypedServiceImplementation>,
 	) {
 		this.controllers.push(controller);
 

@@ -6,9 +6,9 @@ import {
 } from "@grpc/grpc-js";
 import { Demo1Demo1Proto, Demo1GoogleProtobuf, Demo1Graphql } from "api";
 import { parse } from "graphql";
-import { GraphqlController, GrpcController } from "lib/controller";
+import { GraphqlRouter, GrpcRouter } from "lib/router";
 
-export class DemoGrpcController extends GrpcController<Demo1Demo1Proto.DemoServiceServer> {
+export class DemoGrpcRouter extends GrpcRouter<Demo1Demo1Proto.DemoServiceServer> {
 	constructor() {
 		super(Demo1Demo1Proto.DemoServiceService);
 	}
@@ -33,7 +33,7 @@ export class DemoGrpcController extends GrpcController<Demo1Demo1Proto.DemoServi
 	}
 }
 
-export class DemoGraphqlController extends GraphqlController<Demo1Graphql.Demo1ContextType> {
+export class DemoGraphqlRouter extends GraphqlRouter<Demo1Graphql.Demo1ContextType> {
 	constructor(
 		demoServiceAddress: string,
 		private readonly client: Demo1Demo1Proto.DemoServiceClient = new Demo1Demo1Proto.DemoServiceClient(

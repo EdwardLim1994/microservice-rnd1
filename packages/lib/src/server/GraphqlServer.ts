@@ -1,7 +1,7 @@
 import { ApolloServer } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
 import { buildSubgraphSchema } from '@apollo/subgraph';
-import type { GraphqlController } from '../controller/';
+import type { GraphqlRouter } from '../router/';
 import { BaseServer } from '../shared';
 
 type GraphqlServerType = {
@@ -13,7 +13,7 @@ type GraphqlServerType = {
 
 export default class GraphqlServer extends BaseServer {
 	private callback?: () => void;
-	private controller?: GraphqlController;
+	private controller?: GraphqlRouter;
 	private readonly federation: boolean;
 	constructor({ port, host, name, federation }: GraphqlServerType) {
 		super();
@@ -32,13 +32,13 @@ export default class GraphqlServer extends BaseServer {
 		return this;
 	}
 
-	public withController(controller: GraphqlController): this {
+	public withController(controller: GraphqlRouter): this {
 		this.controller = controller;
 		return this;
 	}
 
 	public override async run(): Promise<void> {
-		if (!this.controller) throw new Error('GraphqlController is required');
+		if (!this.controller) throw new Error('GraphqlRouter is required');
 
 		const { typeDefs, resolvers } = this.controller.register();
 		const schema = this.federation

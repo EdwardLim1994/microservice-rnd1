@@ -3,11 +3,11 @@ import type {
 	ServiceDefinition,
 	UntypedServiceImplementation,
 } from '@grpc/grpc-js';
-import { BaseController } from '../shared';
+import { BaseRouter } from '../shared';
 
-export default abstract class GrpcController<
+export default abstract class GrpcRouter<
 	T extends UntypedServiceImplementation,
-> extends BaseController {
+> extends BaseRouter {
 	protected _server?: Server;
 	constructor(protected readonly service: ServiceDefinition<T>) {
 		super();

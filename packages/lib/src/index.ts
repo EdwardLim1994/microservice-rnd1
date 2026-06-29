@@ -1,5 +1,5 @@
 export * from './application';
-export * from './controller';
+export * from './router';
 export * from './script';
 export * from './server';
 export * from './shared';

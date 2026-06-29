@@ -1,10 +1,10 @@
-import type { CronController } from '../controller';
+import type { CronRouter } from '../router';
 import { BaseServer } from '../shared';
 
 export default class CronServer extends BaseServer {
-	private _controller?: CronController;
+	private _controller?: CronRouter;
 
-	public withController(controller: CronController): this {
+	public withController(controller: CronRouter): this {
 		this._controller = controller;
 		return this;
 	}
