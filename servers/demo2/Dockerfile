@@ -31,13 +31,13 @@ FROM ubuntu:25.10 AS runtime
 
 ARG SERVER_NAME
 
-RUN groupadd --system ${SERVER_NAME} && useradd --system --gid ${SERVER_NAME} ${SERVER_NAME}
+RUN groupadd --system "${SERVER_NAME}" && useradd --system --gid "${SERVER_NAME}" "${SERVER_NAME}"
 
 WORKDIR /app
 
 COPY --from=builder /app/servers/${SERVER_NAME}/${SERVER_NAME} ./${SERVER_NAME}
 
-RUN chmod +x ./${SERVER_NAME}
+RUN chmod +x ./"${SERVER_NAME}"
 
 USER ${SERVER_NAME}
 
