@@ -64,7 +64,6 @@
         "@biomejs/biome": "2.4.15",
         "@rslib/core": "^0.23.1",
         "@rstest/adapter-rslib": "^0.10.6",
-        "@rstest/core": "^0.10.6",
         "@types/bun": "latest",
         "@types/node": "^24.13.2",
         "typescript": "^6.0.3",
