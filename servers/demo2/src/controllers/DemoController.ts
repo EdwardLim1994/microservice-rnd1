@@ -4,7 +4,7 @@ import {
 	type ServiceError,
 	type sendUnaryData,
 } from "@grpc/grpc-js";
-import { Demo2Demo2Proto, Demo2Graphql, Empty } from "api";
+import { Demo1GoogleProtobuf, Demo2Demo2Proto, Demo2Graphql } from "api";
 import { parse } from "graphql";
 import { GraphqlController, GrpcController } from "lib/controller";
 
@@ -20,7 +20,7 @@ export class DemoGrpcController extends GrpcController<Demo2Demo2Proto.DemoServi
 	}
 
 	private testDemo(
-		call: ServerUnaryCall<Empty, Demo2Demo2Proto.Demo2>,
+		call: ServerUnaryCall<Demo1GoogleProtobuf.Empty, Demo2Demo2Proto.Demo2>,
 		callback: sendUnaryData<Demo2Demo2Proto.Demo2>,
 	) {
 		callback(
@@ -56,7 +56,7 @@ export class DemoGraphqlController extends GraphqlController<Demo2Graphql.Demo2C
 	private demo(): Promise<Demo2Graphql.Demo2> {
 		return new Promise((resolve, reject) => {
 			this.client.testDemo(
-				Empty.create(),
+				Demo1GoogleProtobuf.Empty.create(),
 				(err: ServiceError | null, res: Demo2Demo2Proto.Demo2) => {
 					if (err) {
 						console.error("Error calling testDemo:", err);

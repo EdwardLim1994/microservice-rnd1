@@ -2,6 +2,7 @@
 	"compilerOptions": {
 		"paths": {
 			"lib/*": ["../../packages/lib/src/*"],
+			"api": ["../../packages/api/src/index.ts"],
 			"api/generated/*": ["../../packages/api/src/generated/*"]
 		},
 		// Environment setup & latest features

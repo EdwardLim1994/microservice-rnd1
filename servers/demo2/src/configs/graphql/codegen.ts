@@ -28,7 +28,7 @@ const config: CodegenConfig = {
         [`${out}/typedefs.ts`]: {
             plugins: ['add'],
             config: {
-                content: 'export const typeDefs = await Bun.file(import.meta.dir + "/typedefs.graphql").text();',
+                content: 'import typeDefs from "./typedefs.graphql" with { type: "text" };\nexport { typeDefs };',
             },
         },
         [`${out}/index.ts`]: {

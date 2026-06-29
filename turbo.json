@@ -13,7 +13,9 @@
 			"outputs": ["dist/**"]
 		},
 		"gen": {
-			"outputs": ["src/generated/**"]
+			"outputs": ["src/generated/**"],
+			"cache": false,
+			"persistent": true
 		},
 		"compile": {
 			"dependsOn": ["^build"],

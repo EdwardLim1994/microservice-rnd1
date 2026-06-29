@@ -5,8 +5,8 @@ services:
       dockerfile: servers/demo2/Dockerfile
     container_name: demo2_server
     ports:
-      - "4001:4001"
-      - "5001:5001"
+      - "4002:4002"
+      - "5002:5002"
     networks:
       - graphql
       - kafka
@@ -14,6 +14,4 @@ services:
 
 networks:
   graphql:
-    external: true
   kafka:
-    external: true

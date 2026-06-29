@@ -5,25 +5,24 @@ ARG BUN_VERSION=1.3.14
 ARG SERVER_NAME=demo2
 
 # ── builder ────────────────────────────────────────────────────────────────────
-FROM oven/bun:${BUN_VERSION}-slim AS builder
+FROM oven/bun:${BUN_VERSION} AS builder
 
 ARG SERVER_NAME
 
 WORKDIR /app
 
 COPY package.json bun.lock* turbo.json ./
-COPY packages/lib/package.json ./packages/lib/
-COPY packages/api/package.json ./packages/api/
-COPY servers/${SERVER_NAME}/package.json ./servers/${SERVER_NAME}/
+# COPY packages/lib/package.json ./packages/lib/
+# COPY packages/api/package.json ./packages/api/
+# COPY servers/${SERVER_NAME}/package.json ./servers/${SERVER_NAME}/
 
-RUN bun i --frozen-lockfile
-
-COPY packages/lib ./packages/lib
-COPY packages/api ./packages/api
+COPY packages ./packages
 COPY servers/${SERVER_NAME} ./servers/${SERVER_NAME}
 
-RUN cd packages/api && bun run build:lib
-RUN cd packages/lib && bun run build:lib
+RUN bun i
+# --frozen-lockfile
+
+RUN bun run build:lib
 
 RUN cd servers/${SERVER_NAME} && \
     bun build ./index.ts \

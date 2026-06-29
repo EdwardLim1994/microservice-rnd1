@@ -1,3 +1,2 @@
-export const typeDefs = await Bun.file(
-  import.meta.dir + '/typedefs.graphql',
-).text();
+import typeDefs from "./typedefs.graphql" with { type: "text" };
+export { typeDefs };
