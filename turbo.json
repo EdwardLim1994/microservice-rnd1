@@ -1,14 +1,32 @@
 {
-  "$schema": "https://json-schema.org/draft-04/schema#",
-  "ui": "tui",
-  "tasks": {
-    "dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "gen": {},
-    "compile": {
-      "cache": false
-    }
-  }
+	"$schema": "https://turbo.build/schema.json",
+	"ui": "tui",
+	"tasks": {
+		"dev": {
+			"cache": false,
+			"persistent": true
+		},
+		"build": {
+			"outputs": ["dist/**"]
+		},
+		"build:lib": {
+			"outputs": ["dist/**"]
+		},
+		"gen": {
+			"outputs": ["src/generated/**"]
+		},
+		"compile": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/bin/**"]
+		},
+		"format": {
+			"cache": false,
+			"persistent": true
+		},
+		"lint": {
+			"cache": false,
+			"persistent": true
+		},
+		"supergraph": {}
+	}
 }

@@ -4,7 +4,7 @@ clean: true
 
 plugins:
   - local: protoc-gen-ts_proto
-    out: ../../packages/api/generated/demo1/proto/
+    out: ../../packages/api/src/generated/demo1/proto/
     opt:
       - outputServices=grpc-js
       - esModuleInterop=true

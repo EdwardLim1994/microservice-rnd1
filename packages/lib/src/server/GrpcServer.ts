@@ -2,10 +2,10 @@ import {
 	Server,
 	ServerCredentials,
 	type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { isEmpty } from "lodash";
-import type { GrpcController } from "../controllers";
-import { BaseServer } from "../shared";
+} from '@grpc/grpc-js';
+import { isEmpty } from 'lodash';
+import type { GrpcController } from '../controller';
+import { BaseServer } from '../shared';
 
 type GrpcServerOptions = {
 	port: number;
@@ -17,13 +17,16 @@ type GrpcServerOptions = {
 export default class GrpcServer extends BaseServer {
 	protected credential: ServerCredentials = ServerCredentials.createInsecure();
 	private callback?: () => void;
-	private readonly controllers: GrpcController<UntypedServiceImplementation>[] = [];
+	private readonly controllers: GrpcController<UntypedServiceImplementation>[] =
+		[];
+
+	private readonly _server: Server = new Server();
 
 	constructor({ port, host, name, credential }: GrpcServerOptions) {
 		super();
 		this.port = port;
 
-		this.host = host ? this.host : "0.0.0.0";
+		this.host = host ? this.host : '0.0.0.0';
 
 		if (name) this.name = name;
 		if (credential) this.credential = credential;
@@ -34,22 +37,26 @@ export default class GrpcServer extends BaseServer {
 		return this;
 	}
 
-	public controller(controller: GrpcController<UntypedServiceImplementation>) {
+	public withController(
+		controller: GrpcController<UntypedServiceImplementation>,
+	) {
 		this.controllers.push(controller);
 
 		return this;
 	}
 
-	public async run() {
-		const server = this.prepareServer();
-
+	public override async run() {
 		if (!isEmpty(this.controllers)) {
 			for (const controller of this.controllers) {
-				controller.register(server);
+				controller.server(this._server).register();
 			}
 		}
 
-		server.bindAsync(this.prepareHost(), this.credential, this.runCallback());
+		this._server.bindAsync(
+			this.prepareHost(),
+			this.credential,
+			this.runCallback(),
+		);
 	}
 
 	private prepareHost() {
@@ -64,9 +71,5 @@ export default class GrpcServer extends BaseServer {
 		return () => {
 			console.log(`gRPC server ${this.name} is running in port ${this.port}`);
 		};
-	}
-
-	private prepareServer() {
-		return new Server();
 	}
 }

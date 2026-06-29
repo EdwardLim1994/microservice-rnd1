@@ -12,8 +12,7 @@
     "@graphql-codegen/typescript-resolvers": "^6.0.2",
     "@types/bun": "latest",
     "biome": "^0.3.3",
-    "protoc": "^35.1.0",
-    "zx": "^8.8.5"
+    "protoc": "^35.1.0"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",

@@ -1,0 +1,17 @@
+schema
+  @link(
+    url: "https://specs.apollo.dev/federation/v2.14"
+    import: ["@key", "@shareable"]
+  )
+{
+  query: Query
+}
+
+type Demo1 @key(fields: "id") {
+  id: ID!
+  name: String!
+}
+
+type Query {
+  demo1: Demo1
+}

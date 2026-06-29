@@ -1,8 +1,8 @@
-import { ApolloServer } from "@apollo/server";
-import { startStandaloneServer } from "@apollo/server/standalone";
-import { buildSubgraphSchema } from "@apollo/subgraph"
-import type { GraphqlController } from "../controllers/";
-import { BaseServer } from "../shared";
+import { ApolloServer } from '@apollo/server';
+import { startStandaloneServer } from '@apollo/server/standalone';
+import { buildSubgraphSchema } from '@apollo/subgraph';
+import type { GraphqlController } from '../controller/';
+import { BaseServer } from '../shared';
 
 type GraphqlServerType = {
 	port: number;
@@ -27,40 +27,38 @@ export default class GraphqlServer extends BaseServer {
 		this.federation = federation ?? false;
 	}
 
-	public withCallback(callback: () => void) {
+	public withCallback(callback: () => void): this {
 		this.callback = callback;
 		return this;
 	}
 
-	public withController(controller: GraphqlController) {
+	public withController(controller: GraphqlController): this {
 		this.controller = controller;
 		return this;
 	}
 
-	public async run() {
-		if (!this.controller) throw new Error("GraphqlController is required");
+	public override async run(): Promise<void> {
+		if (!this.controller) throw new Error('GraphqlController is required');
 
 		const { typeDefs, resolvers } = this.controller.register();
 		const schema = this.federation
 			? {
-				schema: buildSubgraphSchema({
-					typeDefs,
-					resolvers: resolvers as any,
-				}),
-				graphqlEndpoint: `/graphql`,
-				introspection: true,
-
-			}
+					schema: buildSubgraphSchema({
+						typeDefs,
+						resolvers: resolvers as any,
+					}),
+					graphqlEndpoint: `/graphql`,
+					introspection: true,
+				}
 			: { typeDefs, resolvers };
-
 
 		const server = new ApolloServer(schema);
 		const { url } = await startStandaloneServer(server, {
 			listen: {
 				port: this.port,
-				host: this.host
+				host: this.host,
 			},
-		})
+		});
 
 		if (this.callback) {
 			this.callback();

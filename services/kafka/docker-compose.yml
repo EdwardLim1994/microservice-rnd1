@@ -1,0 +1,56 @@
+services:
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      # This name appears in the UI Sidebar
+      KAFKA_CLUSTERS_0_NAME: local-cluster
+      # Use the INTERNAL listener port (9092) since this is inside Docker
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      # Allows you to delete messages or topics from the UI
+      AUTH_TYPE: DISABLED
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    networks:
+      - kafka
+
+  kafka:
+    image: confluentinc/cp-kafka:8.2.2
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      CLUSTER_ID: "q1Sh-6xeT1el6Ghiu7VO9A"
+      KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    command: >
+      bash -c "
+        if [ ! -f /tmp/kraft-combined-logs/meta.properties ]; then
+          echo 'Formatting storage directory...'
+          kafka-storage format \
+            --ignore-formatted \
+            --cluster-id=q1Sh-6xeT1el6Ghiu7VO9A \
+            --config /etc/kafka/kafka.properties
+        fi
+        /etc/confluent/docker/run
+      "
+    networks:
+      - kafka
+
+networks:
+  kafka:

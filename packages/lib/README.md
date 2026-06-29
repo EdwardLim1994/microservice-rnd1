@@ -1,15 +1,35 @@
-# lib
+# Rslib project
 
-To install dependencies:
+## Setup
+
+Install the dependencies:
 
 ```bash
 bun install
 ```
 
-To run:
+## Get started
+
+Build the library:
 
 ```bash
-bun run index.ts
+bun run build
 ```
 
-This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Build the library in watch mode:
+
+```bash
+bun run dev
+```
+
+Run tests:
+
+```bash
+bun run test
+```
+
+Run tests in watch mode:
+
+```bash
+bun run test:watch
+```

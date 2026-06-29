@@ -1,16 +1,38 @@
 {
   "name": "api",
-  "module": "index.ts",
+  "version": "1.0.0",
   "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build:lib": "rslib",
+    "check": "biome check --write",
+    "dev": "rslib --watch",
+    "format": "biome format --write",
+    "test": "rstest",
+    "test:watch": "rstest --watch"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@rslib/core": "^0.23.1",
+    "@rstest/adapter-rslib": "^0.10.6",
+    "@rstest/core": "^0.10.6",
+    "@types/node": "^24.13.2",
+    "@types/bun": "latest",
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.12.0",
     "@grpc/grpc-js": "^1.14.4",
     "graphql": "^17.0.1"
-  }
+  },
+  "private": true
 }

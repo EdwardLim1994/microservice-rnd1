@@ -1,71 +1,72 @@
-import { credentials, type ServerUnaryCall, type ServiceError, type sendUnaryData } from "@grpc/grpc-js";
-import type { Demo2ContextType } from "api/generated/demo2/graphql/context";
-import type {
-  Demo2 as Demo2Graphql,
-  Resolvers,
-} from "api/generated/demo2/graphql/resolvers";
-import { typeDefs as demo2TypeDefs } from "api/generated/demo2/graphql/typedefs";
 import {
-  Demo2,
-  DemoServiceClient,
-  type DemoServiceServer,
-  DemoServiceService,
-} from "api/generated/demo2/proto/demo2";
-import { Empty } from "api/generated/demo1/proto/google/protobuf/empty";
+	credentials,
+	type ServerUnaryCall,
+	type ServiceError,
+	type sendUnaryData,
+} from "@grpc/grpc-js";
+import { Demo2Demo2Proto, Demo2Graphql, Empty } from "api";
 import { parse } from "graphql";
-import { GraphqlController, GrpcController } from "lib/controllers";
+import { GraphqlController, GrpcController } from "lib/controller";
 
-export class DemoGrpcController extends GrpcController<DemoServiceServer> {
-  constructor() {
-    super(DemoServiceService);
-  }
+export class DemoGrpcController extends GrpcController<Demo2Demo2Proto.DemoServiceServer> {
+	constructor() {
+		super(Demo2Demo2Proto.DemoServiceService);
+	}
 
-  public implementation(): DemoServiceServer {
-    return {
-      testDemo: this.testDemo,
-    };
-  }
+	public implementation(): Demo2Demo2Proto.DemoServiceServer {
+		return {
+			testDemo: this.testDemo,
+		};
+	}
 
-  private testDemo(
-    call: ServerUnaryCall<Empty, Demo2>,
-    callback: sendUnaryData<Demo2>,
-  ) {
-    callback(null, Demo2.create({ id: "hello world", name: "Hello World Tester" }));
-  }
+	private testDemo(
+		call: ServerUnaryCall<Empty, Demo2Demo2Proto.Demo2>,
+		callback: sendUnaryData<Demo2Demo2Proto.Demo2>,
+	) {
+		callback(
+			null,
+			Demo2Demo2Proto.Demo2.create({ id: "hello world", name: "Hello World Tester" }),
+		);
+	}
 }
 
-export class DemoGraphqlController extends GraphqlController<Demo2ContextType> {
-  private readonly client: DemoServiceClient;
+export class DemoGraphqlController extends GraphqlController<Demo2Graphql.Demo2ContextType> {
+	private readonly client: Demo2Demo2Proto.DemoServiceClient;
 
-  constructor(demoServiceAddress: string) {
-    super(parse(demo2TypeDefs));
-    this.client = new DemoServiceClient(demoServiceAddress, credentials.createInsecure());
-  }
+	constructor(demoServiceAddress: string) {
+		super(parse(Demo2Graphql.typeDefs));
+		this.client = new Demo2Demo2Proto.DemoServiceClient(
+			demoServiceAddress,
+			credentials.createInsecure(),
+		);
+	}
 
-  protected prepareResolvers(): Resolvers {
-    return {
-      Query: {
-        demo2: () => this.demo()
-      },
-      Demo1: {
-        __resolveReference: (ref: { id: string }) => ref,
-        demo2: () => this.demo().then(d => [d])
-      }
-    };
-  }
+	protected prepareResolvers(): Demo2Graphql.Resolvers {
+		return {
+			Query: {
+				demo2: () => this.demo(),
+			},
+			Demo1: {
+				__resolveReference: (ref: { id: string }) => ref,
+				demo2: () => this.demo().then((d) => [d]),
+			},
+		};
+	}
 
-  private demo(): Promise<Demo2Graphql> {
-    return new Promise((resolve, reject) => {
-      this.client.testDemo(Empty.create(), (err: ServiceError | null, res: Demo2) => {
-        if (err) {
-          console.error("Error calling testDemo:", err);
-          reject(err);
-        }
-        else {
-          console.log("Received response from testDemo:", res);
-          resolve({ id: res.id, name: res.name });
-        }
-      });
-    });
-  }
+	private demo(): Promise<Demo2Graphql.Demo2> {
+		return new Promise((resolve, reject) => {
+			this.client.testDemo(
+				Empty.create(),
+				(err: ServiceError | null, res: Demo2Demo2Proto.Demo2) => {
+					if (err) {
+						console.error("Error calling testDemo:", err);
+						reject(err);
+					} else {
+						console.log("Received response from testDemo:", res);
+						resolve({ id: res.id, name: res.name });
+					}
+				},
+			);
+		});
+	}
 }

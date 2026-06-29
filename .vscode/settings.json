@@ -1,7 +1,14 @@
 {
-    "postman.settings.dotenv-detection-notification-visibility": false,
-    "sonarlint.connectedMode.project": {
-        "connectionId": "edwardlim1994",
-        "projectKey": "EdwardLim1994_microservice-rnd1"
-    }
+	"sonarlint.connectedMode.project": {
+		"connectionId": "edwardlim1994",
+		"projectKey": "EdwardLim1994_microservice-rnd1"
+	},
+	"postman.settings.dotenv-detection-notification-visibility": false,
+	"json.schemaDownload.enable": true,
+	"json.schemas": [
+		{
+			"fileMatch": ["turbo.json"],
+			"url": "https://turbo.build/schema.json"
+		}
+	]
 }
