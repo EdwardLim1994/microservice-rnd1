@@ -1,0 +1,19 @@
+services:
+  demo2:
+    build:
+      context: ../..
+      dockerfile: servers/demo2/Dockerfile
+    container_name: demo2_server
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+    networks:
+      - graphql
+      - kafka
+    restart: unless-stopped
+
+networks:
+  graphql:
+    external: true
+  kafka:
+    external: true

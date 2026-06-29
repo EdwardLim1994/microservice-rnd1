@@ -1,10 +1,10 @@
 subgraphs:
    demo1:
-      routing_url: http://localhost:4001
+      routing_url: http://demo1_server:5001
       schema:
          file: ../../../../servers/demo1/src/schema/graphql/demo1.graphql
 
    demo2:
-      routing_url: http://localhost:4002
+      routing_url: http://demo2_server:5002
       schema:
          file: ../../../../servers/demo2/src/schema/graphql/demo2.graphql
