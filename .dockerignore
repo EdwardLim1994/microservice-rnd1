@@ -1,0 +1,16 @@
+README.md
+CLAUDE.md
+AGENT.md
+
+services
+generators
+
+.vscode
+.sonarlint
+.git
+.gitignore
+.turbo
+
+**/node_modules
+**/dist
+**/*.test.ts

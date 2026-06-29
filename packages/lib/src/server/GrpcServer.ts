@@ -17,8 +17,7 @@ type GrpcServerOptions = {
 export default class GrpcServer extends BaseServer {
 	protected credential: ServerCredentials = ServerCredentials.createInsecure();
 	private callback?: () => void;
-	private readonly controllers: GrpcRouter<UntypedServiceImplementation>[] =
-		[];
+	private readonly controllers: GrpcRouter<UntypedServiceImplementation>[] = [];
 
 	private readonly _server: Server = new Server();
 
@@ -37,9 +36,7 @@ export default class GrpcServer extends BaseServer {
 		return this;
 	}
 
-	public withController(
-		controller: GrpcRouter<UntypedServiceImplementation>,
-	) {
+	public withController(controller: GrpcRouter<UntypedServiceImplementation>) {
 		this.controllers.push(controller);
 
 		return this;

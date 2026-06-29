@@ -13,22 +13,14 @@
 			"outputs": ["dist/**"]
 		},
 		"gen": {
-			"outputs": ["src/generated/**"],
-			"cache": false,
-			"persistent": true
+			"outputs": ["src/generated/**"]
 		},
 		"compile": {
 			"dependsOn": ["^build"],
 			"outputs": ["dist/bin/**"]
 		},
-		"format": {
-			"cache": false,
-			"persistent": true
-		},
-		"lint": {
-			"cache": false,
-			"persistent": true
-		},
+		"format": {},
+		"lint": {},
 		"supergraph": {}
 	}
 }

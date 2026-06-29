@@ -3,9 +3,7 @@ import type { IResolvers } from '@graphql-tools/utils';
 import type { DocumentNode } from 'graphql';
 import { BaseRouter } from '../shared';
 
-export type GraphqlRouterSchema<
-	TContext extends BaseContext = BaseContext,
-> = {
+export type GraphqlRouterSchema<TContext extends BaseContext = BaseContext> = {
 	typeDefs: DocumentNode;
 	resolvers: IResolvers<unknown, TContext>;
 };

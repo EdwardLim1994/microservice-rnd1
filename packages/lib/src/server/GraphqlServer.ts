@@ -63,7 +63,7 @@ export default class GraphqlServer extends BaseServer {
 		if (this.callback) {
 			this.callback();
 		} else {
-			console.info(`Server running at ${url}`);
+			console.info(`GraphQL Server running at ${url}`);
 		}
 	}
 }
