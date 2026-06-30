@@ -17,7 +17,7 @@ type GrpcServerOptions = {
 export default class GrpcServer extends BaseServer {
 	protected credential: ServerCredentials = ServerCredentials.createInsecure();
 	private callback?: () => void;
-	private readonly controllers: GrpcRouter<UntypedServiceImplementation>[] = [];
+	private readonly routers: GrpcRouter<UntypedServiceImplementation>[] = [];
 
 	private readonly _server: Server = new Server();
 
@@ -36,16 +36,16 @@ export default class GrpcServer extends BaseServer {
 		return this;
 	}
 
-	public withController(controller: GrpcRouter<UntypedServiceImplementation>) {
-		this.controllers.push(controller);
+	public withRouter(router: GrpcRouter<UntypedServiceImplementation>) {
+		this.routers.push(router);
 
 		return this;
 	}
 
 	public override async run() {
-		if (!isEmpty(this.controllers)) {
-			for (const controller of this.controllers) {
-				controller.server(this._server).register();
+		if (!isEmpty(this.routers)) {
+			for (const router of this.routers) {
+				router.server(this._server).register();
 			}
 		}
 

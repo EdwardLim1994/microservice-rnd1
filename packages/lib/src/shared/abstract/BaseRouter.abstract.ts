@@ -1,3 +1,1 @@
-export default abstract class BaseRouter {
-	public abstract register(): void;
-}
+export default abstract class BaseRouter {}

@@ -2,8 +2,8 @@ import type {
 	Server,
 	ServiceDefinition,
 	UntypedServiceImplementation,
-} from '@grpc/grpc-js';
-import { BaseRouter } from '../shared';
+} from "@grpc/grpc-js";
+import { BaseRouter } from "../shared";
 
 export default abstract class GrpcRouter<
 	T extends UntypedServiceImplementation,
@@ -20,12 +20,12 @@ export default abstract class GrpcRouter<
 		return this;
 	}
 
-	public override register() {
+	public register() {
 		try {
 			this._server?.addService(this.service, this.implementation());
 		} catch {
 			throw new Error(
-				'Server is not initialized. Please call server() method before register().',
+				"Server is not initialized. Please call server() method before register().",
 			);
 		}
 	}

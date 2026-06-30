@@ -13,7 +13,7 @@ type GraphqlServerType = {
 
 export default class GraphqlServer extends BaseServer {
 	private callback?: () => void;
-	private controller?: GraphqlRouter;
+	private router?: GraphqlRouter;
 	private readonly federation: boolean;
 	constructor({ port, host, name, federation }: GraphqlServerType) {
 		super();
@@ -32,15 +32,15 @@ export default class GraphqlServer extends BaseServer {
 		return this;
 	}
 
-	public withController(controller: GraphqlRouter): this {
-		this.controller = controller;
+	public withRouter(router: GraphqlRouter): this {
+		this.router = router;
 		return this;
 	}
 
 	public override async run(): Promise<void> {
-		if (!this.controller) throw new Error('GraphqlRouter is required');
+		if (!this.router) throw new Error('GraphqlRouter is required');
 
-		const { typeDefs, resolvers } = this.controller.register();
+		const { typeDefs, resolvers } = this.router.register();
 		const schema = this.federation
 			? {
 					schema: buildSubgraphSchema({

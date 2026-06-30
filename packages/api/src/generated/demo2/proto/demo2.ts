@@ -5,7 +5,7 @@
 // source: demo2.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import {
   type CallOptions,
   type ChannelCredentials,
@@ -17,41 +17,37 @@ import {
   type Metadata,
   type ServiceError,
   type UntypedServiceImplementation,
-} from '@grpc/grpc-js';
-import { Empty } from './google/protobuf/empty';
-import { messageTypeRegistry } from './typeRegistry';
+} from "@grpc/grpc-js";
+import { Empty } from "./google/protobuf/empty";
+import { messageTypeRegistry } from "./typeRegistry";
 
-export const protobufPackage = 'demo2';
+export const protobufPackage = "demo2";
 
 export interface Demo2 {
-  $type: 'demo2.Demo2';
+  $type: "demo2.Demo2";
   id: string;
   name: string;
 }
 
 function createBaseDemo2(): Demo2 {
-  return { $type: 'demo2.Demo2', id: '', name: '' };
+  return { $type: "demo2.Demo2", id: "", name: "" };
 }
 
-export const Demo2: MessageFns<Demo2, 'demo2.Demo2'> = {
-  $type: 'demo2.Demo2' as const,
+export const Demo2: MessageFns<Demo2, "demo2.Demo2"> = {
+  $type: "demo2.Demo2" as const,
 
-  encode(
-    message: Demo2,
-    writer: BinaryWriter = new BinaryWriter(),
-  ): BinaryWriter {
-    if (message.id !== '') {
+  encode(message: Demo2, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== "") {
       writer.uint32(10).string(message.id);
     }
-    if (message.name !== '') {
+    if (message.name !== "") {
       writer.uint32(18).string(message.name);
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Demo2 {
-    const reader =
-      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseDemo2();
     while (reader.pos < end) {
@@ -85,17 +81,17 @@ export const Demo2: MessageFns<Demo2, 'demo2.Demo2'> = {
   fromJSON(object: any): Demo2 {
     return {
       $type: Demo2.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : '',
-      name: isSet(object.name) ? globalThis.String(object.name) : '',
+      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      name: isSet(object.name) ? globalThis.String(object.name) : "",
     };
   },
 
   toJSON(message: Demo2): unknown {
     const obj: any = {};
-    if (message.id !== '') {
+    if (message.id !== "") {
       obj.id = message.id;
     }
-    if (message.name !== '') {
+    if (message.name !== "") {
       obj.name = message.name;
     }
     return obj;
@@ -106,8 +102,8 @@ export const Demo2: MessageFns<Demo2, 'demo2.Demo2'> = {
   },
   fromPartial<I extends Exact<DeepPartial<Demo2>, I>>(object: I): Demo2 {
     const message = createBaseDemo2();
-    message.id = object.id ?? '';
-    message.name = object.name ?? '';
+    message.id = object.id ?? "";
+    message.name = object.name ?? "";
     return message;
   },
 };
@@ -117,14 +113,12 @@ messageTypeRegistry.set(Demo2.$type, Demo2);
 export type DemoServiceService = typeof DemoServiceService;
 export const DemoServiceService = {
   testDemo: {
-    path: '/demo2.DemoService/TestDemo' as const,
+    path: "/demo2.DemoService/TestDemo" as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: Empty): Buffer =>
-      Buffer.from(Empty.encode(value).finish()),
+    requestSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
     requestDeserialize: (value: Buffer): Empty => Empty.decode(value),
-    responseSerialize: (value: Demo2): Buffer =>
-      Buffer.from(Demo2.encode(value).finish()),
+    responseSerialize: (value: Demo2): Buffer => Buffer.from(Demo2.encode(value).finish()),
     responseDeserialize: (value: Buffer): Demo2 => Demo2.decode(value),
   },
 } as const;
@@ -134,10 +128,7 @@ export interface DemoServiceServer extends UntypedServiceImplementation {
 }
 
 export interface DemoServiceClient extends Client {
-  testDemo(
-    request: Empty,
-    callback: (error: ServiceError | null, response: Demo2) => void,
-  ): ClientUnaryCall;
+  testDemo(request: Empty, callback: (error: ServiceError | null, response: Demo2) => void): ClientUnaryCall;
   testDemo(
     request: Empty,
     metadata: Metadata,
@@ -151,44 +142,23 @@ export interface DemoServiceClient extends Client {
   ): ClientUnaryCall;
 }
 
-export const DemoServiceClient = makeGenericClientConstructor(
-  DemoServiceService,
-  'demo2.DemoService',
-) as unknown as {
-  new (
-    address: string,
-    credentials: ChannelCredentials,
-    options?: Partial<ClientOptions>,
-  ): DemoServiceClient;
+export const DemoServiceClient = makeGenericClientConstructor(DemoServiceService, "demo2.DemoService") as unknown as {
+  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): DemoServiceClient;
   service: typeof DemoServiceService;
   serviceName: string;
 };
 
-type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
 
-export type DeepPartial<T> = T extends Builtin
-  ? T
-  : T extends globalThis.Array<infer U>
-    ? globalThis.Array<DeepPartial<U>>
-    : T extends ReadonlyArray<infer U>
-      ? ReadonlyArray<DeepPartial<U>>
-      : T extends {}
-        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
-        : Partial<T>;
+export type DeepPartial<T> = T extends Builtin ? T
+  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
+  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
+  : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin
-  ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
-      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
-    };
+export type Exact<P, I extends P> = P extends Builtin ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;
