@@ -1,30 +1,27 @@
-import { Demo1Demo1Proto, Demo1Graphql } from "api";
-import { parse } from "graphql";
-import { GraphqlRouter, GrpcRouter } from "lib/router";
-import { demo1, testDemo } from "../usecases";
+import { Demo1Demo1Proto } from "api";
+import { GraphqlRouter, type GrpcHandlerMap, GrpcRouter } from "lib";
+import Demo1QueryUseCase from "../usecases/Demo1QueryUseCase";
+import TestDemoUseCase from "../usecases/TestDemoUseCase";
 
 export class DemoGrpcRouter extends GrpcRouter<Demo1Demo1Proto.DemoServiceServer> {
-	constructor() {
-		super(Demo1Demo1Proto.DemoServiceService);
+	get service() {
+		return Demo1Demo1Proto.DemoServiceService;
 	}
 
-	public implementation(): Demo1Demo1Proto.DemoServiceServer {
-		return {
-			testDemo,
-		};
+	get handlers(): GrpcHandlerMap<Demo1Demo1Proto.DemoServiceServer> {
+		return { testDemo: TestDemoUseCase };
 	}
 }
 
-export class DemoGraphqlRouter extends GraphqlRouter<Demo1Graphql.Demo1ContextType> {
-	constructor() {
-		super(parse(Demo1Graphql.typeDefs));
+export class DemoGraphqlRouter extends GraphqlRouter {
+	get typeDefs() {
+		return `
+			type Demo1 { id: ID! name: String! }
+			type Query { demo1: Demo1 }
+		`;
 	}
 
-	protected prepareResolvers(): Demo1Graphql.Resolvers {
-		return {
-			Query: {
-				demo1: () => demo1(),
-			},
-		};
+	get handlers() {
+		return { Query: { demo1: Demo1QueryUseCase } };
 	}
 }

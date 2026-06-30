@@ -1,7 +1,11 @@
 import { expect, test } from '@rstest/core';
-import { squared } from '../src/index';
+import { BaseDriver } from '../src/abstract/BaseDriver';
+import { ServerApp } from '../src/ServerApp';
 
-test('squared', () => {
-	expect(squared(2)).toBe(4);
-	expect(squared(12)).toBe(144);
+test('lib exports ServerApp', () => {
+  expect(ServerApp).toBeDefined();
+});
+
+test('lib exports BaseDriver', () => {
+  expect(BaseDriver).toBeDefined();
 });

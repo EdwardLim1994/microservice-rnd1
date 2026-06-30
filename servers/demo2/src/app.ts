@@ -1,15 +1,16 @@
-import { ServerApp } from "lib/application";
-import { GraphqlServer, GrpcServer } from "lib/server";
+import { ApolloDriver, GrpcDriver, ServerApp } from "lib";
 import { DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
 
 export default async function main() {
-	const grpcServer = new GrpcServer({ port: 5002 }).withRouter(
-		new DemoGrpcRouter(),
-	);
-	const graphqlServer = new GraphqlServer({
-		port: 4002,
-		federation: true,
-	}).withRouter(new DemoGraphqlRouter());
+	await Promise.all([
+		ServerApp.init(GrpcDriver)
+			.routers([DemoGrpcRouter])
+			.port(5002)
+			.run((port, host) => console.log(`gRPC running on ${host}:${port}`)),
 
-	await ServerApp.init(grpcServer).withSideCar(graphqlServer).run();
+		ServerApp.init(ApolloDriver)
+			.routers([DemoGraphqlRouter])
+			.port(4002)
+			.run((port, host) => console.log(`GraphQL running on ${host}:${port}`)),
+	]);
 }

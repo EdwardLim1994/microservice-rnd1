@@ -7,8 +7,10 @@
 	"json.schemaDownload.enable": true,
 	"json.schemas": [
 		{
-			"fileMatch": ["turbo.json"],
-			"url": "https://turbo.build/schema.json"
+			"fileMatch": [
+				"turbo.json"
+			],
+			"url": "https://turborepo.dev/schema.json"
 		}
 	]
 }

@@ -1,3 +1,4 @@
-export { default as CronRouter } from './CronRouter';
-export { default as GraphqlRouter } from './GraphqlRouter';
-export { default as GrpcRouter } from './GrpcRouter';
+export { GrpcRouter } from './GrpcRouter';
+export type { GrpcHandlerMap } from './GrpcRouter';
+export { GraphqlRouter } from './GraphqlRouter';
+export type { GraphqlHandlerMap } from './GraphqlRouter';

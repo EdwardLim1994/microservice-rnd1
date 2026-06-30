@@ -1,26 +1,54 @@
-import type { BaseContext } from "@apollo/server";
-import type { IResolvers } from "@graphql-tools/utils";
-import type { DocumentNode } from "graphql";
-import { BaseRouter } from "../shared";
+import { type AwilixContainer, asClass } from "awilix";
+import { BaseRouter } from "../abstract/BaseRouter";
+import type { BaseUseCase } from "../abstract/BaseUseCase";
 
-export type GraphqlRouterSchema<TContext extends BaseContext = BaseContext> = {
-	typeDefs: DocumentNode;
-	resolvers: IResolvers<unknown, TContext>;
+export type GraphqlHandlerMap = {
+	[typeName: string]: {
+		[fieldName: string]: new (...args: any[]) => BaseUseCase<any, any>;
+	};
 };
 
-export default abstract class GraphqlRouter<
-	TContext extends BaseContext = BaseContext,
-> extends BaseRouter {
-	constructor(protected typeDefs: DocumentNode) {
+const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+export abstract class GraphqlRouter extends BaseRouter {
+	constructor(protected readonly container: AwilixContainer) {
 		super();
 	}
 
-	protected abstract prepareResolvers(): IResolvers<unknown, TContext>;
+	abstract get typeDefs(): string;
+	abstract get handlers(): GraphqlHandlerMap;
 
-	public register(): GraphqlRouterSchema<TContext> {
-		return {
-			typeDefs: this.typeDefs,
-			resolvers: this.prepareResolvers(),
-		};
+	get resolvers(): Record<string, Record<string, unknown>> {
+		return Object.fromEntries(
+			Object.entries(this.handlers).map(([typeName, fields]) => {
+				for (const UseCase of Object.values(fields)) {
+					const token = lcFirst(UseCase.name);
+					if (!this.container.hasRegistration(token)) {
+						this.container.register({
+							[token]: asClass(UseCase as any).transient(),
+						});
+					}
+				}
+
+				const resolvedFields = Object.fromEntries(
+					Object.entries(fields).map(([field, UseCase]) => {
+						const token = lcFirst(UseCase.name);
+						return [
+							field,
+							async (_parent: unknown, args: unknown) => {
+								const useCase =
+									this.container.resolve<BaseUseCase<any, any>>(token);
+								return useCase.execute(args);
+							},
+						];
+					}),
+				);
+
+				return [typeName, resolvedFields];
+			}),
+		);
 	}
+
+	// ponytail: no-op — ApolloDriver reads typeDefs/resolvers directly before server creation
+	register(_server: unknown): void {}
 }

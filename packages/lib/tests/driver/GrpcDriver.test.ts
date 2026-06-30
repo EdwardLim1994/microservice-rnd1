@@ -1,0 +1,95 @@
+import { expect, test } from '@rstest/core';
+import type { Server } from '@grpc/grpc-js';
+import { BaseRouter } from '../../src/abstract/BaseRouter';
+import { GrpcDriver } from '../../src/driver/GrpcDriver';
+
+function makeMockServer() {
+  let boundAddress = '';
+  let shutdown = false;
+
+  return {
+    boundAddress: () => boundAddress,
+    isShutdown: () => shutdown,
+    addService: () => {},
+    bindAsync(
+      addr: string,
+      _creds: unknown,
+      cb: (err: null, port: number) => void,
+    ) {
+      boundAddress = addr;
+      cb(null, 3000);
+    },
+    tryShutdown(cb: (err?: Error) => void) {
+      shutdown = true;
+      cb();
+    },
+  } as unknown as Server & { boundAddress(): string; isShutdown(): boolean };
+}
+
+class StubRouter extends BaseRouter {
+  lastServer: unknown = null;
+  register(server: unknown) {
+    this.lastServer = server;
+  }
+}
+
+test('start() binds to correct address', async () => {
+  const mock = makeMockServer();
+  const driver = new GrpcDriver(mock);
+  await driver.start({
+    port: 3000,
+    host: '0.0.0.0',
+    routers: [],
+    interceptors: [],
+    plugins: [],
+  });
+  expect(mock.boundAddress()).toBe('0.0.0.0:3000');
+});
+
+test('start() calls register on each router with the grpc server', async () => {
+  const mock = makeMockServer();
+  const router = new StubRouter({});
+  const driver = new GrpcDriver(mock);
+  await driver.start({
+    port: 3000,
+    host: '0.0.0.0',
+    routers: [router],
+    interceptors: [],
+    plugins: [],
+  });
+  expect(router.lastServer).toBe(mock);
+});
+
+test('stop() calls tryShutdown on the server', async () => {
+  const mock = makeMockServer();
+  const driver = new GrpcDriver(mock);
+  await driver.start({
+    port: 3000,
+    host: '0.0.0.0',
+    routers: [],
+    interceptors: [],
+    plugins: [],
+  });
+  await driver.stop();
+  expect(mock.isShutdown()).toBe(true);
+});
+
+test('start() rejects when bindAsync errors', async () => {
+  const errServer = {
+    bindAsync(_addr: string, _creds: unknown, cb: (err: Error) => void) {
+      cb(new Error('bind failed'));
+    },
+    tryShutdown: () => {},
+  } as unknown as Server;
+
+  const driver = new GrpcDriver(errServer);
+  await expect(
+    driver.start({
+      port: 3000,
+      host: '0.0.0.0',
+      routers: [],
+      interceptors: [],
+      plugins: [],
+    }),
+  ).rejects.toThrow('bind failed');
+});

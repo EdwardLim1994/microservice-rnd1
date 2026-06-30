@@ -1,17 +1,17 @@
 {
-	"version": 1,
-	"skills": {
-		"rslib-best-practices": {
-			"source": "rstackjs/agent-skills",
-			"sourceType": "github",
-			"skillPath": "skills/rslib-best-practices/SKILL.md",
-			"computedHash": "e51d235161c84260ed8987c508ddcb600f4dc31e8204e03853b524939f66c747"
-		},
-		"rstest-best-practices": {
-			"source": "rstackjs/agent-skills",
-			"sourceType": "github",
-			"skillPath": "skills/rstest-best-practices/SKILL.md",
-			"computedHash": "ddf98da31d2ce6c74e00ef0a8d807ba268909f4e6e896069fc71807e83e51558"
-		}
-	}
+  "version": 1,
+  "skills": {
+    "rslib-best-practices": {
+      "source": "rstackjs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rslib-best-practices/SKILL.md",
+      "computedHash": "e51d235161c84260ed8987c508ddcb600f4dc31e8204e03853b524939f66c747"
+    },
+    "rstest-best-practices": {
+      "source": "rstackjs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rstest-best-practices/SKILL.md",
+      "computedHash": "ddf98da31d2ce6c74e00ef0a8d807ba268909f4e6e896069fc71807e83e51558"
+    }
+  }
 }
