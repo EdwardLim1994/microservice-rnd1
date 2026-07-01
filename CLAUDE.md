@@ -16,8 +16,10 @@ package (`packages/api`), backed by Docker Compose infra services.
   extending `demo1`'s type, no DB). `servers/demo1/CLAUDE.md`'s Layout section documents the
   standard shape a new server should follow.
 - `services/` — Docker Compose–only infra, no application code: `kafka` (broker + schema registry
-  + UI), `apollo` (Apollo Router + supergraph composition script), `adminer` (DB admin UI). Each
-  has its own `CLAUDE.md`.
+  + UI), `apollo` (Apollo Router + supergraph composition script), `adminer` (DB admin UI), `redis`
+  (password-protected Redis instance + `redis-commander` UI, consumed via `lib`'s `RedisPlugin` —
+  see `servers/demo1/CLAUDE.md`'s Redis cache section for a concrete usage example). Each has its
+  own `CLAUDE.md`.
 - `generators/*`, `apps/*` — declared in `package.json`'s `workspaces` for future use; neither
   directory exists yet.
 

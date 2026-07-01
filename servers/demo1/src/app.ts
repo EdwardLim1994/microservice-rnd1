@@ -4,6 +4,7 @@ import {
 	GrpcDriver,
 	KafkaDriver,
 	PgAdapter,
+	RedisPlugin,
 	ServerApp,
 	singleton,
 } from "lib";
@@ -37,6 +38,7 @@ export default async function main() {
 		.containers({
 			demoRepository: singleton(DemoRepository),
 		})
+		.plugins([RedisPlugin])
 		.routers([DemoGrpcRouter, DemoGraphqlRouter])
 		.run();
 }

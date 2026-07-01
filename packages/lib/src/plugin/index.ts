@@ -1,0 +1,1 @@
+export { RedisPlugin } from './RedisPlugin';

@@ -17,6 +17,7 @@ services:
       - graphql
       - kafka
       - adminer
+      - redis
     depends_on:
       kafka:
         condition: service_healthy
@@ -24,6 +25,8 @@ services:
         condition: service_healthy
       demo1-migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   demo1-migrate:
@@ -53,7 +56,7 @@ services:
     networks:
       - adminer
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d demo1"]
+      test: [ "CMD-SHELL", "pg_isready -U myuser -d demo1" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -63,3 +66,4 @@ networks:
   graphql:
   kafka:
   adminer:
+  redis:

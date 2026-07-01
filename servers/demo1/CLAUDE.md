@@ -114,6 +114,46 @@ Two related gotchas that block DB connectivity even with the migrate job wired u
   browser). Inside the Docker network, other containers must use the container's own port, `5432`
   (`demo1-db:5432`), not the host-mapped one. `.env`'s Docker-mode `DATABASE_URL` reflects this.
 
+## Redis cache (RedisPlugin)
+
+`src/app.ts` wires `.plugins([RedisPlugin])` (see `packages/lib/CLAUDE.md`'s Interceptors vs
+Plugins section) alongside `.database()`/`.containers()` — `TestDemoUseCase` destructures `redis`
+from its cradle the same way it destructures `demoRepository`, and caches the row right after the
+Postgres write:
+
+```ts
+const result = await this.demoRepository.create(demo1.name);
+
+await this.redis.set(
+  `demo1:${result.id}`,
+  JSON.stringify({ id: result.id, name: result.name }),
+);
+```
+
+`RedisClient` only stores strings/buffers/blobs — there's no built-in object serialization, hence
+the manual `JSON.stringify`. Key convention here is `demo1:<id>`; there's no schema enforcing this,
+so pick a convention per server and stick to it.
+
+Config is `REDIS_URL` only (`packages/lib/CLAUDE.md`'s RedisPlugin notes — no separate
+host/port/password fields), with the same host-vs-Docker split as `KAFKA_BROKERS`/`DATABASE_URL`
+above — see the commented-out alternate in `.env`:
+- Host-run (`bun dev`/`bun run index.ts` on the host): `redis://:redispassword@localhost:6379`
+- Dockerized (the `demo1` compose service): `redis://:redispassword@redis:6379`
+
+Same two connectivity gotchas as the Database section above, both hit in practice:
+- **Networks**: `demo1` (and, if it ever needs Redis, `demo1-migrate`) must be on the `redis`
+  network in `docker-compose.yml`, in addition to `graphql`/`kafka`/`adminer` — otherwise the
+  hostname `redis` doesn't resolve inside the container.
+- **Which network is `redis` actually on**: the `redis` network only lands on the same Docker
+  network as `demo1` if the whole stack (`services/redis` + `servers/demo1`, etc.) is brought up as
+  **one Compose project** — e.g. via the root `docker-compose.yml`'s `include:`. Starting
+  `services/redis` standalone (`cd services/redis && docker compose up`) creates a differently
+  *named* project (and therefore a different, isolated network) than running it as part of the root
+  project — see `services/redis/CLAUDE.md` for the full explanation. `demo1` silently can't reach a
+  standalone-started `redis`, even with every other config correct.
+- Symptom of getting the env-var/network mode wrong: `ERR_REDIS_CONNECTION_CLOSED` at connect time
+  (`RedisPlugin.onStart()` fails fast — see `packages/lib/CLAUDE.md`'s note on connecting eagerly).
+
 ## Bun
 
 Default to using Bun instead of Node.js.

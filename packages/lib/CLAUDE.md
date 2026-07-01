@@ -190,19 +190,45 @@ Use cases are auto-registered by the router (always transient, token = `lcFirst(
 Plugins are constructed by `ServerApp` as `new Plugin(container)` — the container is passed
 directly (not awilix PROXY mode, since plugins aren't resolved from the container). A plugin's
 `onStart()` typically registers infra clients into the container via `asValue()` so
-repositories/use cases can inject them from the cradle:
+repositories/use cases can inject them from the cradle. `RedisPlugin` (`lib`'s own implementation)
+is the concrete example:
 
 ```ts
-class RedisPlugin extends BasePlugin {
-  constructor(private readonly container: AwilixContainer) { super(); }
+import { RedisPlugin, ServerApp } from 'lib';
 
-  async onStart() {
-    const redis = new Redis(/* ... */);
-    this.container.register({ redis: asValue(redis) });
-  }
-  async onStop() { /* disconnect */ }
-}
+ServerApp.init([...])
+  .plugins([RedisPlugin])
+  .routers([...])
+  .run();
+
+// elsewhere, e.g. a repository:
+constructor({ redis }: { redis: RedisClient }) { ... }  // awilix PROXY, token = 'redis'
 ```
+
+- Uses **Bun's built-in `RedisClient`** (`import { RedisClient } from 'bun'`), not an npm client —
+  no dependency to add. `new RedisClient()` (no args) resolves its connection from
+  `REDIS_URL`/`VALKEY_URL` env vars itself, falling back to `valkey://localhost:6379` — the plugin
+  doesn't parse or default any of that itself. Verified this is really Bun's own behavior (not
+  something the plugin needs to wire up) by calling `new RedisClient()` directly with only
+  `REDIS_URL` set in the environment — it connects with no other args.
+- Connects eagerly in `onStart()` (explicit `.connect()`) so a bad connection fails server startup
+  instead of surfacing later on first command — same rationale as `database()` calling `$connect()`
+  up front.
+- `ServerApp.plugins()` takes bare constructors, not `{ plugin, config }` entries like
+  `DriverEntry`, so there's no per-plugin config passthrough today — configure via env vars only.
+- **`'bun'` is only resolvable under the Bun runtime** — rstest's test runner executes test files
+  under Node, where the `bun` builtin module doesn't exist, and rslib's Rspack-based bundler can't
+  resolve it either at build time. So `RedisPlugin.ts` only has a **type-only** top-level import
+  (`import type { RedisClient } from 'bun'`); the real class is loaded lazily via
+  `await import('bun')` inside the default `createClient` factory, which only runs if nothing else
+  is injected in its place — tests always inject their own mock factory, so the dynamic import
+  never executes under rstest. `rslib.config.ts`'s `output.externals: { bun: 'module bun' }` is the
+  other half of this: without it, the production build fails with "Module not found: Can't resolve
+  'bun'" even though the dynamic import is never evaluated at build time — Rspack still needs to be
+  told not to try bundling it.
+- Takes that same `createClient: () => Promise<RedisClient>` factory as an injectable constructor
+  param, same testability pattern as the drivers (avoids touching the real Bun Redis client in
+  tests) — just async, since the default implementation's `import('bun')` is itself a promise.
 
 Kafka is **not** modeled as a plugin — see `KafkaDriver` below. It needs producer/consumer/admin
 lifecycle tied to the same driver-level config (`config` on a `DriverEntry`), and no separate
@@ -336,6 +362,9 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
   `@apollo/subgraph`'s internal `require('graphql')` under Bun)
 - `kafkajs` — dev dep, peer dep for consuming servers; pure JS, no native binding (see
   KafkaDriver above for why `@confluentinc/kafka-javascript` was rejected)
+- `RedisPlugin` uses Bun's built-in `RedisClient` (`import { RedisClient } from 'bun'`) — no
+  npm dependency needed, unlike the Kafka/gRPC/GraphQL drivers. See its Interceptors vs Plugins
+  section above for why that import has to be lazy, and why `rslib.config.ts` marks `bun` external.
 - `pg` + `@prisma/adapter-pg` — required by `PgAdapter` for Prisma 7 driver adapter
 - `@prisma/client-runtime-utils` — required by Prisma 7 (install explicitly if missing)
 - `PrismaAdapter` class is deleted — logic lives directly in `ServerApp.database()`

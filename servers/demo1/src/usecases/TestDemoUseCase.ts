@@ -9,6 +9,7 @@ import {
 	type Demo1GoogleProtobuf,
 	Demo1ProtobufEs,
 } from "api";
+import type { RedisClient } from "bun";
 import type { Producer } from "kafkajs";
 import { BaseUseCase } from "lib";
 import type { DemoRepository } from "../repositories";
@@ -31,14 +32,21 @@ export default class TestDemoUseCase extends BaseUseCase<
 > {
 	private readonly kafkaProducer: Producer;
 	private readonly demoRepository: DemoRepository;
+	private readonly redis: RedisClient;
 
 	constructor({
 		kafkaProducer,
 		demoRepository,
-	}: { kafkaProducer: Producer; demoRepository: DemoRepository }) {
+		redis,
+	}: {
+		kafkaProducer: Producer;
+		demoRepository: DemoRepository;
+		redis: RedisClient;
+	}) {
 		super();
 		this.kafkaProducer = kafkaProducer;
 		this.demoRepository = demoRepository;
+		this.redis = redis;
 	}
 
 	async execute(
@@ -50,6 +58,11 @@ export default class TestDemoUseCase extends BaseUseCase<
 		});
 
 		const result = await this.demoRepository.create(demo1.name);
+
+		await this.redis.set(
+			`demo1:${result.id}`,
+			JSON.stringify({ id: result.id, name: result.name }),
+		);
 
 		const registryMessage = create(Demo1ProtobufEs.Demo1Schema, {
 			id: result.id,
