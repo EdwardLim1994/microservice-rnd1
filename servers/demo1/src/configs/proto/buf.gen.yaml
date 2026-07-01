@@ -20,4 +20,4 @@ plugins:
       - target=ts
 
 inputs:
-  - directory: ./src/schema/proto/
+  - directory: ./src/schemas/proto/

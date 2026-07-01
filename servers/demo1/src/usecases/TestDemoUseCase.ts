@@ -4,9 +4,14 @@ import {
 	SchemaRegistryClient,
 	SerdeType,
 } from "@confluentinc/schemaregistry";
-import { Demo1Demo1Proto, Demo1GoogleProtobuf, Demo1ProtobufEs } from "api";
+import {
+	Demo1Demo1Proto,
+	type Demo1GoogleProtobuf,
+	Demo1ProtobufEs,
+} from "api";
 import type { Producer } from "kafkajs";
 import { BaseUseCase } from "lib";
+import type { DemoRepository } from "../repositories";
 
 const schemaRegistry = SchemaRegistryClient.newClient({
 	baseURLs: [process.env.SCHEMA_REGISTRY_URL ?? "http://localhost:8081"],
@@ -25,10 +30,15 @@ export default class TestDemoUseCase extends BaseUseCase<
 	Demo1Demo1Proto.Demo1
 > {
 	private readonly kafkaProducer: Producer;
+	private readonly demoRepository: DemoRepository;
 
-	constructor({ kafkaProducer }: { kafkaProducer: Producer }) {
+	constructor({
+		kafkaProducer,
+		demoRepository,
+	}: { kafkaProducer: Producer; demoRepository: DemoRepository }) {
 		super();
 		this.kafkaProducer = kafkaProducer;
+		this.demoRepository = demoRepository;
 	}
 
 	async execute(
@@ -39,10 +49,13 @@ export default class TestDemoUseCase extends BaseUseCase<
 			name: "Hello World Tester",
 		});
 
+		const result = await this.demoRepository.create(demo1.name);
+
 		const registryMessage = create(Demo1ProtobufEs.Demo1Schema, {
-			id: demo1.id,
-			name: demo1.name,
+			id: result.id,
+			name: result.name,
 		});
+
 		const value = await serializer.serialize("demo1.events", registryMessage);
 
 		await this.kafkaProducer.send({

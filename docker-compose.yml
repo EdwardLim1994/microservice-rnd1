@@ -1,5 +1,5 @@
 include:
-  # - ./services/adminer/docker-compose.yml
+  - ./services/adminer/docker-compose.yml
   - ./services/apollo/docker-compose.yml
   - ./services/kafka/docker-compose.yml
   - ./servers/demo1/docker-compose.yml

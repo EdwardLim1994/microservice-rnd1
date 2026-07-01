@@ -1,5 +1,14 @@
 import { Demo1Demo1Proto } from "api";
-import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from "lib";
+import {
+	ApolloDriver,
+	GrpcDriver,
+	KafkaDriver,
+	PgAdapter,
+	ServerApp,
+	singleton,
+} from "lib";
+import { PrismaClient } from "./generated/prisma";
+import { DemoRepository } from "./repositories";
 import { DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
 
 export default async function main() {
@@ -21,10 +30,13 @@ export default async function main() {
 			// demo1 only produces to this topic — no KafkaConsumerRouter declares it, so it's
 			// listed here to be provisioned up front instead of racing the broker's auto-create.
 			config: { topics: { "demo1.events": Demo1Demo1Proto.Demo1 } },
-			onReady: ({ host, port }) =>
-				console.log(`Kafka producer is running on ${host}:${port}`),
+			onReady: () => console.log(`Kafka producer is running`),
 		},
 	])
+		.database(PrismaClient, new PgAdapter(import.meta.env.DATABASE_URL!))
+		.containers({
+			demoRepository: singleton(DemoRepository),
+		})
 		.routers([DemoGrpcRouter, DemoGraphqlRouter])
 		.run();
 }

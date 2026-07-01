@@ -16,13 +16,50 @@ services:
     networks:
       - graphql
       - kafka
+      - adminer
     depends_on:
       kafka:
         condition: service_healthy
       schema-registry:
         condition: service_healthy
+      demo1-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  demo1-migrate:
+    build:
+      context: ../..
+      dockerfile: servers/demo1/Dockerfile
+      target: migrate
+    container_name: demo1_migrate
+    env_file:
+      - .env
+    networks:
+      - adminer
+    depends_on:
+      demo1-db:
+        condition: service_healthy
+    restart: "no"
+
+  demo1-db:
+    image: postgres:15.3-alpine
+    container_name: demo1_db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: demo1
+    ports:
+      - "5101:5432"
+    networks:
+      - adminer
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d demo1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 networks:
   graphql:
   kafka:
+  adminer:

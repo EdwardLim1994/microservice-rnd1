@@ -1,7 +1,7 @@
 version: v2
 
 modules:
-  - path: ./src/schema/proto/
+  - path: ./src/schemas/proto/
 
 lint:
   use:

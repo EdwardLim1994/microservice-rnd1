@@ -26,6 +26,14 @@ RUN  bun build ./index.ts \
     --target=bun-linux-x64 \
     --outfile=./"${SERVER_NAME}"
 
+# ── migrate ────────────────────────────────────────────────────────────────────
+# One-off stage: reuses `builder`'s bun + prisma CLI + copied schema/migrations.
+# The `runtime` stage below only ships the compiled binary, so this is the only
+# stage that can actually run `prisma migrate deploy`.
+FROM builder AS migrate
+
+ENTRYPOINT ["./node_modules/.bin/prisma", "migrate", "deploy"]
+
 # ── runtime ────────────────────────────────────────────────────────────────────
 FROM ubuntu:25.10 AS runtime
 

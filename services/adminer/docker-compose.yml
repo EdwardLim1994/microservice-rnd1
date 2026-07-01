@@ -3,7 +3,7 @@ services:
     image: adminer:latest
     container_name: adminer
     ports:
-      - 8080:8080
+      - 8090:8080
     networks:
       - adminer
 

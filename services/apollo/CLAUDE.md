@@ -1,106 +1,37 @@
+# services/apollo
 
-Default to using Bun instead of Node.js.
+Docker Compose entry for the Apollo Router (`ghcr.io/apollographql/router`), fronting the
+federation subgraphs on `:4000` (see `packages/lib/CLAUDE.md`'s GraphQL federation section for how
+`demo1`/`demo2` build their subgraph schemas). Router config: `src/config/router.yaml`.
+Env (`.env`, gitignored): `APOLLO_ROUTER_CONFIG_PATH`, `APOLLO_ROUTER_SUPERGRAPH_PATH`,
+`APOLLO_ROUTER_HOT_RELOAD`, `APOLLO_ROUTER_CHECK`.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Composing the supergraph
 
-## APIs
+`bun run supergraph` (`src/scripts/compose_supergraph.sh.ts`) generates `dist/supergraph.graphql`,
+which the router container mounts read-only (see `docker-compose.yml`'s `volumes:`):
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+- Reads `src/config/supergraph.yaml` for the list of subgraphs to compose — each entry needs a
+  `routing_url` (where the *running* router sends requests, `http://<service>:<port>`) and a
+  `schema.file` (a local path to that server's GraphQL SDL, used only at compose time).
+- Only servers listed there expose a GraphQL subgraph — a gRPC-only server would never log GraphQL
+  readiness and would hang the wait step below.
+- Spawns `bun run index.ts` for each listed server locally (not in Docker) and waits for its GraphQL
+  driver's ready log line before running `rover supergraph compose`, then kills all spawned
+  processes.
+- **Known bug**: the wait step checks each spawned process's stdout for the substring
+  `"GraphQL running on"`, but every server's actual `onReady` log line is `"GraphQL server is
+  running on ..."` (see `servers/demo1/src/app.ts` / `servers/demo2/src/app.ts`) — the substring
+  never matches, so `waitReady()` hangs indefinitely instead of proceeding once the subgraph is
+  actually up. Fix by aligning the substring check with the real log text (or vice versa) before
+  relying on `bun run supergraph`.
+- `routing_url` in `supergraph.yaml` points at `http://<server>:<port>` (Docker service name) with a
+  commented-out `http://host.docker.internal:<port>` alternative — same host-vs-Docker split
+  documented in `servers/demo1/CLAUDE.md`/`services/kafka/CLAUDE.md`, switch depending on whether
+  the router is running in Docker or the subgraph servers are running on the host.
 
-## Testing
+## Dependencies
 
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+- `@apollo/rover` — the `rover` CLI used by `compose_supergraph.sh.ts` (`--elv2-license=accept`
+  is required non-interactively).
+- `lib` — only for `createFolder` (ensures `dist/` exists before writing the composed schema).

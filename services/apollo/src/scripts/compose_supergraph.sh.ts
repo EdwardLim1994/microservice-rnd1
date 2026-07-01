@@ -13,7 +13,7 @@ const supergraphConfig = Bun.YAML.parse(
 ) as { subgraphs: Record<string, unknown> };
 
 // Only the servers listed in supergraph.yaml expose a GraphQL subgraph —
-// other servers (e.g. gRPC-only) never log "GraphQL running on" and would hang waitReady().
+// other servers (e.g. gRPC-only) never log "GraphQL server is running on" and would hang waitReady().
 const serversRoot = join(import.meta.dir, "../../../../servers");
 const serverDirs = Object.keys(supergraphConfig.subgraphs).map((name) =>
 	join(serversRoot, name),
@@ -32,7 +32,7 @@ async function waitReady(proc: Bun.Subprocess) {
 	for await (const chunk of proc.stdout as ReadableStream<Uint8Array>) {
 		const text = dec.decode(chunk);
 		process.stdout.write(text);
-		if (text.includes("GraphQL running on")) return;
+		if (text.includes("GraphQL server is running on")) return;
 	}
 }
 
