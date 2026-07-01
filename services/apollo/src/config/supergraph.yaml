@@ -1,10 +1,10 @@
 subgraphs:
    demo1:
-      routing_url: http://demo1:4001
+      routing_url: http://host.docker.internal:4001
       schema:
          file: ../../../../servers/demo1/src/schema/graphql/demo1.graphql
 
    demo2:
-      routing_url: http://demo2:4002
+      routing_url: http://host.docker.internal:4002
       schema:
          file: ../../../../servers/demo2/src/schema/graphql/demo2.graphql

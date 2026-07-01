@@ -1,7 +1,7 @@
 import { expect, test } from '@rstest/core';
-import { InjectionMode, asValue, createContainer } from 'awilix';
+import { asValue, createContainer, InjectionMode } from 'awilix';
 import { BaseUseCase } from '../../src/abstract/BaseUseCase';
-import { GrpcRouter, type GrpcHandlerMap } from '../../src/router/GrpcRouter';
+import { type GrpcHandlerMap, GrpcRouter } from '../../src/router/GrpcRouter';
 
 interface FakeService {
   greet: (call: any, callback: any) => void;

@@ -214,20 +214,28 @@ APIGenerator.init('demo1')
 
 ## GraphQL federation
 
-`packages/api` generated typeDefs contain Apollo Federation directives (`@link`, `@key`, `@external`).
-These are **incompatible** with standalone `ApolloDriver` (uses `startStandaloneServer`).
-When using `GraphqlRouter` without federation, write plain inline typeDefs instead of importing from `api`:
+`ApolloDriver` builds an Apollo Federation **subgraph** schema (`buildSubgraphSchema` from `@apollo/subgraph`)
+from each router's `typeDefs`/`resolvers`, rather than passing them to `ApolloServer` directly. This means:
 
-```ts
-get typeDefs() {
-  return `
-    type Demo1 { id: ID! name: String! }
-    type Query { demo1: Demo1 }
-  `;
-}
-```
-
-Federation support requires replacing `ApolloDriver` with an Apollo Federation subgraph driver (future work).
+- `typeDefs` may use federation directives (`@key`, `@external`, `@shareable`, etc.) — including the
+  federation-annotated typeDefs generated into `packages/api`.
+- Entity types need a `__resolveReference` resolver, keyed by type name in `GraphqlHandlerMap` just like any
+  other field:
+  ```ts
+  get handlers(): GraphqlHandlerMap {
+    return {
+      Query: { demo1: Demo1UseCase },
+      Demo1: { __resolveReference: ResolveDemo1ReferenceUseCase },
+    };
+  }
+  ```
+- `ApolloDriver` still uses `startStandaloneServer`, so each server runs as a standalone subgraph — federating
+  multiple subgraphs behind a gateway/router is out of scope here (use `@apollo/gateway` or the Apollo Router
+  in front of these subgraph endpoints).
+- **`lib`'s `graphql` dependency is pinned to `^16.11.0`**, matching `@apollo/server`/`@apollo/subgraph` peer
+  deps and every server in the monorepo. `graphql@17` is ESM-only and breaks `@apollo/subgraph`'s internal
+  `require('graphql')` under Bun ("Cannot require() ES Module ... not yet fully loaded") — do not bump past v16
+  until Apollo's federation packages support it.
 
 ## Multi-protocol servers
 

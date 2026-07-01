@@ -1,5 +1,6 @@
-import { expect, test } from '@rstest/core';
 import type { ApolloServer } from '@apollo/server';
+import { buildSubgraphSchema } from '@apollo/subgraph';
+import { expect, test } from '@rstest/core';
 import { BaseRouter } from '../../src/abstract/BaseRouter';
 import { ApolloDriver } from '../../src/driver/ApolloDriver';
 
@@ -24,7 +25,22 @@ function makeMockApollo() {
     return { url: 'http://localhost:4000' };
   };
 
-  return { createServer, startServer, instances, startCalls };
+  const buildSchemaCalls: unknown[] = [];
+  const stubSchema = { stub: true };
+  const buildSchema = (modules: unknown) => {
+    buildSchemaCalls.push(modules);
+    return stubSchema as any;
+  };
+
+  return {
+    createServer,
+    startServer,
+    buildSchema,
+    stubSchema,
+    instances,
+    startCalls,
+    buildSchemaCalls,
+  };
 }
 
 class GraphqlStubRouter extends BaseRouter {
@@ -45,32 +61,41 @@ const defaultOptions = {
   plugins: [],
 };
 
-test('start() passes typeDefs and resolvers from graphql routers', async () => {
+test('start() builds a subgraph schema from graphql routers and passes it to the server', async () => {
   const mock = makeMockApollo();
   const router = new GraphqlStubRouter({});
-  const driver = new ApolloDriver(mock.createServer, mock.startServer as any);
+  const driver = new ApolloDriver(
+    mock.createServer,
+    mock.startServer as any,
+    mock.buildSchema as any,
+  );
   await driver.start({ ...defaultOptions, routers: [router] });
 
-  expect(mock.instances[0].options).toMatchObject({
-    typeDefs: [router.typeDefs],
-    resolvers: [router.resolvers],
-  });
+  expect(mock.buildSchemaCalls[0]).toMatchObject([
+    { resolvers: router.resolvers },
+  ]);
+  expect(mock.instances[0].options).toMatchObject({ schema: mock.stubSchema });
 });
 
 test('start() skips routers without typeDefs/resolvers', async () => {
   const mock = makeMockApollo();
-  const driver = new ApolloDriver(mock.createServer, mock.startServer as any);
+  const driver = new ApolloDriver(
+    mock.createServer,
+    mock.startServer as any,
+    mock.buildSchema as any,
+  );
   await driver.start({ ...defaultOptions, routers: [new PlainRouter({})] });
 
-  expect(mock.instances[0].options).toMatchObject({
-    typeDefs: [],
-    resolvers: [],
-  });
+  expect(mock.buildSchemaCalls[0]).toEqual([]);
 });
 
 test('start() calls startServer with correct listen options', async () => {
   const mock = makeMockApollo();
-  const driver = new ApolloDriver(mock.createServer, mock.startServer as any);
+  const driver = new ApolloDriver(
+    mock.createServer,
+    mock.startServer as any,
+    mock.buildSchema as any,
+  );
   await driver.start(defaultOptions);
 
   expect(mock.startCalls[0].options).toEqual({
@@ -80,8 +105,40 @@ test('start() calls startServer with correct listen options', async () => {
 
 test('stop() calls server.stop()', async () => {
   const mock = makeMockApollo();
-  const driver = new ApolloDriver(mock.createServer, mock.startServer as any);
+  const driver = new ApolloDriver(
+    mock.createServer,
+    mock.startServer as any,
+    mock.buildSchema as any,
+  );
   await driver.start(defaultOptions);
   await driver.stop();
   expect(mock.instances[0].stopped).toBe(true);
+});
+
+test('start() builds a real federation subgraph schema with @key directives', async () => {
+  const mock = makeMockApollo();
+  class FederatedRouter extends BaseRouter {
+    typeDefs = `
+      type Query { demo1: Demo1 }
+      type Demo1 @key(fields: "id") { id: ID! name: String! }
+    `;
+    resolvers = {
+      Query: { demo1: () => ({ id: '1', name: 'test' }) },
+      Demo1: { __resolveReference: (ref: { id: string }) => ref },
+    };
+    register() {}
+  }
+  const driver = new ApolloDriver(
+    mock.createServer,
+    mock.startServer as any,
+    buildSubgraphSchema,
+  );
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [new FederatedRouter({})],
+  });
+
+  const schema = (mock.instances[0].options as { schema: unknown }).schema;
+  expect(schema).toBeDefined();
 });

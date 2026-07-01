@@ -1,5 +1,7 @@
 import { ApolloServer } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
+import { buildSubgraphSchema } from '@apollo/subgraph';
+import { parse } from 'graphql';
 import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
 
 interface GraphqlRouterShape {
@@ -17,6 +19,7 @@ function isGraphqlRouter(router: unknown): router is GraphqlRouterShape {
 }
 
 type StandaloneServerFn = typeof startStandaloneServer;
+type BuildSubgraphSchemaFn = typeof buildSubgraphSchema;
 
 export class ApolloDriver extends BaseDriver {
   private _server?: ApolloServer;
@@ -26,6 +29,7 @@ export class ApolloDriver extends BaseDriver {
     private readonly createServer: (options: any) => ApolloServer = (o) =>
       new ApolloServer(o),
     private readonly startServer: StandaloneServerFn = startStandaloneServer,
+    private readonly buildSchema: BuildSubgraphSchemaFn = buildSubgraphSchema,
   ) {
     super();
   }
@@ -36,16 +40,19 @@ export class ApolloDriver extends BaseDriver {
     routers,
     interceptors,
   }: DriverStartOptions): Promise<void> {
-    const typeDefs: unknown[] = [];
-    const resolvers: unknown[] = [];
+    const modules: { typeDefs: any; resolvers: any }[] = [];
 
     for (const router of routers) {
       if (!isGraphqlRouter(router)) continue;
-      typeDefs.push(router.typeDefs);
-      resolvers.push(router.resolvers);
+      const typeDefs =
+        typeof router.typeDefs === 'string'
+          ? parse(router.typeDefs)
+          : router.typeDefs;
+      modules.push({ typeDefs, resolvers: router.resolvers });
     }
 
-    this._server = this.createServer({ typeDefs: typeDefs as any, resolvers });
+    const schema = this.buildSchema(modules as any);
+    this._server = this.createServer({ schema });
 
     for (const interceptor of interceptors) {
       interceptor.apply(this._server);

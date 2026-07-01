@@ -1,4 +1,4 @@
-import { Demo1Demo1Proto } from "api";
+import { Demo1Demo1Proto, Demo1Graphql } from "api";
 import { GraphqlRouter, type GrpcHandlerMap, GrpcRouter } from "lib";
 import Demo1QueryUseCase from "../usecases/Demo1QueryUseCase";
 import TestDemoUseCase from "../usecases/TestDemoUseCase";
@@ -15,10 +15,7 @@ export class DemoGrpcRouter extends GrpcRouter<Demo1Demo1Proto.DemoServiceServer
 
 export class DemoGraphqlRouter extends GraphqlRouter {
 	get typeDefs() {
-		return `
-			type Demo1 { id: ID! name: String! }
-			type Query { demo1: Demo1 }
-		`;
+		return Demo1Graphql.typeDefs;
 	}
 
 	get handlers() {

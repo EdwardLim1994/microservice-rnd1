@@ -1,5 +1,5 @@
-import { expect, test } from '@rstest/core';
 import type { Server } from '@grpc/grpc-js';
+import { expect, test } from '@rstest/core';
 import { BaseRouter } from '../../src/abstract/BaseRouter';
 import { GrpcDriver } from '../../src/driver/GrpcDriver';
 

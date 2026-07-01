@@ -1,52 +1,5 @@
-[6n[?9001h[?1004h[m]0;C:\Users\User\.bun\bin\bun.exe[?25h[35m[2m$[m [1m[2mbun ./src/scripts/generate_api.sh.ts
-[22m[34m[INFO]: API will be generated in ../../packages/api/src/generated
-[m[34m[INFO]: GraphQL Codegen is installed. Compiling...
-[m❯ Parse Configuration
-✔ Parse Configuration
-❯ Generate outputs
-❯ Generate to ../../packages/api/src/generated/demo2/graphql/resolvers.ts
-❯ Generate to ../../packages/api/src/generated/demo2/graphql/context.ts
-❯ Generate to ../../packages/api/src/generated/demo2/graphql/typedefs.graphql
-❯ Generate to ../../packages/api/src/generated/demo2/graphql/typedefs.ts
-❯ Generate to ../../packages/api/src/generated/demo2/graphql/index.ts
-❯ Load GraphQL schemas
-❯ Load GraphQL schemas
-❯ Load GraphQL schemas
-❯ Load GraphQL schemas
-❯ Load GraphQL schemas
-✔ Load GraphQL schemas
-✔ Load GraphQL schemas
-✔ Load GraphQL schemas
-✔ Load GraphQL schemas
-✔ Load GraphQL schemas
-❯ Load GraphQL documents
-❯ Load GraphQL documents
-❯ Load GraphQL documents
-❯ Load GraphQL documents
-❯ Load GraphQL documents
-✔ Load GraphQL documents
-✔ Load GraphQL documents
-✔ Load GraphQL documents
-✔ Load GraphQL documents
-✔ Load GraphQL documents
-❯ Generate
-❯ Generate
-❯ Generate
-❯ Generate
-❯ Generate
-✔ Generate
-✔ Generate
-✔ Generate
-✔ Generate to ../../packages/api/src/generated/demo2/graphql/context.ts
-✔ Generate to ../../packages/api/src/generated/demo2/graphql/typedefs.ts
-✔ Generate to ../../packages/api/src/generated/demo2/graphql/index.ts
-✔ Generate
-✔ Generate
-✔ Generate to ../../packages/api/src/generated/demo2/graphql/resolvers.ts
-✔ Generate to ../../packages/api/src/generated/demo2/graphql/typedefs.graphql
-✔ Generate outputs
-[32m[SUCCESS]: GraphQL Codegen compiled successfully[m
-[34m[INFO]: Protoc is installed. Compiling...[m
-[32m[SUCCESS]: Protoc compiled successfully[m
-[32m[SUCCESS]: Barrel file written to ..\..\packages\api\src\generated\index.ts[m
-[?9001l[?1004l
+[0m[2m[35m$[0m [2m[1mbun ./src/scripts/generate_api.sh.ts[0m
+[34m[INFO]: API will be generated in ../../packages/api/src/generated[39m
+[33m[WARN]: GraphQL Codegen is not installed. Skipping...[39m
+[33m[WARN]: Protoc is not installed. Skipping...[39m
+[32m[SUCCESS]: Barrel file written to ../../packages/api/src/generated/index.ts[39m
