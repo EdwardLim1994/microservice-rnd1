@@ -1,3 +1,4 @@
+import type { AwilixContainer } from 'awilix';
 import type { BaseInterceptor } from './BaseInterceptor';
 import type { BasePlugin } from './BasePlugin';
 import type { BaseRouter } from './BaseRouter';
@@ -8,6 +9,7 @@ export interface DriverStartOptions {
   routers: BaseRouter[];
   interceptors: BaseInterceptor[];
   plugins: BasePlugin[];
+  container: AwilixContainer;
 }
 
 export abstract class BaseDriver {

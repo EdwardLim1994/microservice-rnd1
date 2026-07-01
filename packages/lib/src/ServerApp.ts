@@ -6,7 +6,7 @@ import {
   Lifetime,
   type NameAndRegistrationPair,
 } from 'awilix';
-import type { BaseDriver } from './abstract/BaseDriver';
+import type { BaseDriver, DriverStartOptions } from './abstract/BaseDriver';
 import type { BaseInterceptor } from './abstract/BaseInterceptor';
 import type { BasePlugin } from './abstract/BasePlugin';
 import type { BaseRouter } from './abstract/BaseRouter';
@@ -23,33 +23,75 @@ type PrismaClientConstructor<TClient extends PrismaLifecycle> = new (
   ...args: any[]
 ) => TClient;
 
+export interface DriverReadyInfo {
+  driver: string;
+  port?: number;
+  host?: string;
+}
+
+export interface DriverEntry {
+  driver: Constructor<BaseDriver>;
+  port?: number;
+  host?: string;
+  // Fires for this driver only, once it's started — avoids string-matching `info.driver`
+  // in the shared run() callback when different drivers need different startup behavior.
+  onReady?: (info: DriverReadyInfo) => void;
+  // Passed as the driver's sole constructor argument (new Driver(config)) — lets a driver
+  // take rich typed config (e.g. KafkaDriver's brokers/topics) instead of only env vars.
+  // Drivers that don't use it are unaffected: passing `undefined` still triggers their
+  // constructor's own default parameters, same as calling `new Driver()`.
+  config?: unknown;
+}
+
+// Either a bare driver constructor (uses ServerApp's default port/host, if any)
+// or an entry with its own port/host/onReady — e.g. gRPC on 5001, GraphQL on 4001, Kafka with none.
+type DriverInit = Constructor<BaseDriver> | DriverEntry;
+
+interface RunningDriver {
+  driver: BaseDriver;
+  port?: number;
+  host?: string;
+  onReady?: (info: DriverReadyInfo) => void;
+}
+
 export const singleton = <T>(Class: Constructor<T>) =>
   asClass(Class).setLifetime(Lifetime.SINGLETON);
 
 export const transient = <T>(Class: Constructor<T>) =>
   asClass(Class).setLifetime(Lifetime.TRANSIENT);
 
-export class ServerApp<TDriver extends BaseDriver> {
+export class ServerApp {
   private readonly container = createContainer({
     injectionMode: InjectionMode.PROXY,
   });
+  private readonly runningDrivers: RunningDriver[];
   private _routers: Constructor<BaseRouter>[] = [];
   private _interceptors: Constructor<BaseInterceptor>[] = [];
   private _plugins: Constructor<BasePlugin>[] = [];
   private _pluginInstances: BasePlugin[] = [];
   private _prismaClient?: PrismaLifecycle;
   private _dbAdapter?: DbAdapter;
-  private _port = 3000;
+  private _port?: number;
   private _host = '0.0.0.0';
 
-  private constructor(private readonly driver: TDriver) {
+  private constructor(drivers: DriverInit[]) {
     this.container.register({ container: asValue(this.container) });
+    this.runningDrivers = drivers.map((entry) => {
+      const {
+        driver: Driver,
+        port,
+        host,
+        onReady,
+        config,
+      } = typeof entry === 'function' ? { driver: entry } : entry;
+      return { driver: new Driver(config), port, host, onReady };
+    });
   }
 
-  static init<TDriver extends BaseDriver>(
-    Driver: Constructor<TDriver>,
-  ): ServerApp<TDriver> {
-    return new ServerApp(new Driver());
+  static init(driver: Constructor<BaseDriver>): ServerApp;
+  static init(drivers: DriverInit[]): ServerApp;
+  static init(drivers: Constructor<BaseDriver> | DriverInit[]): ServerApp {
+    return new ServerApp(Array.isArray(drivers) ? drivers : [drivers]);
   }
 
   database<TClient extends PrismaLifecycle>(
@@ -82,6 +124,7 @@ export class ServerApp<TDriver extends BaseDriver> {
     return this;
   }
 
+  // Fallback port/host for driver entries that don't specify their own.
   port(port: number): this {
     this._port = port;
     return this;
@@ -92,7 +135,7 @@ export class ServerApp<TDriver extends BaseDriver> {
     return this;
   }
 
-  async run(callback?: (port: number, host: string) => void): Promise<void> {
+  async run(callback?: (info: DriverReadyInfo) => void): Promise<void> {
     await this._prismaClient?.$connect();
 
     const routers = this._routers.map((R) => new R(this.container));
@@ -101,20 +144,32 @@ export class ServerApp<TDriver extends BaseDriver> {
 
     await Promise.all(this._pluginInstances.map((p) => p.onStart()));
 
-    await this.driver.start({
-      port: this._port,
-      host: this._host,
-      routers,
-      interceptors,
-      plugins: this._pluginInstances,
-    });
+    await Promise.all(
+      this.runningDrivers.map(async (entry) => {
+        const options: DriverStartOptions = {
+          port: entry.port ?? this._port ?? 3000,
+          host: entry.host ?? this._host,
+          routers,
+          interceptors,
+          plugins: this._pluginInstances,
+          container: this.container,
+        };
+        await entry.driver.start(options);
 
-    callback?.(this._port, this._host);
+        const info: DriverReadyInfo = {
+          driver: entry.driver.constructor.name,
+          port: entry.port ?? this._port,
+          host: entry.host ?? this._host,
+        };
+        entry.onReady?.(info);
+        callback?.(info);
+      }),
+    );
   }
 
   async stop(): Promise<void> {
     await Promise.all(this._pluginInstances.map((p) => p.onStop()));
-    await this.driver.stop();
+    await Promise.all(this.runningDrivers.map((entry) => entry.driver.stop()));
     await this._prismaClient?.$disconnect();
     await this._dbAdapter?.end();
   }

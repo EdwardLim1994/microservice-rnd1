@@ -5,6 +5,8 @@
   "private": true,
   "devDependencies": {
     "@bufbuild/buf": "^1.70.0",
+    "@bufbuild/protobuf": "^2.12.1",
+    "@bufbuild/protoc-gen-es": "^2.12.1",
     "@graphql-codegen/add": "^7.0.1",
     "@graphql-codegen/cli": "^7.1.2",
     "@graphql-codegen/schema-ast": "^6.0.1",
@@ -15,9 +17,11 @@
     "protoc": "^35.1.0"
   },
   "dependencies": {
+    "@confluentinc/schemaregistry": "^1.9.1",
     "@grpc/grpc-js": "^1.14.4",
     "api": "workspace:*",
     "graphql": "^16.11.0",
+    "kafkajs": "^2.2.4",
     "lib": "workspace:*",
     "ts-proto": "^2.11.8"
   },

@@ -23,6 +23,7 @@
 		"@apollo/subgraph": "^2.14.2",
 		"@biomejs/biome": "2.4.15",
 		"@grpc/grpc-js": "^1.14.4",
+		"kafkajs": "^2.2.4",
 		"@rslib/core": "^0.23.1",
 		"@rstest/adapter-rslib": "^0.10.6",
 		"@rstest/core": "^0.10.6",

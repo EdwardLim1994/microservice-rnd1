@@ -15,9 +15,11 @@
     "protoc": "^35.1.0"
   },
   "dependencies": {
+    "@confluentinc/schemaregistry": "^1.9.1",
     "@grpc/grpc-js": "^1.14.4",
     "api": "workspace:*",
     "graphql": "^16.11.0",
+    "kafkajs": "^2.2.4",
     "lib": "workspace:*",
     "ts-proto": "^2.11.8"
   },

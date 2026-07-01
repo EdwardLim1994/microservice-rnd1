@@ -1,4 +1,28 @@
 
+# servers/demo2
+
+Runs gRPC + GraphQL + a Kafka consumer (`KafkaDriver` + `DemoKafkaRouter`), all off one
+`ServerApp.init([...])` — see `src/app.ts`. Also serves as a GraphQL federation subgraph extending
+`demo1`'s `Demo1` type (`Demo1: { demo2: Demo2ByDemo1UseCase }`).
+
+## Kafka consumer + Schema Registry
+
+`src/routers/DemoKafkaRouter.ts` declares topic `demo1.events` (produced by `demo1`), decoded via
+`@confluentinc/schemaregistry`'s `ProtobufDeserializer`, dispatched to
+`src/usecases/LogDemo1EventUseCase.ts`.
+
+- **No local codegen or `.proto` file needed to consume** — `ProtobufDeserializer.deserialize()`
+  fetches whatever schema `demo1` actually registered (by the schema ID embedded in the message's
+  wire format), so this keeps working even if `demo1`'s schema evolves, as long as the change stays
+  BACKWARD-compatible. `LogDemo1EventUseCase`'s input type (`Demo1Event { id, name }`) is a plain
+  structural type, not imported from `demo1`'s generated types.
+- The deserializer is wrapped to match `lib`'s `KafkaMessageType<T>` shape
+  (`decode(input): Promise<T>`) directly in `DemoKafkaRouter.ts` — no change needed to
+  `KafkaConsumerRouter`/`KafkaDriver` beyond `lib` allowing an async `decode` (see
+  `packages/lib/CLAUDE.md`).
+- Config via `.env` (gitignored): `KAFKA_BROKERS`, `KAFKA_GROUP_ID`, `SCHEMA_REGISTRY_URL` — same
+  host-vs-Docker address split documented in `servers/demo1/CLAUDE.md`.
+
 Default to using Bun instead of Node.js.
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`

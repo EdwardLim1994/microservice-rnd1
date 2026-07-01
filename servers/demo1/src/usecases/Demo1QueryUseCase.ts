@@ -1,7 +1,4 @@
-import {
-	credentials,
-	type ServiceError,
-} from "@grpc/grpc-js";
+import { credentials, type ServiceError } from "@grpc/grpc-js";
 import { Demo1Demo1Proto, Demo1GoogleProtobuf, type Demo1Graphql } from "api";
 import { BaseUseCase } from "lib";
 

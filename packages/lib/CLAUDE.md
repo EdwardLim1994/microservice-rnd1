@@ -6,25 +6,63 @@ Shared library used by all servers in this monorepo. Built with rslib, tested wi
 
 ### ServerApp — fluent builder, owns the awilix DI container
 
-```ts
-import { GrpcDriver, PgAdapter, ServerApp, singleton } from 'lib';
+`ServerApp.init()` takes an **array of drivers**, not a single one — each driver runs its own
+protocol (gRPC, GraphQL, Kafka consumer, ...) but they all share one awilix container, one set of
+routers/interceptors/plugins, and one lifecycle:
 
-ServerApp.init(GrpcDriver)
+```ts
+import { ApolloDriver, GrpcDriver, KafkaDriver, PgAdapter, ServerApp, singleton } from 'lib';
+
+ServerApp.init([
+  {
+    driver: GrpcDriver,
+    port: 5001,
+    onReady: ({ port, host }) => console.log(`gRPC on ${host}:${port}`),
+  },
+  {
+    driver: ApolloDriver,
+    port: 4001,
+    onReady: ({ port, host }) => console.log(`GraphQL on ${host}:${port}`),
+  },
+  KafkaDriver, // bare constructor — no port needed, e.g. a Kafka consumer
+])
   .database(PrismaClient, new PgAdapter(process.env.DATABASE_URL))  // adapter from lib, no factory fn needed
   .containers({                   // register repositories — no awilix import needed in servers
     demoRepository: singleton(DemoRepository),
   })
-  .routers([DemoRouter])
+  .routers([DemoGrpcRouter, DemoGraphqlRouter])
   .interceptors([AuthInterceptor])
-  .plugins([KafkaPlugin])
-  .port(3000)
-  .host('0.0.0.0')
-  .run((port, host) => console.log(`Running on ${host}:${port}`))
+  .host('0.0.0.0')                // fallback host for entries that don't set their own
+  .run(({ driver, port, host }) => console.log(`${driver} ready on ${host}:${port}`))
 ```
 
-- Each `ServerApp.init()` call creates its own awilix container — no shared state across servers.
+`ServerApp.init()` also accepts a single bare driver constructor (`ServerApp.init(GrpcDriver)`),
+in which case `.port()`/`.host()` configure it directly — useful when a server only runs one driver.
+
+- A driver entry is either a bare `Constructor<BaseDriver>` (falls back to `.host()`/`.port()`
+  defaults — useful for drivers like a Kafka consumer that don't bind a port) or
+  `{ driver, port?, host?, onReady?, config? }` to override per-driver.
+- `config` is passed as the driver's sole constructor argument (`new Driver(config)`) — lets a
+  driver take rich typed config (e.g. `KafkaDriver`'s `{ brokers, clientId, groupId, topics }`)
+  instead of being limited to env vars. Drivers that don't use it are unaffected: `undefined` still
+  triggers their own constructor's default parameters, same as `new Driver()`.
+- `DriverStartOptions` (what every driver's `start()` receives) includes `container: AwilixContainer`
+  — the same container `.containers()`/routers use — so a driver can register things like a shared
+  Kafka client into it (`container.register({ kafkaProducer: asValue(producer) })`), letting
+  repositories/use cases inject it from the cradle the same way they'd inject a repository.
+- `onReady` fires for that driver only, once its `start()` resolves — prefer it over string-matching
+  `info.driver` inside the shared `run()` callback when different drivers need different startup
+  behavior (e.g. different log lines, or driver-specific side effects like health-check registration).
+  `run()`'s callback still fires for **every** driver afterwards, as a catch-all — both can be used
+  together.
+- One `ServerApp` = one awilix container, shared by **all** its drivers/routers — this is the main
+  reason to list multiple drivers on one `ServerApp` instead of creating separate `ServerApp`
+  instances (which each get an isolated container; see "Multi-protocol servers" below).
 - `container` and `prisma` are registered automatically. Routers receive the container via constructor.
 - Plugin instances created in `run()` are retained and reused in `stop()` — not re-instantiated.
+- Each driver only acts on the routers it recognizes (e.g. `ApolloDriver` skips non-GraphQL
+  routers via duck-typing) — so passing a mixed `routers` array to multiple drivers is expected
+  and safe.
 
 ### Drivers
 
@@ -147,7 +185,113 @@ Use cases are auto-registered by the router (always transient, token = `lcFirst(
 |---|---|---|
 | Scope | Request-level | Server-level |
 | Hook | `apply(server)` | `onStart()` / `onStop()` |
-| Examples | Auth, logging, OTel | Kafka, Redis, Meilisearch |
+| Examples | Auth, logging, OTel | Redis, Meilisearch |
+
+Plugins are constructed by `ServerApp` as `new Plugin(container)` — the container is passed
+directly (not awilix PROXY mode, since plugins aren't resolved from the container). A plugin's
+`onStart()` typically registers infra clients into the container via `asValue()` so
+repositories/use cases can inject them from the cradle:
+
+```ts
+class RedisPlugin extends BasePlugin {
+  constructor(private readonly container: AwilixContainer) { super(); }
+
+  async onStart() {
+    const redis = new Redis(/* ... */);
+    this.container.register({ redis: asValue(redis) });
+  }
+  async onStop() { /* disconnect */ }
+}
+```
+
+Kafka is **not** modeled as a plugin — see `KafkaDriver` below. It needs producer/consumer/admin
+lifecycle tied to the same driver-level config (`config` on a `DriverEntry`), and no separate
+plugin instance to duck-type through `DriverStartOptions.plugins`.
+
+### KafkaConsumerRouter + KafkaDriver
+
+One `KafkaDriver` owns the entire Kafka relationship for a server — producer, consumer (if the
+server has any `KafkaConsumerRouter`s), and topic provisioning — configured directly via a
+`DriverEntry`'s `config`, the same way `GrpcDriver`/`ApolloDriver` take `port`/`host`.
+
+```ts
+import { Demo1Demo1Proto } from 'api';
+import { KafkaConsumerRouter, type KafkaHandlerMap } from 'lib';
+import LogDemo1EventUseCase from '../usecases/LogDemo1EventUseCase';
+
+const topics = { 'demo1.events': Demo1Demo1Proto.Demo1 }; // any ts-proto generated message works —
+                                                            // it already has the decode() shape KafkaMessageType<T> needs
+
+export class DemoKafkaRouter extends KafkaConsumerRouter<typeof topics> {
+  get topics() { return topics; }
+  get handlers(): KafkaHandlerMap<typeof topics> {
+    return { 'demo1.events': LogDemo1EventUseCase };
+  }
+}
+```
+
+Consumer server (has a `KafkaConsumerRouter` — e.g. `demo2`):
+
+```ts
+import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from 'lib';
+
+ServerApp.init([
+  { driver: GrpcDriver, port: 5002 },
+  { driver: ApolloDriver, port: 4002 },
+  { driver: KafkaDriver, onReady: () => console.log('Kafka consumer is running') },
+])
+  .routers([DemoGrpcRouter, DemoGraphqlRouter, DemoKafkaRouter])
+  .run();
+```
+
+Producer-only server (no `KafkaConsumerRouter` — e.g. `demo1` — declare topics via `config.topics`
+instead, so they're provisioned up front rather than racing the broker's auto-create):
+
+```ts
+{
+  driver: KafkaDriver,
+  config: { topics: { 'demo1.events': Demo1Demo1Proto.Demo1 } },
+  onReady: () => console.log('Kafka producer is running'),
+}
+```
+
+- `KafkaDriverConfig` (the `config` on a `DriverEntry`): `brokers?`, `clientId?`, `groupId?` (each
+  falls back to `KAFKA_BROKERS`/`KAFKA_CLIENT_ID`/`KAFKA_GROUP_ID` env vars, then a hardcoded
+  default), and `topics?: Record<string, KafkaMessageType<any>>` — topics to provision that no
+  router already declares (the producer side's equivalent of a router's `topics` getter).
+- `start()` always connects a producer and registers `kafka` (raw client) + `kafkaProducer` into
+  `DriverStartOptions.container`, so any repository/use case can inject `kafkaProducer` from the
+  cradle exactly like injecting a repository. It only creates/subscribes a consumer if at least one
+  `KafkaConsumerRouter` was passed to `.routers()` — a produce-only server never joins a consumer
+  group.
+- **Topics are auto-provisioned before anything connects**, via `kafka.admin().createTopics()` over
+  the union of `config.topics` and every `KafkaConsumerRouter.topics` — idempotent (a no-op, not an
+  error, if the topic already exists across multiple servers provisioning the same topic). This is
+  what actually fixes the "topic doesn't exist" race: a consumer subscribing to a topic that's never
+  existed can throw `UNKNOWN_TOPIC_OR_PARTITION` and crash before the broker's own auto-create
+  finishes propagating, even with `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true` — provisioning it explicitly
+  up front removes the race entirely.
+- `KafkaConsumerRouter<TTopics>` is generic over a `{ topicName: protobufMessageType }` map, same
+  shape as `GrpcRouter<TService>` — `KafkaHandlerMap<TTopics>` infers each use case's `TInput` from
+  that topic's message type via `Awaited<ReturnType<TTopics[K]['decode']>>`, so the use case's
+  `execute()` signature is checked against the actual message shape. Consumer use cases return
+  `void` (fire-and-forget), unlike `BaseUseCase`'s request/response usage elsewhere.
+- `KafkaMessageType<T>` only requires a `decode(input: Uint8Array): T | Promise<T>` method — any
+  ts-proto generated message object (`Demo1Demo1Proto.Demo1`, etc.) satisfies it structurally, no
+  new codegen needed to reuse an existing gRPC/GraphQL message type as a Kafka payload. The
+  `Promise<T>` case is what lets a topic's `decode` be backed by an **async** deserializer instead —
+  e.g. wrapping `@confluentinc/schemaregistry`'s `ProtobufDeserializer.deserialize()` (see
+  `servers/demo2/CLAUDE.md` for the concrete pattern actually in use).
+- `register()` is a no-op (same reasoning as `GraphqlRouter`) — `KafkaDriver` reads
+  `router.topics`/`router.dispatchers` directly instead.
+- **`kafkajs`, not `@confluentinc/kafka-javascript`.** The latter ships a native librdkafka addon
+  that is currently incompatible with the Bun runtime — loading it throws a raw V8 symbol lookup
+  error (`undefined symbol: ...FunctionTemplate12SetClassName...`), not just an ABI-version
+  mismatch; this is a confirmed, open upstream gap
+  ([confluentinc/confluent-kafka-javascript#264](https://github.com/confluentinc/confluent-kafka-javascript/issues/264),
+  [oven-sh/bun#24258](https://github.com/oven-sh/bun/issues/24258)), reproducible even after
+  force-installing the matching Node-ABI prebuilt binary. `kafkajs` is pure JS with no native
+  addon, so it works under Bun without caveats — do not switch back until those issues are closed.
 
 ### Abstract base classes
 
@@ -187,8 +331,11 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
 
 - `awilix` — DI container (PROXY injection mode)
 - `@grpc/grpc-js` — dev dep, peer dep for consuming servers
-- `@apollo/server` — dev dep, peer dep for consuming servers
-- `graphql` — dev dep, peer dep
+- `@apollo/server` + `@apollo/subgraph` — dev deps, peer deps for consuming servers
+- `graphql` — dev dep, peer dep — **pinned to `^16.11.0`**, not v17 (ESM-only, breaks
+  `@apollo/subgraph`'s internal `require('graphql')` under Bun)
+- `kafkajs` — dev dep, peer dep for consuming servers; pure JS, no native binding (see
+  KafkaDriver above for why `@confluentinc/kafka-javascript` was rejected)
 - `pg` + `@prisma/adapter-pg` — required by `PgAdapter` for Prisma 7 driver adapter
 - `@prisma/client-runtime-utils` — required by Prisma 7 (install explicitly if missing)
 - `PrismaAdapter` class is deleted — logic lives directly in `ServerApp.database()`
@@ -239,16 +386,18 @@ from each router's `typeDefs`/`resolvers`, rather than passing them to `ApolloSe
 
 ## Multi-protocol servers
 
-A server can run both gRPC and GraphQL by creating two `ServerApp` instances in the same `main()`:
+Preferred: pass multiple drivers to one `ServerApp.init([...])` call (see above) — this shares one
+awilix container across all protocols, so a gRPC-facing repository and a GraphQL-facing one can be
+registered once and injected into both.
+
+Older pattern (still works, but isolates each protocol's container — no shared DI state):
 
 ```ts
 await Promise.all([
-  ServerApp.init(GrpcDriver).routers([DemoGrpcRouter]).port(5001).run(),
-  ServerApp.init(ApolloDriver).routers([DemoGraphqlRouter]).port(4001).run(),
+  ServerApp.init([GrpcDriver]).routers([DemoGrpcRouter]).port(5001).run(),
+  ServerApp.init([ApolloDriver]).routers([DemoGraphqlRouter]).port(4001).run(),
 ]);
 ```
-
-Each instance has its own isolated awilix container.
 
 ## Turborepo / environment
 

@@ -1,16 +1,25 @@
-import { ApolloDriver, GrpcDriver, ServerApp } from "lib";
-import { DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
+import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from "lib";
+import { DemoGraphqlRouter, DemoGrpcRouter, DemoKafkaRouter } from "./routers";
 
 export default async function main() {
-	await Promise.all([
-		ServerApp.init(GrpcDriver)
-			.routers([DemoGrpcRouter])
-			.port(5002)
-			.run((port, host) => console.log(`gRPC running on ${host}:${port}`)),
-
-		ServerApp.init(ApolloDriver)
-			.routers([DemoGraphqlRouter])
-			.port(4002)
-			.run((port, host) => console.log(`GraphQL running on ${host}:${port}`)),
-	]);
+	await ServerApp.init([
+		{
+			driver: GrpcDriver,
+			port: 5002,
+			onReady: ({ host, port }) =>
+				console.log(`gRPC server is running on ${host}:${port}`),
+		},
+		{
+			driver: ApolloDriver,
+			port: 4002,
+			onReady: ({ host, port }) =>
+				console.log(`GraphQL server is running on ${host}:${port}`),
+		},
+		{
+			driver: KafkaDriver,
+			onReady: () => console.log("Kafka consumer is running"),
+		},
+	])
+		.routers([DemoGrpcRouter, DemoGraphqlRouter, DemoKafkaRouter])
+		.run();
 }
