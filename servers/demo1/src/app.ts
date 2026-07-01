@@ -9,6 +9,7 @@ import {
 	singleton,
 } from "lib";
 import { PrismaClient } from "./generated/prisma";
+import { LoggingInterceptor } from "./interceptors";
 import { DemoRepository } from "./repositories";
 import { DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
 
@@ -34,6 +35,7 @@ export default async function main() {
 			onReady: () => console.log(`Kafka producer is running`),
 		},
 	])
+		.interceptors([LoggingInterceptor])
 		.database(PrismaClient, new PgAdapter(import.meta.env.DATABASE_URL!))
 		.containers({
 			demoRepository: singleton(DemoRepository),

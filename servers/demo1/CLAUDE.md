@@ -17,6 +17,9 @@ servers/<name>/
     routers/
       index.ts                # barrel, re-exports every router below
       <Name>Router.ts         # one per protocol/entity, extends GrpcRouter/GraphqlRouter/KafkaConsumerRouter
+    interceptors/
+      index.ts                # barrel
+      <Name>Interceptor.ts    # extends lib's BaseInterceptor, overrides intercept() — see packages/lib/CLAUDE.md
     usecases/
       index.ts                # barrel
       <Name>UseCase.ts        # one class, one execute() method, resolved transiently per request
@@ -153,6 +156,36 @@ Same two connectivity gotchas as the Database section above, both hit in practic
   standalone-started `redis`, even with every other config correct.
 - Symptom of getting the env-var/network mode wrong: `ERR_REDIS_CONNECTION_CLOSED` at connect time
   (`RedisPlugin.onStart()` fails fast — see `packages/lib/CLAUDE.md`'s note on connecting eagerly).
+
+## Custom interceptors
+
+`src/interceptors/LoggingInterceptor.ts` is a **server-local** interceptor — unlike
+`AuthInterceptor` (which ships from `lib`), it's not part of the framework at all. This is the
+intended pattern: `lib` exports `BaseInterceptor`/`InterceptorRequest`/`InterceptorError` precisely
+so a server can define its own `intercept()` implementation without needing to add anything to
+`packages/lib` (see `packages/lib/CLAUDE.md`'s Interceptors vs Plugins section):
+
+```ts
+import { BaseInterceptor, type InterceptorRequest } from 'lib';
+
+export default class LoggingInterceptor extends BaseInterceptor {
+  protected intercept(request: InterceptorRequest): void {
+    const hasAuth = request.getHeader('authorization') !== undefined;
+    const requestId = request.getHeader('x-request-id') ?? 'n/a';
+    console.log(`intercepted request — authorization: ${hasAuth}, x-request-id: ${requestId}`);
+  }
+}
+```
+
+Never rejects — purely observational, useful for confirming an interceptor actually fires per
+request (gRPC and GraphQL both, same as any `BaseInterceptor`) before reaching for something
+heavier like real OTel tracing. Wired in `src/app.ts` via `.interceptors([LoggingInterceptor])`,
+same call as `AuthInterceptor` would use — `ServerApp` doesn't distinguish between an interceptor
+that ships with `lib` and one defined locally.
+
+Note this one uses plain `console.log`, not `lib`'s `log` helper (`script/helper`'s
+chalk-formatted `log.info`) — a server is free to use either; there's no requirement to match
+`lib`'s own logging style for a server-local interceptor.
 
 ## Bun
 

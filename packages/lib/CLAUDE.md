@@ -234,6 +234,95 @@ Kafka is **not** modeled as a plugin — see `KafkaDriver` below. It needs produ
 lifecycle tied to the same driver-level config (`config` on a `DriverEntry`), and no separate
 plugin instance to duck-type through `DriverStartOptions.plugins`.
 
+Interceptors are constructed the same way plugins are — `new I(container)`. Unlike plugins,
+**all the per-protocol wiring lives on `BaseInterceptor` itself** (Template Method) — a concrete
+interceptor only implements one hook:
+
+```ts
+protected abstract intercept(request: InterceptorRequest): void | Promise<void>;
+```
+
+`intercept()` runs once per request — a protocol-agnostic `{ getHeader(name) }` view of the
+incoming call/request, regardless of whether this ends up wired to gRPC or GraphQL. Throw an
+`InterceptorError` to reject the call; return normally (or resolve) to let it continue — nothing
+about the hook is auth-specific, so a logging/OTel interceptor would just read a header and never
+throw. `AuthInterceptor` is the concrete example:
+
+```ts
+import { AuthInterceptor, ServerApp } from 'lib';
+
+ServerApp.init([...])
+  .interceptors([AuthInterceptor])
+  .routers([...])
+  .run();
+```
+
+```ts
+// AuthInterceptor's entire implementation, once BaseInterceptor owns the plumbing:
+export class AuthInterceptor extends BaseInterceptor {
+  protected validateToken(token?: string): boolean {
+    if (!token) return false;
+    const bearerToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    return bearerToken === process.env.AUTH_TOKEN;
+  }
+
+  protected intercept(request: InterceptorRequest): void {
+    if (!this.validateToken(request.getHeader('authorization'))) {
+      throw new InterceptorError('Unauthenticated');
+    }
+  }
+}
+```
+
+- **No constructor at all** — both customization points (`intercept()` and `validateToken()`) are
+  overridable protected methods, not constructor-injected functions, so every interceptor (base or
+  derived) follows the exact same "subclass and override a method" story with no second pattern to
+  learn. `ServerApp.interceptors()` only ever takes bare constructors
+  (`Constructor<BaseInterceptor>[]`), never pre-built instances, so constructor injection wouldn't
+  have been reachable through the framework anyway (same reasoning that removed the earlier unused
+  `container` param).
+- **No real auth service exists in this monorepo yet.** `validateToken()`'s default just compares
+  the incoming token against a static `AUTH_TOKEN` env var (stripping an optional `Bearer ` prefix)
+  — a placeholder, not real auth. Swap it out by subclassing: `class RealAuthInterceptor extends
+  AuthInterceptor { protected async validateToken(token) { return callRealAuthService(token); } }`
+  — see `CustomAuthInterceptor` in `AuthInterceptor.test.ts` for the pattern. Not yet wired into any
+  server's `.interceptors([...])` — servers opt in once there's a real validator to subclass with.
+- **`apply(server)` (concrete on `BaseInterceptor`, not overridden by subclasses) duck-types the
+  raw server it's given** via `protected isGrpcServer(server)`/`isApolloServer(server)` (same
+  technique as `ApolloDriver`'s `isGraphqlRouter`/`KafkaDriver`'s `isKafkaConsumerRouter`), then
+  wires up whichever protocol's *own* extension point applies — there's no shared "middleware"
+  abstraction across gRPC and GraphQL to build one shared mechanism on top of instead:
+  - **gRPC**: `@grpc/grpc-js` only supports server interceptors via `new Server({ interceptors })`
+    at construction time — but `GrpcDriver` already constructs its `Server` before `apply()` runs,
+    so there's no supported post-construction hook. `BaseInterceptor` instead wraps the public
+    `addService()` method itself: every router's later `register()` call (which calls
+    `addService()`) transparently goes through a wrapped implementation that awaits `intercept()`
+    with `call.metadata.get(name)` as `getHeader`, before delegating to the real handler. On a
+    thrown `InterceptorError` it calls back with `status.UNAUTHENTICATED` (16); any other thrown
+    error still rejects the call, but as `status.INTERNAL` (13) instead, so a bug inside
+    `intercept()` doesn't look identical to a deliberate rejection. Only wraps handlers with 2
+    declared params (`(call, callback)` — unary/client-streaming); `GrpcRouter`, this framework's
+    only producer of gRPC handlers, only ever builds `handleUnaryCall` today, so a 1-arg streaming
+    handler is passed through unwrapped rather than guessing at how to reject a stream.
+  - **GraphQL**: `ApolloServer.addPlugin()` is a stable, public extension point — no monkey-patching
+    needed. Registers a plugin whose `didResolveOperation` hook (runs after parsing/validation, but
+    before any resolver executes) awaits `intercept()` with `requestContext.request.http?.headers`
+    as `getHeader`; a thrown `InterceptorError` is re-thrown as a `GraphQLError` with
+    `extensions.code: 'UNAUTHENTICATED'` (Apollo's own convention), any other error propagates as-is
+    (Apollo formats/logs it normally).
+- Multiple interceptors compose fine even though gRPC wiring monkey-patches `addService` — each
+  wraps whatever `addService` currently is (already-wrapped or original) at the time its own
+  `apply()` runs, same as Express-style middleware chaining.
+
+`BaseInterceptor`, `InterceptorRequest`, and `InterceptorError` are all exported from `lib`'s
+top-level barrel specifically so a **server doesn't have to add its interceptor to `lib` at all** —
+`intercept()` isn't auth-specific, so a server can write its own (logging, OTel, rate-limiting,
+whatever it needs) locally and wire it in with `.interceptors([...])` alongside `AuthInterceptor`.
+`servers/demo1/src/interceptors/LoggingInterceptor.ts` is the concrete example of this — see
+`servers/demo1/CLAUDE.md`'s Custom interceptors section. Composes with `AuthInterceptor` for free —
+both just implement `intercept()`, and `apply()`'s `addService`-wrapping chains regardless of order
+or which package an interceptor was defined in.
+
 ### KafkaConsumerRouter + KafkaDriver
 
 One `KafkaDriver` owns the entire Kafka relationship for a server — producer, consumer (if the
