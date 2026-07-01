@@ -2,6 +2,5 @@ include:
   # - ./services/adminer/docker-compose.yml
   - ./services/apollo/docker-compose.yml
   # - ./services/kafka/docker-compose.yml
-  # - ./servers/demo1/docker-compose.yml
-  # - ./servers/demo2/docker-compose.yml
-  # - ./servers/demo3/docker-compose.yml
+  - ./servers/demo1/docker-compose.yml
+  - ./servers/demo2/docker-compose.yml
