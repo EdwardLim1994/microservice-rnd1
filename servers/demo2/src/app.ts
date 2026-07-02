@@ -1,4 +1,10 @@
-import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from "lib";
+import {
+	ApolloDriver,
+	GrpcDriver,
+	KafkaDriver,
+	SchemaRegistryKafkaSerializer,
+	ServerApp,
+} from "lib";
 import { DemoGraphqlRouter, DemoGrpcRouter, DemoKafkaRouter } from "./routers";
 
 export default async function main() {
@@ -17,6 +23,12 @@ export default async function main() {
 		},
 		{
 			driver: KafkaDriver,
+			config: {
+				// No `schemas` needed — demo2 only ever consumes, and decode fetches whatever
+				// schema the producer registered. DemoKafkaRouter resolves this same instance
+				// (registered as kafkaSerializer) from the container to build its decoders.
+				serializer: new SchemaRegistryKafkaSerializer(),
+			},
 			onReady: () => console.log("Kafka consumer is running"),
 		},
 	])

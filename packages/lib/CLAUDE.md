@@ -331,16 +331,13 @@ server has any `KafkaConsumerRouter`s), and topic provisioning — configured di
 `DriverEntry`'s `config`, the same way `GrpcDriver`/`ApolloDriver` take `port`/`host`.
 
 ```ts
-import { Demo1Demo1Proto } from 'api';
+import { demo1EventsTopics } from 'api'; // shared topic declaration — see "Kafka serialization" below
 import { KafkaConsumerRouter, type KafkaHandlerMap } from 'lib';
 import LogDemo1EventUseCase from '../usecases/LogDemo1EventUseCase';
 
-const topics = { 'demo1.events': Demo1Demo1Proto.Demo1 }; // any ts-proto generated message works —
-                                                            // it already has the decode() shape KafkaMessageType<T> needs
-
-export class DemoKafkaRouter extends KafkaConsumerRouter<typeof topics> {
-  get topics() { return topics; }
-  get handlers(): KafkaHandlerMap<typeof topics> {
+export class DemoKafkaRouter extends KafkaConsumerRouter<typeof demo1EventsTopics> {
+  get topicTypes() { return demo1EventsTopics; }
+  get handlers(): KafkaHandlerMap<typeof demo1EventsTopics> {
     return { 'demo1.events': LogDemo1EventUseCase };
   }
 }
@@ -366,20 +363,130 @@ instead, so they're provisioned up front rather than racing the broker's auto-cr
 ```ts
 {
   driver: KafkaDriver,
-  config: { topics: { 'demo1.events': Demo1Demo1Proto.Demo1 } },
+  config: {
+    topics: demo1EventsTopics, // same import DemoKafkaRouter uses above — see "Kafka serialization" below
+    serializer: new SchemaRegistryKafkaSerializer({ schemas: demo1EventsSchemas }),
+  },
   onReady: () => console.log('Kafka producer is running'),
 }
 ```
 
 - `KafkaDriverConfig` (the `config` on a `DriverEntry`): `brokers?`, `clientId?`, `groupId?` (each
   falls back to `KAFKA_BROKERS`/`KAFKA_CLIENT_ID`/`KAFKA_GROUP_ID` env vars, then a hardcoded
-  default), and `topics?: Record<string, KafkaMessageType<any>>` — topics to provision that no
-  router already declares (the producer side's equivalent of a router's `topics` getter).
-- `start()` always connects a producer and registers `kafka` (raw client) + `kafkaProducer` into
-  `DriverStartOptions.container`, so any repository/use case can inject `kafkaProducer` from the
-  cradle exactly like injecting a repository. It only creates/subscribes a consumer if at least one
-  `KafkaConsumerRouter` was passed to `.routers()` — a produce-only server never joins a consumer
-  group.
+  default), `topics?: Record<string, KafkaMessageType<any>>` — topics to provision that no router
+  already declares (the producer side's equivalent of a router's `topicTypes` getter) — and
+  `serializer?: KafkaSerializer` (see "Kafka serialization" below). `serializer` is typed optional
+  on `KafkaDriverConfig` (a produce-only server with no `KafkaConsumerRouter` and only
+  pre-encoded payloads genuinely doesn't need one), but every `KafkaConsumerRouter` unconditionally
+  requires one to be configured somewhere in the server's drivers — see below.
+- `start()` always connects a producer and registers `kafka` (raw client) + a wrapped
+  `kafkaProducer: KafkaProducer` (`{ send(topic, value): Promise<void> }`, not the raw kafkajs
+  `Producer`) into `DriverStartOptions.container`, so any repository/use case can inject
+  `kafkaProducer` from the cradle exactly like injecting a repository. It only creates/subscribes a
+  consumer if at least one `KafkaConsumerRouter` was passed to `.routers()` — a produce-only server
+  never joins a consumer group.
+
+#### Kafka serialization
+
+Kafka messaging in this framework is **protobuf + Schema Registry by convention, not a per-topic
+choice** — `KafkaConsumerRouter` decodes every topic through a container-resolved `KafkaSerializer`
+automatically; there's no abstract `topics` getter to override with custom decode logic per
+router. `KafkaSerializer` is **one strategy shared by both directions of a topic** — a producer's
+`KafkaDriverConfig.serializer` (`serialize(topic, value)`, called from `kafkaProducer.send()`) and
+every consumer router's decode (`deserialize(topic, payload)`, called from the base class's
+concrete `topics` getter) — rather than two unrelated types for the two sides of what's
+conceptually one decision ("how does this topic's bytes get encoded"). With no `serializer`
+configured, `kafkaProducer.send()` requires `value` to already be an encoded
+`Buffer`/`Uint8Array`/`string` and throws otherwise — it never silently stringifies an arbitrary
+object, so a misconfigured producer fails at the call site instead of publishing garbage bytes.
+
+```ts
+export interface KafkaSerializer {
+  serialize(topic: string, value: unknown): Promise<Buffer | Uint8Array>;
+  deserialize<T>(topic: string, payload: Uint8Array): Promise<T>;
+}
+```
+
+`SchemaRegistryKafkaSerializer` is `lib`'s own concrete implementation, generalizing what used to
+be inlined per-use-case (producer) and per-router (consumer) Confluent Schema Registry glue —
+`SchemaRegistryClient` + `ProtobufSerializer` + `ProtobufDeserializer` — into one class backed by a
+single shared client, instead of standing up a separate client per direction (or, on the consumer
+side, per topic):
+
+```ts
+constructor({ kafkaProducer }: { kafkaProducer: KafkaProducer }) { ... }
+
+async execute(...) {
+  await this.kafkaProducer.send('demo1.events', { id: result.id, name: result.name });
+}
+```
+
+```ts
+// src/app.ts — configured once, KafkaDriver registers it into the container as kafkaSerializer
+{
+  driver: KafkaDriver,
+  config: { serializer: new SchemaRegistryKafkaSerializer() }, // decode-only — no schemas needed
+}
+```
+
+```ts
+// src/routers/DemoKafkaRouter.ts — declares which topics it consumes; decode is fully automatic
+const topicTypes = { 'demo1.events': Demo1Demo1eventProto.Demo1Event }; // same shape as config.topics
+
+class DemoKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
+  get topicTypes() { return topicTypes; }
+  get handlers(): KafkaHandlerMap<typeof topicTypes> {
+    return { 'demo1.events': LogDemo1EventUseCase };
+  }
+}
+```
+
+- `serialize()` needs a **protobuf-es** (`@bufbuild/protobuf`) generated schema per topic, passed
+  via `SchemaRegistryKafkaSerializerConfig.schemas` (e.g. `Demo1ProtobufEs.Demo1Schema`, generated
+  into `packages/api` — see `servers/demo1/CLAUDE.md`'s Kafka producer section) — not the
+  `ts-proto` message type used for `config.topics`/gRPC, those are two different codegen outputs
+  for the same `.proto` file. Throws if called for a topic with no schema registered.
+- `deserialize()` needs **no schema at all** — `ProtobufDeserializer` fetches whatever schema the
+  producer actually registered, by the ID embedded in the message's wire format, so decode stays
+  correct as the producer's schema evolves (as long as the change stays BACKWARD-compatible).
+  `schemas` is entirely optional when a `SchemaRegistryKafkaSerializer` instance is only ever used
+  to decode (e.g. `demo2`, a consumer-only server).
+- **Configured once on `KafkaDriverConfig.serializer`, resolved everywhere else via the
+  container** — `KafkaDriver.start()` registers it as `kafkaSerializer` (`asValue`, before any
+  router's `topics`/`dispatchers` are read) whenever `config.serializer` is set, regardless of
+  whether the server produces, consumes, or both — one Schema Registry client per server, shared
+  by every topic and every router, configured in exactly one place (`app.ts`, alongside
+  `brokers`/`groupId`). Since `KafkaConsumerRouter.topics` (below) unconditionally resolves
+  `kafkaSerializer`, any server with a `KafkaConsumerRouter` **must** set `config.serializer` on
+  its `KafkaDriver` entry — there's no longer a way to skip Schema Registry for one topic.
+- **`KafkaConsumerRouter.topics` is concrete, not abstract** — a subclass only implements
+  `topicTypes` (the topic-to-generated-message-type declaration) and `handlers`; the base class's
+  `topics` getter resolves `kafkaSerializer` from the container and binds `deserialize()` to every
+  entry in `topicTypes` itself:
+  - `topicTypes` is the exact `{ topicName: tsProtoGeneratedMessage }` shape already used for
+    `config.topics` (e.g. `{ 'demo1.events': Demo1Demo1eventProto.Demo1Event }`) — only each
+    entry's `decode()` *return type* is used for inference; the entry's own `decode()` is never
+    actually called, since the real decode always goes through the resolved `KafkaSerializer`.
+    `DecodedTopics<TTopicTypes>` (exported from `lib`) is the mapped type describing what
+    `topics` actually returns, if you need to reference that shape directly.
+  - Resolved **lazily on every access**, not cached from the constructor: `ServerApp.run()`
+    constructs all routers (`new R(container)`) before any driver's `start()` runs, and
+    `KafkaDriver` only registers `kafkaSerializer` inside its own `start()` — resolving eagerly in
+    a router's constructor would throw, since nothing has registered it yet at that point.
+- Both factory params (`createMessage`, defaulting to `@bufbuild/protobuf`'s `create`, and
+  `createSerde`, defaulting to a real `SchemaRegistryClient` backing both a `ProtobufSerializer`
+  and a `ProtobufDeserializer`) are injectable — same testability pattern as `KafkaDriver`'s
+  `createKafka` — so tests never hit a real registry over the network.
+- **Sharing a topic's declaration across servers**: `demo1EventsTopics`/`demo1EventsSchemas` are
+  hand-written exports from `packages/api` (`src/kafka/topics.ts` — not under `src/generated/`, so
+  not produced by `APIGenerator`; see `packages/api/CLAUDE.md`), pairing a topic name with its
+  generated message/schema types once so `demo1` (producer, `config.topics`/`serializer.schemas`)
+  and `demo2` (consumer, `topicTypes`) both import the same declaration instead of each
+  re-declaring the `{ 'demo1.events': ... }` literal locally. A topic name isn't derivable from a
+  `.proto` file itself (topic naming is a messaging-topology concern, not part of the wire schema),
+  so this pairing is maintained by hand rather than generated — a custom protobuf option +
+  protoc plugin could derive it in principle, but wasn't judged worth building for the number of
+  topics in this monorepo today.
 - **Topics are auto-provisioned before anything connects**, via `kafka.admin().createTopics()` over
   the union of `config.topics` and every `KafkaConsumerRouter.topics` — idempotent (a no-op, not an
   error, if the topic already exists across multiple servers provisioning the same topic). This is
@@ -387,17 +494,16 @@ instead, so they're provisioned up front rather than racing the broker's auto-cr
   existed can throw `UNKNOWN_TOPIC_OR_PARTITION` and crash before the broker's own auto-create
   finishes propagating, even with `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true` — provisioning it explicitly
   up front removes the race entirely.
-- `KafkaConsumerRouter<TTopics>` is generic over a `{ topicName: protobufMessageType }` map, same
-  shape as `GrpcRouter<TService>` — `KafkaHandlerMap<TTopics>` infers each use case's `TInput` from
-  that topic's message type via `Awaited<ReturnType<TTopics[K]['decode']>>`, so the use case's
-  `execute()` signature is checked against the actual message shape. Consumer use cases return
-  `void` (fire-and-forget), unlike `BaseUseCase`'s request/response usage elsewhere.
+- `KafkaConsumerRouter<TTopicTypes>` is generic over a `{ topicName: protobufMessageType }` map,
+  same shape as `GrpcRouter<TService>` — `KafkaHandlerMap<TTopicTypes>` infers each use case's
+  `TInput` from that topic's message type via `Awaited<ReturnType<TTopicTypes[K]['decode']>>`, so
+  the use case's `execute()` signature is checked against the actual message shape. Consumer use
+  cases return `void` (fire-and-forget), unlike `BaseUseCase`'s request/response usage elsewhere.
 - `KafkaMessageType<T>` only requires a `decode(input: Uint8Array): T | Promise<T>` method — any
-  ts-proto generated message object (`Demo1Demo1Proto.Demo1`, etc.) satisfies it structurally, no
-  new codegen needed to reuse an existing gRPC/GraphQL message type as a Kafka payload. The
-  `Promise<T>` case is what lets a topic's `decode` be backed by an **async** deserializer instead —
-  e.g. wrapping `@confluentinc/schemaregistry`'s `ProtobufDeserializer.deserialize()` (see
-  `servers/demo2/CLAUDE.md` for the concrete pattern actually in use).
+  ts-proto generated message object (`Demo1Demo1Proto.Demo1`, etc.) satisfies it structurally. This
+  is what lets `topicTypes` reuse a plain generated message type directly, and what
+  `KafkaConsumerRouter.topics`'s decode functions (built from the resolved `KafkaSerializer`)
+  return — `deserialize()` is itself `async`, matching `Promise<T>`.
 - `register()` is a no-op (same reasoning as `GraphqlRouter`) — `KafkaDriver` reads
   `router.topics`/`router.dispatchers` directly instead.
 - **`kafkajs`, not `@confluentinc/kafka-javascript`.** The latter ships a native librdkafka addon
@@ -509,6 +615,24 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
   `@apollo/subgraph`'s internal `require('graphql')` under Bun)
 - `kafkajs` — dev dep, peer dep for consuming servers; pure JS, no native binding (see
   KafkaDriver above for why `@confluentinc/kafka-javascript` was rejected)
+- `@confluentinc/schemaregistry` + `@bufbuild/protobuf` — dev deps, required by
+  `SchemaRegistryKafkaSerializer` (see "Kafka serialization" above). `@bufbuild/protobuf` is
+  bundled into `dist` like `kafkajs` is; `@confluentinc/schemaregistry` is **marked external** in
+  `rslib.config.ts` (`'@confluentinc/schemaregistry': 'module @confluentinc/schemaregistry'`) —
+  every consuming server must have it as a **direct runtime dependency** (`demo1`/`demo2` both do).
+  This isn't just a size optimization — bundling it is a genuine runtime crash:
+  `@confluentinc/schemaregistry`'s `index.js` unconditionally `require`s every optional
+  encryption-rule driver (AWS KMS, GCP KMS, etc.) even though `SchemaRegistryKafkaSerializer` only
+  uses plain `ProtobufSerializer`/`ProtobufDeserializer`. Bundling that chain (GCP KMS ->
+  `google-gax` -> `readable-stream`) breaks at runtime — `readable-stream`'s
+  `util.inherits(Readable, Stream)` throws `TypeError: The "superCtor.prototype" property must be
+  of type object. Received undefined`, because Rspack's bundling of that chain's
+  `require('stream')` doesn't resolve Node's core `stream` module the way `readable-stream`
+  expects. Externalizing it resolves the whole package from the consuming server's own
+  `node_modules` at runtime (real Node/Bun module resolution, not Rspack's), sidestepping the
+  bundling bug entirely — confirmed by running `demo1`/`demo2` after the fix, both boot cleanly.
+  Bundling everything (the pre-fix state) also roughly tripled `lib`'s built size (~2.5MB →
+  ~7.6MB) for the unused KMS chain alone — externalizing fixes that too, as a side effect.
 - `RedisPlugin` uses Bun's built-in `RedisClient` (`import { RedisClient } from 'bun'`) — no
   npm dependency needed, unlike the Kafka/gRPC/GraphQL drivers. See its Interceptors vs Plugins
   section above for why that import has to be lazy, and why `rslib.config.ts` marks `bun` external.

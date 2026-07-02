@@ -58,17 +58,46 @@ name, not assume every server matches this template exactly.
 `src/usecases/TestDemoUseCase.ts` publishes to topic `demo1.events` on every `TestDemo` gRPC call,
 via Confluent Schema Registry (not raw `ts-proto` `encode()`):
 
-- Uses `create(Demo1ProtobufEs.Demo1Schema, {...})` (`@bufbuild/protobuf`/protobuf-es) +
+- `demo1event.proto` (`src/schemas/proto/demo1event.proto`, message `Demo1Event { id, name }`) is a
+  **dedicated Kafka message schema**, separate from `demo1.proto`'s `Demo1` (the gRPC response
+  type). The producer owns the topic and its schema, per Kafka convention — reusing the gRPC
+  response type for the wire format would leak an unrelated concern (whatever `TestDemo`'s RPC
+  response happens to look like) into what the topic actually contracts to publish, and couples
+  the two schemas' evolution for no reason.
+- The use case constructs the payload via `Demo1Demo1eventProto.Demo1Event.create({ id, name })`
+  (same `ts-proto` `.create()` pattern as the gRPC response two lines above) and calls
+  `kafkaProducer.send('demo1.events', event)` — the actual Schema Registry serialization is
+  configured once in `src/app.ts` via `lib`'s `SchemaRegistryKafkaSerializer` (`KafkaDriver`'s
+  `config.serializer`, see `packages/lib/CLAUDE.md`'s Kafka serialization section), not
+  re-implemented per use case. The same class also backs `demo2`'s consumer-side decode — see
+  `servers/demo2/CLAUDE.md`.
+- `src/app.ts` sets `config.topics`/`config.serializer.schemas` from `demo1EventsTopics`/
+  `demo1EventsSchemas`, both imported from `api` (`packages/api/src/kafka/topics.ts` — hand-written,
+  not generated; see `packages/api/CLAUDE.md`) rather than declared inline. `demo2`'s
+  `DemoKafkaRouter` imports the same `demo1EventsTopics` for its `topicTypes` — one shared
+  declaration for the topic, instead of each server re-writing the
+  `{ 'demo1.events': Demo1Demo1eventProto.Demo1Event }` literal.
+- `@confluentinc/schemaregistry` is a **direct dependency of `demo1`** (and `demo2`), even though
+  `SchemaRegistryKafkaSerializer` itself lives in `lib` — `lib`'s `rslib.config.ts` marks it
+  external instead of bundling it (see `packages/lib/CLAUDE.md`'s Dependencies section: bundling
+  its GCP KMS encryption-rule chain crashes at runtime), so it must be resolvable from the actual
+  running server's own `node_modules`.
+- Under the hood, `SchemaRegistryKafkaSerializer` calls
+  `create(Demo1EventProtobufEs.Demo1EventSchema, {...})` (`@bufbuild/protobuf`/protobuf-es) +
   `ProtobufSerializer.serialize()` (`@confluentinc/schemaregistry`), **not** `ts-proto`'s
-  `Demo1Demo1Proto.Demo1.encode()` — the registry's serializer needs protobuf-es's descriptor
-  reflection metadata, which `ts-proto`'s plain interfaces don't carry. `ts-proto`'s `Demo1Demo1Proto`
-  is still used for the gRPC response and for `demo1.proto`'s other consumers — only the Kafka
-  payload goes through protobuf-es.
-- `demo1.proto` is generated **twice** by `buf` (see `src/configs/proto/buf.gen.yaml`): once via
-  `protoc-gen-ts_proto` (existing, for gRPC — `packages/api/.../demo1/proto/`) and once via
-  `protoc-gen-es` (new, for the Schema Registry — `packages/api/.../demo1/protobufes/`), exported
-  from `packages/api` as `Demo1ProtobufEs` (hand-added to `packages/api/src/generated/index.ts` —
-  the barrel generator only scans `graphql/`/`proto/` per server, not `protobufes/`).
+  `Demo1Demo1eventProto.Demo1Event.encode()` — the registry's serializer needs protobuf-es's
+  descriptor reflection metadata, which `ts-proto`'s plain interfaces don't carry. `ts-proto`'s
+  `Demo1Demo1eventProto.Demo1Event` is still used for `config.topics` (topic provisioning) and as
+  the compile-time type on both `kafkaProducer.send()`'s payload (`demo1`) and
+  `LogDemo1EventUseCase`'s input (`demo2`) — only the actual wire serialization goes through
+  protobuf-es.
+- `demo1event.proto` is generated **twice** by `buf` (see `src/configs/proto/buf.gen.yaml`), same
+  as `demo1.proto`: once via `protoc-gen-ts_proto` (`packages/api/.../demo1/proto/demo1event.ts`)
+  and once via `protoc-gen-es` (`packages/api/.../demo1/protobufes/demo1event_pb.ts`), exported
+  from `packages/api` as `Demo1EventProtobufEs` (hand-added to `packages/api/src/generated/index.ts`
+  alongside `Demo1ProtobufEs` — the barrel generator only scans `graphql/`/`proto/` per server, not
+  `protobufes/`, so **both** hand-added lines must be re-added if the top-level barrel is ever
+  regenerated from scratch — confirmed this the hard way: a `bun run gen` wiped both on this pass).
 - `autoRegisterSchemas: true` — registers/validates the schema against Confluent Schema Registry on
   first use; a produce fails if the message is no longer BACKWARD-compatible with the previously
   registered schema for `demo1.events-value`, catching drift at the source instead of silently

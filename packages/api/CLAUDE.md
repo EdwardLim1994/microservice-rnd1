@@ -6,7 +6,7 @@ other servers can import them without owning a copy of the `.proto`/schema files
 There is no hand-written business logic here: everything under `src/generated/` is produced by
 `APIGenerator` (see `packages/lib/CLAUDE.md`) and committed to the repo — no CI regeneration step.
 Treat `src/generated/**` as read-only; edit the source server's proto/GraphQL schema instead and
-regenerate.
+regenerate. `src/kafka/` is the one exception — see its own section below.
 
 ## Layout
 
@@ -15,14 +15,26 @@ regenerate.
   and `typeRegistry.ts`, each with barrel `index.ts` files.
 - `graphql/` — codegen output (`typedefs.ts`/`.graphql`, `resolvers.ts`, `context.ts`).
 - `protobufes/` — only present when a server also needs `@bufbuild/protobuf` (protobuf-es)
-  descriptors, e.g. `demo1/protobufes/demo1_pb.ts` for Confluent Schema Registry serialization (see
-  `servers/demo1/CLAUDE.md`). **Not** picked up by `APIGenerator`'s barrel step (which only scans
-  `graphql/`/`proto/` per server) — its export in `src/generated/index.ts` is hand-added and must be
-  re-added if the top-level barrel is ever regenerated from scratch.
+  descriptors, e.g. `demo1/protobufes/demo1_pb.ts` + `demo1event_pb.ts` for Confluent Schema
+  Registry serialization (see `servers/demo1/CLAUDE.md`). **Not** picked up by `APIGenerator`'s
+  barrel step (which only scans `graphql/`/`proto/` per server) — every export from here in
+  `src/generated/index.ts` (`Demo1ProtobufEs`, `Demo1EventProtobufEs`, one per `_pb.ts` file) is
+  hand-added and must be re-added if the top-level barrel is ever regenerated from scratch (running
+  `bun run gen` silently drops all of them, since it only writes what it scanned).
 
 `src/generated/index.ts` — top-level barrel, grouping exports by server name and type, e.g.
 `Demo1Graphql`, `Demo1Demo1Proto`, `Demo1ProtobufEs`. This is the file other packages actually
 import from (`import { Demo1Demo1Proto } from 'api'`).
+
+`src/kafka/` — **hand-written**, unlike everything under `src/generated/`. Pairs a Kafka topic
+name with its generated message/schema types (e.g. `topics.ts`'s `demo1EventsTopics`,
+`demo1EventsSchemas`) so every server that produces or consumes a topic imports the same
+declaration instead of each re-declaring the `{ topicName: ... }` literal locally — see
+`packages/lib/CLAUDE.md`'s Kafka serialization section for how `demo1`/`demo2` actually use it. A
+topic name isn't derivable from a `.proto` file itself (topic naming is a messaging-topology
+concern, not part of the wire schema — `buf`/`protoc-gen-ts_proto` has no notion of "Kafka
+topic"), so this mapping is maintained by hand here rather than generated. Exported from
+`src/index.ts` (`export * from './kafka/topics'`) alongside `src/generated`.
 
 ## Regenerating
 

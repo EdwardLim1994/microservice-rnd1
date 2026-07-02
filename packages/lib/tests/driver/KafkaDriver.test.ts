@@ -2,7 +2,8 @@ import { expect, test } from '@rstest/core';
 import { createContainer, InjectionMode } from 'awilix';
 import type { Kafka } from 'kafkajs';
 import type { BaseRouter } from '../../src/abstract/BaseRouter';
-import { KafkaDriver } from '../../src/driver/KafkaDriver';
+import { KafkaDriver, type KafkaProducer } from '../../src/driver/KafkaDriver';
+import type { KafkaSerializer } from '../../src/kafka/KafkaSerializer';
 
 function makeMockKafka() {
   const state = {
@@ -19,6 +20,7 @@ function makeMockKafka() {
     runConfig: undefined as
       | { eachMessage: (payload: unknown) => Promise<void> }
       | undefined,
+    sent: [] as { topic: string; messages: { value: unknown }[] }[],
   };
 
   const admin = {
@@ -36,6 +38,9 @@ function makeMockKafka() {
   const producer = {
     connect: async () => {
       state.producerConnected = true;
+    },
+    send: async (opts: { topic: string; messages: { value: unknown }[] }) => {
+      state.sent.push(opts);
     },
     disconnect: async () => {
       state.producerDisconnected = true;
@@ -102,7 +107,7 @@ const defaultOptions = {
   interceptors: [],
 };
 
-test('start() always connects a producer and registers it in the container', async () => {
+test('start() always connects a producer and registers a wrapped kafkaProducer in the container', async () => {
   const mock = makeMockKafka();
   const container = makeContainer();
   const driver = new KafkaDriver({}, mock.createKafka);
@@ -115,8 +120,142 @@ test('start() always connects a producer and registers it in the container', asy
   });
 
   expect(mock.state.producerConnected).toBe(true);
-  expect(container.resolve('kafkaProducer')).toBe(mock.producer);
   expect(container.resolve('kafka')).toBeDefined();
+  const kafkaProducer = container.resolve<KafkaProducer>('kafkaProducer');
+  expect(typeof kafkaProducer.send).toBe('function');
+});
+
+test('kafkaProducer.send passes an already-encoded payload straight through when no serializer is configured', async () => {
+  const mock = makeMockKafka();
+  const container = makeContainer();
+  const driver = new KafkaDriver({}, mock.createKafka);
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [],
+    plugins: [],
+    container,
+  });
+
+  const kafkaProducer = container.resolve<KafkaProducer>('kafkaProducer');
+  await kafkaProducer.send('demo1.events', 'already-encoded');
+
+  expect(mock.state.sent).toEqual([
+    { topic: 'demo1.events', messages: [{ value: 'already-encoded' }] },
+  ]);
+});
+
+test('kafkaProducer.send throws when no serializer is configured and the value is not pre-encoded', async () => {
+  const mock = makeMockKafka();
+  const container = makeContainer();
+  const driver = new KafkaDriver({}, mock.createKafka);
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [],
+    plugins: [],
+    container,
+  });
+
+  const kafkaProducer = container.resolve<KafkaProducer>('kafkaProducer');
+  await expect(kafkaProducer.send('demo1.events', { id: '1' })).rejects.toThrow(
+    /no serializer configured/,
+  );
+});
+
+test('kafkaProducer.send uses the configured serializer to serialize the value before publishing', async () => {
+  const mock = makeMockKafka();
+  const container = makeContainer();
+  const serialized = Buffer.from('serialized-bytes');
+  const serializer: KafkaSerializer = {
+    serialize: async (topic, value) => {
+      expect(topic).toBe('demo1.events');
+      expect(value).toEqual({ id: '1' });
+      return serialized;
+    },
+    deserialize: async () => {
+      throw new Error('not used in this test');
+    },
+  };
+  const driver = new KafkaDriver({ serializer }, mock.createKafka);
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [],
+    plugins: [],
+    container,
+  });
+
+  const kafkaProducer = container.resolve<KafkaProducer>('kafkaProducer');
+  await kafkaProducer.send('demo1.events', { id: '1' });
+
+  expect(mock.state.sent).toEqual([
+    { topic: 'demo1.events', messages: [{ value: serialized }] },
+  ]);
+});
+
+test('start() registers config.serializer into the container as kafkaSerializer', async () => {
+  const mock = makeMockKafka();
+  const container = makeContainer();
+  const serializer: KafkaSerializer = {
+    serialize: async () => Buffer.from(''),
+    deserialize: async () => ({}) as never,
+  };
+  const driver = new KafkaDriver({ serializer }, mock.createKafka);
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [],
+    plugins: [],
+    container,
+  });
+
+  expect(container.resolve('kafkaSerializer')).toBe(serializer);
+});
+
+test('start() does not register kafkaSerializer when no serializer is configured', async () => {
+  const mock = makeMockKafka();
+  const container = makeContainer();
+  const driver = new KafkaDriver({}, mock.createKafka);
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [],
+    plugins: [],
+    container,
+  });
+
+  expect(container.hasRegistration('kafkaSerializer')).toBe(false);
+});
+
+test('kafkaSerializer is already resolvable when a router builds its dispatchers — registered before topics/dispatchers are read', async () => {
+  const mock = makeMockKafka();
+  const container = makeContainer();
+  const serializer: KafkaSerializer = {
+    serialize: async () => Buffer.from(''),
+    deserialize: async () => ({}) as never,
+  };
+  const resolvedDuringDispatchers: unknown[] = [];
+  const router = {
+    get topics() {
+      return { 'demo1.events': {} };
+    },
+    get dispatchers() {
+      resolvedDuringDispatchers.push(container.resolve('kafkaSerializer'));
+      return {};
+    },
+    register() {},
+  };
+  const driver = new KafkaDriver({ serializer }, mock.createKafka);
+
+  await driver.start({
+    ...defaultOptions,
+    routers: [router as unknown as BaseRouter],
+    plugins: [],
+    container,
+  });
+
+  expect(resolvedDuringDispatchers).toEqual([serializer]);
 });
 
 test('start() does not touch the admin API when no topics are declared anywhere', async () => {

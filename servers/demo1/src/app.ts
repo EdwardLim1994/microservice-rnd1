@@ -1,4 +1,4 @@
-import { Demo1Demo1Proto } from "api";
+import { demo1EventsSchemas, demo1EventsTopics } from "api";
 import {
 	ApolloDriver,
 	CronDriver,
@@ -6,6 +6,7 @@ import {
 	KafkaDriver,
 	PgAdapter,
 	RedisPlugin,
+	SchemaRegistryKafkaSerializer,
 	ServerApp,
 	singleton,
 } from "lib";
@@ -30,9 +31,18 @@ export default async function main() {
 		},
 		{
 			driver: KafkaDriver,
-			// demo1 only produces to this topic — no KafkaConsumerRouter declares it, so it's
-			// listed here to be provisioned up front instead of racing the broker's auto-create.
-			config: { topics: { "demo1.events": Demo1Demo1Proto.Demo1 } },
+			config: {
+				// demo1 only produces to this topic — no KafkaConsumerRouter declares it, so it's
+				// listed here to be provisioned up front instead of racing the broker's auto-create.
+				// demo1EventsTopics/demo1EventsSchemas (from `api`) are the shared topic declaration
+				// — demo2's DemoKafkaRouter imports the same demo1EventsTopics for its topicTypes.
+				topics: demo1EventsTopics,
+				// Lets kafkaProducer.send("demo1.events", value) auto-serialize a plain value via
+				// Schema Registry instead of every use case building its own serializer.
+				serializer: new SchemaRegistryKafkaSerializer({
+					schemas: demo1EventsSchemas,
+				}),
+			},
 			onReady: () => console.log(`Kafka producer is running`),
 		},
 		{

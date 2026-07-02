@@ -1,42 +1,19 @@
-import {
-	ProtobufDeserializer,
-	SchemaRegistryClient,
-	SerdeType,
-} from "@confluentinc/schemaregistry";
+import { demo1EventsTopics } from "api";
 import { KafkaConsumerRouter, type KafkaHandlerMap } from "lib";
 import { LogDemo1EventUseCase } from "../usecases";
 
-const schemaRegistry = SchemaRegistryClient.newClient({
-	baseURLs: [process.env.SCHEMA_REGISTRY_URL ?? "http://localhost:8081"],
-});
-
-// No local .proto/codegen needed on the consumer side — the deserializer fetches whatever
-// schema the producer actually registered (by the ID embedded in the message), so this stays
-// correct even if demo1's schema evolves, as long as it's still BACKWARD-compatible.
-const deserializer = new ProtobufDeserializer(
-	schemaRegistry,
-	SerdeType.VALUE,
-	{},
-);
-
-const demo1EventsTopic = {
-	"demo1.events": {
-		decode: (payload: Uint8Array) =>
-			deserializer.deserialize(
-				"demo1.events",
-				Buffer.from(payload),
-			) as Promise<{ id: string; name: string }>,
-	},
-};
-
+// demo1EventsTopics (from `api`, same declaration demo1 uses for its config.topics) is the
+// message contract for this topic — decode itself is fully automatic: KafkaConsumerRouter
+// resolves the kafkaSerializer configured on KafkaDriver in this server's app.ts and decodes
+// every topic through it, so this router only declares which topics it consumes.
 export default class DemoKafkaRouter extends KafkaConsumerRouter<
-	typeof demo1EventsTopic
+	typeof demo1EventsTopics
 > {
-	get topics() {
-		return demo1EventsTopic;
+	get topicTypes() {
+		return demo1EventsTopics;
 	}
 
-	get handlers(): KafkaHandlerMap<typeof demo1EventsTopic> {
+	get handlers(): KafkaHandlerMap<typeof demo1EventsTopics> {
 		return { "demo1.events": LogDemo1EventUseCase };
 	}
 }

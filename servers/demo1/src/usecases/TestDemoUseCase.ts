@@ -1,36 +1,17 @@
-import { create } from "@bufbuild/protobuf";
 import {
-	ProtobufSerializer,
-	SchemaRegistryClient,
-	SerdeType,
-} from "@confluentinc/schemaregistry";
-import {
+	Demo1Demo1eventProto,
 	Demo1Demo1Proto,
 	type Demo1GoogleProtobuf,
-	Demo1ProtobufEs,
 } from "api";
 import type { RedisClient } from "bun";
-import type { Producer } from "kafkajs";
-import { BaseUseCase } from "lib";
+import { BaseUseCase, type KafkaProducer } from "lib";
 import type { DemoRepository } from "../repositories";
-
-const schemaRegistry = SchemaRegistryClient.newClient({
-	baseURLs: [process.env.SCHEMA_REGISTRY_URL ?? "http://localhost:8081"],
-});
-
-// autoRegisterSchemas: registers demo1.Demo1 under this subject on first use, and — the actual
-// point — rejects a produce if the message shape is no longer BACKWARD-compatible with whatever
-// schema is already registered for this topic, instead of failing silently on the consumer side.
-const serializer = new ProtobufSerializer(schemaRegistry, SerdeType.VALUE, {
-	autoRegisterSchemas: true,
-});
-serializer.registry.add(Demo1ProtobufEs.Demo1Schema);
 
 export default class TestDemoUseCase extends BaseUseCase<
 	Demo1GoogleProtobuf.Empty,
 	Demo1Demo1Proto.Demo1
 > {
-	private readonly kafkaProducer: Producer;
+	private readonly kafkaProducer: KafkaProducer;
 	private readonly demoRepository: DemoRepository;
 	private readonly redis: RedisClient;
 
@@ -39,7 +20,7 @@ export default class TestDemoUseCase extends BaseUseCase<
 		demoRepository,
 		redis,
 	}: {
-		kafkaProducer: Producer;
+		kafkaProducer: KafkaProducer;
 		demoRepository: DemoRepository;
 		redis: RedisClient;
 	}) {
@@ -64,17 +45,11 @@ export default class TestDemoUseCase extends BaseUseCase<
 			JSON.stringify({ id: result.id, name: result.name }),
 		);
 
-		const registryMessage = create(Demo1ProtobufEs.Demo1Schema, {
+		const event = Demo1Demo1eventProto.Demo1Event.create({
 			id: result.id,
 			name: result.name,
 		});
-
-		const value = await serializer.serialize("demo1.events", registryMessage);
-
-		await this.kafkaProducer.send({
-			topic: "demo1.events",
-			messages: [{ value }],
-		});
+		await this.kafkaProducer.send("demo1.events", event);
 
 		return demo1;
 	}
