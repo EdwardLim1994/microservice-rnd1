@@ -1,5 +1,5 @@
 import { Demo1Demo1Proto } from "api";
-import { type GrpcHandlerMap, GrpcRouter } from "lib";
+import { type GrpcHandlerMap, GrpcRouter } from "server";
 import { TestDemoUseCase } from "../usecases";
 
 export default class DemoGrpcRouter extends GrpcRouter<Demo1Demo1Proto.DemoServiceServer> {

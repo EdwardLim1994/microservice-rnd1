@@ -19,7 +19,7 @@ servers/<name>/
       <Name>Router.ts         # one per protocol/entity, extends GrpcRouter/GraphqlRouter/KafkaConsumerRouter
     interceptors/
       index.ts                # barrel
-      <Name>Interceptor.ts    # extends lib's BaseInterceptor, overrides intercept() — see packages/lib/CLAUDE.md
+      <Name>Interceptor.ts    # extends server's BaseInterceptor, overrides intercept() — see packages/server/CLAUDE.md
     usecases/
       index.ts                # barrel
       <Name>UseCase.ts        # one class, one execute() method, resolved transiently per request
@@ -36,12 +36,12 @@ servers/<name>/
       proto/buf.gen.yaml       # buf codegen template (ts-proto, + protoc-gen-es if needed)
       graphql/codegen.ts       # graphql-codegen config
     scripts/
-      generate_api.sh.ts       # wraps APIGenerator (see packages/lib/CLAUDE.md) — run via `bun run gen`
+      generate_api.sh.ts       # wraps APIGenerator (see packages/script/CLAUDE.md) — run via `bun run gen`
   prisma.config.ts             # only if the server has a DB — see Database section below
   .env / .env.sample           # KAFKA_BROKERS, SCHEMA_REGISTRY_URL, DATABASE_URL, etc. — .env gitignored
   docker-compose.yml           # this server's container(s) + depends_on links to services/*
   Dockerfile                   # builder/migrate/runtime stages — see Database section below
-  package.json                 # depends on workspace `api` and `lib`
+  package.json                 # depends on workspace `api`, `server`, and `script`
 ```
 
 Generated output (`api`'s `src/generated/<name>/`, this server's own `src/generated/prisma` if it
@@ -67,8 +67,8 @@ via Confluent Schema Registry (not raw `ts-proto` `encode()`):
 - The use case constructs the payload via `Demo1Demo1eventProto.Demo1Event.create({ id, name })`
   (same `ts-proto` `.create()` pattern as the gRPC response two lines above) and calls
   `kafkaProducer.send('demo1.events', event)` — the actual Schema Registry serialization is
-  configured once in `src/app.ts` via `lib`'s `SchemaRegistryKafkaSerializer` (`KafkaDriver`'s
-  `config.serializer`, see `packages/lib/CLAUDE.md`'s Kafka serialization section), not
+  configured once in `src/app.ts` via `server`'s `SchemaRegistryKafkaSerializer` (`KafkaDriver`'s
+  `config.serializer`, see `packages/server/CLAUDE.md`'s Kafka serialization section), not
   re-implemented per use case. The same class also backs `demo2`'s consumer-side decode — see
   `servers/demo2/CLAUDE.md`.
 - `src/app.ts` sets `config.topics`/`config.serializer.schemas` from `demo1EventsTopics`/
@@ -78,8 +78,8 @@ via Confluent Schema Registry (not raw `ts-proto` `encode()`):
   declaration for the topic, instead of each server re-writing the
   `{ 'demo1.events': Demo1Demo1eventProto.Demo1Event }` literal.
 - `@confluentinc/schemaregistry` is a **direct dependency of `demo1`** (and `demo2`), even though
-  `SchemaRegistryKafkaSerializer` itself lives in `lib` — `lib`'s `rslib.config.ts` marks it
-  external instead of bundling it (see `packages/lib/CLAUDE.md`'s Dependencies section: bundling
+  `SchemaRegistryKafkaSerializer` itself lives in `server` — `server`'s `rslib.config.ts` marks it
+  external instead of bundling it (see `packages/server/CLAUDE.md`'s Dependencies section: bundling
   its GCP KMS encryption-rule chain crashes at runtime), so it must be resolvable from the actual
   running server's own `node_modules`.
 - Under the hood, `SchemaRegistryKafkaSerializer` calls
@@ -109,7 +109,7 @@ via Confluent Schema Registry (not raw `ts-proto` `encode()`):
   entirely on this machine — it checks for `protoc.exe`, a Windows-only check, so it always reports
   "Protoc is not installed" on Linux/WSL even though `protoc` is present). If you regenerate and the
   barrel `index.ts` files under `packages/api/.../demo1/proto/**` go missing, restore them with
-  `writeSubDirBarrels` from `lib/script/barrel` — but do **not** call it on the top-level
+  `writeSubDirBarrels` from `script/script/barrel` — but do **not** call it on the top-level
   `demo1/proto/` dir itself, that produces an unused, broken barrel (ambiguous re-exports between
   `demo1.ts`/`typeRegistry.ts`/`google/`, which all define the same `ts-proto` helper types) that
   isn't part of the real structure (`demo2/proto/` has no such file either).
@@ -117,7 +117,7 @@ via Confluent Schema Registry (not raw `ts-proto` `encode()`):
 ## Database — Prisma migrations in Docker
 
 `demo1` is the only server with a database (`demo2` has no `schema.prisma`) — see
-`packages/lib/CLAUDE.md`'s Database section for the `ServerApp.database()` / `PgAdapter` wiring.
+`packages/server/CLAUDE.md`'s Database section for the `ServerApp.database()` / `PgAdapter` wiring.
 
 The `Dockerfile` has three stages: `builder` (bun + full `node_modules`, compiles the binary),
 `migrate` (`FROM builder`, runs `./node_modules/.bin/prisma migrate deploy` — not `bunx prisma`,
@@ -148,7 +148,7 @@ Two related gotchas that block DB connectivity even with the migrate job wired u
 
 ## Redis cache (RedisPlugin)
 
-`src/app.ts` wires `.plugins([RedisPlugin])` (see `packages/lib/CLAUDE.md`'s Interceptors vs
+`src/app.ts` wires `.plugins([RedisPlugin])` (see `packages/server/CLAUDE.md`'s Interceptors vs
 Plugins section) alongside `.database()`/`.containers()` — `TestDemoUseCase` destructures `redis`
 from its cradle the same way it destructures `demoRepository`, and caches the row right after the
 Postgres write:
@@ -166,7 +166,7 @@ await this.redis.set(
 the manual `JSON.stringify`. Key convention here is `demo1:<id>`; there's no schema enforcing this,
 so pick a convention per server and stick to it.
 
-Config is `REDIS_URL` only (`packages/lib/CLAUDE.md`'s RedisPlugin notes — no separate
+Config is `REDIS_URL` only (`packages/server/CLAUDE.md`'s RedisPlugin notes — no separate
 host/port/password fields), with the same host-vs-Docker split as `KAFKA_BROKERS`/`DATABASE_URL`
 above — see the commented-out alternate in `.env`:
 - Host-run (`bun dev`/`bun run index.ts` on the host): `redis://:redispassword@localhost:6379`
@@ -184,18 +184,18 @@ Same two connectivity gotchas as the Database section above, both hit in practic
   project — see `services/redis/CLAUDE.md` for the full explanation. `demo1` silently can't reach a
   standalone-started `redis`, even with every other config correct.
 - Symptom of getting the env-var/network mode wrong: `ERR_REDIS_CONNECTION_CLOSED` at connect time
-  (`RedisPlugin.onStart()` fails fast — see `packages/lib/CLAUDE.md`'s note on connecting eagerly).
+  (`RedisPlugin.onStart()` fails fast — see `packages/server/CLAUDE.md`'s note on connecting eagerly).
 
 ## Custom interceptors
 
 `src/interceptors/LoggingInterceptor.ts` is a **server-local** interceptor — unlike
-`AuthInterceptor` (which ships from `lib`), it's not part of the framework at all. This is the
-intended pattern: `lib` exports `BaseInterceptor`/`InterceptorRequest`/`InterceptorError` precisely
+`AuthInterceptor` (which ships from `server`), it's not part of the framework at all. This is the
+intended pattern: `server` exports `BaseInterceptor`/`InterceptorRequest`/`InterceptorError` precisely
 so a server can define its own `intercept()` implementation without needing to add anything to
-`packages/lib` (see `packages/lib/CLAUDE.md`'s Interceptors vs Plugins section):
+`packages/server` (see `packages/server/CLAUDE.md`'s Interceptors vs Plugins section):
 
 ```ts
-import { BaseInterceptor, type InterceptorRequest } from 'lib';
+import { BaseInterceptor, type InterceptorRequest } from 'server';
 
 export default class LoggingInterceptor extends BaseInterceptor {
   protected intercept(request: InterceptorRequest): void {
@@ -210,11 +210,11 @@ Never rejects — purely observational, useful for confirming an interceptor act
 request (gRPC and GraphQL both, same as any `BaseInterceptor`) before reaching for something
 heavier like real OTel tracing. Wired in `src/app.ts` via `.interceptors([LoggingInterceptor])`,
 same call as `AuthInterceptor` would use — `ServerApp` doesn't distinguish between an interceptor
-that ships with `lib` and one defined locally.
+that ships with `server` and one defined locally.
 
-Note this one uses plain `console.log`, not `lib`'s `log` helper (`script/helper`'s
+Note this one uses plain `console.log`, not `server`'s `log` helper (`script/helper`'s
 chalk-formatted `log.info`) — a server is free to use either; there's no requirement to match
-`lib`'s own logging style for a server-local interceptor.
+`server`'s own logging style for a server-local interceptor.
 
 ## Bun
 
@@ -230,7 +230,7 @@ Default to using Bun instead of Node.js.
 
 ## Testing
 
-Run with `bun run test` (NOT `bun test`) — same as `packages/lib`, tests must run inside the
+Run with `bun run test` (NOT `bun test`) — same as `packages/server`, tests must run inside the
 rstest environment, not Bun's own test runner.
 
 - `vi` is NOT exported from `@rstest/core`. Use manual test doubles instead of module mocking.

@@ -27,7 +27,8 @@
 		"dotenv": "^17.4.2",
 		"graphql": "^16.14.2",
 		"kafkajs": "^2.2.4",
-		"lib": "workspace:*",
+		"server": "workspace:*",
+		"script": "workspace:*",
 		"ts-proto": "^2.11.8"
 	},
 	"scripts": {

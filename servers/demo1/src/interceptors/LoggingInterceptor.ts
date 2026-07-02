@@ -1,4 +1,4 @@
-import { BaseInterceptor, type InterceptorRequest } from "lib";
+import { BaseInterceptor, type InterceptorRequest } from "server";
 
 // Never rejects — just observes. Useful for confirming an interceptor is actually wired up and
 // firing per request (gRPC or GraphQL, same as any BaseInterceptor), or for seeing what headers a

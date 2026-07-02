@@ -4,7 +4,7 @@ import {
 	type Demo1GoogleProtobuf,
 } from "api";
 import type { RedisClient } from "bun";
-import { BaseUseCase, type KafkaProducer } from "lib";
+import { BaseUseCase, type KafkaProducer } from "server";
 import type { DemoRepository } from "../repositories";
 
 export default class TestDemoUseCase extends BaseUseCase<

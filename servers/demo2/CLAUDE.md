@@ -8,7 +8,7 @@ Runs gRPC + GraphQL + a Kafka consumer (`KafkaDriver` + `DemoKafkaRouter`), all 
 ## Kafka consumer + Schema Registry
 
 `src/routers/DemoKafkaRouter.ts` declares topic `demo1.events` (produced by `demo1`), decoded via
-`lib`'s `SchemaRegistryKafkaSerializer` (see `packages/lib/CLAUDE.md`'s Kafka serialization
+`server`'s `SchemaRegistryKafkaSerializer` (see `packages/server/CLAUDE.md`'s Kafka serialization
 section — the same class `demo1` uses to produce, since it's one shared strategy for both
 directions of a topic), dispatched to `src/usecases/LogDemo1EventUseCase.ts`.
 
@@ -25,7 +25,7 @@ directions of a topic), dispatched to `src/usecases/LogDemo1EventUseCase.ts`.
   whole router is:
   ```ts
   import { demo1EventsTopics } from "api";
-  import { KafkaConsumerRouter, type KafkaHandlerMap } from "lib";
+  import { KafkaConsumerRouter, type KafkaHandlerMap } from "server";
 
   export default class DemoKafkaRouter extends KafkaConsumerRouter<typeof demo1EventsTopics> {
     get topicTypes() { return demo1EventsTopics; }
@@ -34,7 +34,7 @@ directions of a topic), dispatched to `src/usecases/LogDemo1EventUseCase.ts`.
     }
   }
   ```
-  `KafkaConsumerRouter.topics` (concrete on `lib`'s base class — see `packages/lib/CLAUDE.md`'s
+  `KafkaConsumerRouter.topics` (concrete on `server`'s base class — see `packages/server/CLAUDE.md`'s
   Kafka serialization section) resolves `kafkaSerializer` from the container and binds
   `deserialize()` to every entry in `topicTypes` automatically — the router never calls
   `this.container.resolve(...)` itself, never constructs a `SchemaRegistryKafkaSerializer` (or a
@@ -47,8 +47,8 @@ directions of a topic), dispatched to `src/usecases/LogDemo1EventUseCase.ts`.
   a second consumer topic, extending `topicTypes`/`demo1EventsTopics` reuses the same
   `kafkaSerializer` resolution rather than standing up another client.
   `@confluentinc/schemaregistry` **is still a direct dependency of `demo2`**, even though the code
-  using it (`SchemaRegistryKafkaSerializer`) lives in `lib` — `lib`'s `rslib.config.ts` marks
-  `@confluentinc/schemaregistry` external rather than bundling it (see `packages/lib/CLAUDE.md`'s
+  using it (`SchemaRegistryKafkaSerializer`) lives in `server` — `server`'s `rslib.config.ts` marks
+  `@confluentinc/schemaregistry` external rather than bundling it (see `packages/server/CLAUDE.md`'s
   Dependencies section for why: bundling its GCP KMS encryption-rule chain crashes at runtime with
   `TypeError: The "superCtor.prototype" property must be of type object`), so it has to be
   resolvable from the actual running server's own `node_modules` instead.

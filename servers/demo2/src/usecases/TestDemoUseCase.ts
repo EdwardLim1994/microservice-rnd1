@@ -1,5 +1,5 @@
 import { Demo1GoogleProtobuf, Demo2Demo2Proto } from "api";
-import { BaseUseCase } from "lib";
+import { BaseUseCase } from "server";
 
 export default class TestDemoUseCase extends BaseUseCase<
 	Demo1GoogleProtobuf.Empty,

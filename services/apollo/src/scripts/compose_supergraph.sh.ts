@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { $ } from "bun";
-import { createFolder } from "lib";
+import { createFolder } from "script";
 
 createFolder("dist");
 

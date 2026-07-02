@@ -4,7 +4,7 @@
 		"@types/bun": "latest"
 	},
 	"dependencies": {
-		"turbo": "^2.9.18"
+		"turbo": "^2.10.2"
 	},
 	"workspaces": [
 		"apps/*",
@@ -17,9 +17,8 @@
 	"scripts": {
 		"dev": "turbo run dev",
 		"build": "turbo run build",
-		"build:lib": "turbo run build:lib",
 		"test": "turbo run test",
-		"gen": "turbo run gen && turbo run build:lib",
+		"gen": "turbo run gen && turbo run build --filter=api",
 		"compile": "turbo run compile",
 		"format": "turbo run format",
 		"lint": "turbo run lint",

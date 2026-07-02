@@ -1,5 +1,5 @@
 import type { Demo2Graphql } from "api";
-import { BaseUseCase } from "lib";
+import { BaseUseCase } from "server";
 
 export default class Demo2ByDemo1UseCase extends BaseUseCase<
 	Demo2Graphql.FederationReferenceTypes["Demo1"],

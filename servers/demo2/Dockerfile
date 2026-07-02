@@ -17,7 +17,7 @@ COPY servers/${SERVER_NAME} ./servers/${SERVER_NAME}
 
 RUN bun install --ignore-scripts
 
-RUN bun run build:lib
+RUN bun run build
 
 WORKDIR /app/servers/"${SERVER_NAME}"
 

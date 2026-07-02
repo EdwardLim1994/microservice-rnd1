@@ -4,7 +4,7 @@ Shared API types package — generated proto (gRPC) and GraphQL types produced b
 other servers can import them without owning a copy of the `.proto`/schema files themselves.
 
 There is no hand-written business logic here: everything under `src/generated/` is produced by
-`APIGenerator` (see `packages/lib/CLAUDE.md`) and committed to the repo — no CI regeneration step.
+`APIGenerator` (see `packages/script/CLAUDE.md`) and committed to the repo — no CI regeneration step.
 Treat `src/generated/**` as read-only; edit the source server's proto/GraphQL schema instead and
 regenerate. `src/kafka/` is the one exception — see its own section below.
 
@@ -30,7 +30,7 @@ import from (`import { Demo1Demo1Proto } from 'api'`).
 name with its generated message/schema types (e.g. `topics.ts`'s `demo1EventsTopics`,
 `demo1EventsSchemas`) so every server that produces or consumes a topic imports the same
 declaration instead of each re-declaring the `{ topicName: ... }` literal locally — see
-`packages/lib/CLAUDE.md`'s Kafka serialization section for how `demo1`/`demo2` actually use it. A
+`packages/server/CLAUDE.md`'s Kafka serialization section for how `demo1`/`demo2` actually use it. A
 topic name isn't derivable from a `.proto` file itself (topic naming is a messaging-topology
 concern, not part of the wire schema — `buf`/`protoc-gen-ts_proto` has no notion of "Kafka
 topic"), so this mapping is maintained by hand here rather than generated. Exported from
@@ -38,7 +38,7 @@ topic"), so this mapping is maintained by hand here rather than generated. Expor
 
 ## Regenerating
 
-Run `APIGenerator` from the owning server (not from here) — see `packages/lib/CLAUDE.md`'s
+Run `APIGenerator` from the owning server (not from here) — see `packages/script/CLAUDE.md`'s
 APIGenerator section, or the regeneration command in the relevant `servers/<name>/CLAUDE.md`
 (e.g. `servers/demo1/CLAUDE.md` documents the `buf generate` invocation and the barrel-recovery
 caveat if subdirectory barrels go missing after a regen).
@@ -47,14 +47,14 @@ caveat if subdirectory barrels go missing after a regen).
 
 - `@grpc/grpc-js` — types referenced by generated proto output.
 - `graphql` — types referenced by generated GraphQL output. Currently pinned to `^17.0.1` here,
-  which is **inconsistent** with `packages/lib`'s pin to `^16.11.0` (kept below v17 specifically to
+  which is **inconsistent** with `packages/server`'s pin to `^16.11.0` (kept below v17 specifically to
   avoid breaking `@apollo/subgraph`'s CJS `require('graphql')` under Bun — see
-  `packages/lib/CLAUDE.md`). Since servers depend on both `api` and `lib`, this mismatch is worth
+  `packages/server/CLAUDE.md`). Since servers depend on both `api` and `server`, this mismatch is worth
   reconciling rather than treating as settled.
 - `@bufbuild/protobuf` — only needed for the `protobufes/` output.
 
 ## Turborepo / environment
 
 Bun defaults (`bun install`, `bunx`, etc.) apply, same as the rest of the monorepo — see the root
-`CLAUDE.md`. This package has no runtime server of its own; `build:lib` (rslib) just compiles
+`CLAUDE.md`. This package has no runtime server of its own; `build` (rslib) just compiles
 `src/index.ts` to `dist/` for other workspace packages to consume.

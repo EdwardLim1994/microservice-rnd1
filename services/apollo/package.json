@@ -7,7 +7,7 @@
 	},
 	"dependencies": {
 		"@apollo/rover": "^0.40.0",
-		"lib": "workspace:*"
+		"script": "workspace:*"
 	},
 	"scripts": {
 		"supergraph": "bun ./src/scripts/compose_supergraph.sh.ts"

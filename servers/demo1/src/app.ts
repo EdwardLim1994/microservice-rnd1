@@ -9,7 +9,7 @@ import {
 	SchemaRegistryKafkaSerializer,
 	ServerApp,
 	singleton,
-} from "lib";
+} from "server";
 import { PrismaClient } from "../generated/prisma";
 import { LoggingInterceptor } from "./interceptors";
 import { DemoRepository } from "./repositories";

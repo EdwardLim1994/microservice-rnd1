@@ -32,7 +32,7 @@ const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 // Every KafkaConsumerRouter decodes through a container-registered KafkaSerializer — Kafka
 // messaging in this framework is protobuf + Schema Registry by convention (see
-// packages/lib/CLAUDE.md's Kafka serialization section), not a per-router choice. A router only
+// packages/server/CLAUDE.md's Kafka serialization section), not a per-router choice. A router only
 // declares which topics it consumes and what generated message type each one is; decoding itself
 // is handled here, once, for every router.
 export abstract class KafkaConsumerRouter<

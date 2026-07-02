@@ -73,7 +73,7 @@ export class KafkaDriver extends BaseDriver {
 
     // Registered before routers' topics/dispatchers are read below — a KafkaConsumerRouter may
     // resolve kafkaSerializer from the container to build its own decoders (see
-    // packages/lib/CLAUDE.md's Kafka serialization section), so it must already be there.
+    // packages/server/CLAUDE.md's Kafka serialization section), so it must already be there.
     if (this.config.serializer) {
       container.register({ kafkaSerializer: asValue(this.config.serializer) });
     }

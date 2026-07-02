@@ -1,5 +1,5 @@
 import type { Demo1Demo1eventProto } from "api";
-import { BaseUseCase } from "lib";
+import { BaseUseCase } from "server";
 
 export default class LogDemo1EventUseCase extends BaseUseCase<
 	Demo1Demo1eventProto.Demo1Event,

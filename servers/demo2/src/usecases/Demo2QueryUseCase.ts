@@ -3,7 +3,7 @@ import {
 	type ServiceError,
 } from "@grpc/grpc-js";
 import { Demo1GoogleProtobuf, Demo2Demo2Proto, type Demo2Graphql } from "api";
-import { BaseUseCase } from "lib";
+import { BaseUseCase } from "server";
 
 const client = new Demo2Demo2Proto.DemoServiceClient(
 	"localhost:5002",

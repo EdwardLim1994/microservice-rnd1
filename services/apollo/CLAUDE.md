@@ -1,7 +1,7 @@
 # services/apollo
 
 Docker Compose entry for the Apollo Router (`ghcr.io/apollographql/router`), fronting the
-federation subgraphs on `:4000` (see `packages/lib/CLAUDE.md`'s GraphQL federation section for how
+federation subgraphs on `:4000` (see `packages/server/CLAUDE.md`'s GraphQL federation section for how
 `demo1`/`demo2` build their subgraph schemas). Router config: `src/config/router.yaml`.
 Env (`.env`, gitignored): `APOLLO_ROUTER_CONFIG_PATH`, `APOLLO_ROUTER_SUPERGRAPH_PATH`,
 `APOLLO_ROUTER_HOT_RELOAD`, `APOLLO_ROUTER_CHECK`.
@@ -34,4 +34,4 @@ which the router container mounts read-only (see `docker-compose.yml`'s `volumes
 
 - `@apollo/rover` — the `rover` CLI used by `compose_supergraph.sh.ts` (`--elv2-license=accept`
   is required non-interactively).
-- `lib` — only for `createFolder` (ensures `dist/` exists before writing the composed schema).
+- `script` — only for `createFolder` (ensures `dist/` exists before writing the composed schema).

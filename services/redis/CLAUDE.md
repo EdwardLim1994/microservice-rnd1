@@ -5,7 +5,7 @@ Docker Compose stack: `redis` (single instance, password-protected) and `redis-c
 (browser UI on `:8091`).
 
 - `redis` requires auth (`command: redis-server --requirepass redispassword`) — any client,
-  including `lib`'s `RedisPlugin` (see `packages/lib/CLAUDE.md`), needs the password embedded in
+  including `server`'s `RedisPlugin` (see `packages/server/CLAUDE.md`), needs the password embedded in
   its connection URL (`redis://:redispassword@<host>:6379`), not a separate config field.
 - `redis` has a Docker healthcheck (`redis-cli -a redispassword ping | grep -q PONG`) — a container
   being *up* isn't the same as Redis being ready to accept auth'd connections. Anything depending on

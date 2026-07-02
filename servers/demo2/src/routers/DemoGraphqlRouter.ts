@@ -1,5 +1,5 @@
 import { Demo2Graphql } from "api";
-import { type GraphqlHandlerMap, GraphqlRouter } from "lib";
+import { type GraphqlHandlerMap, GraphqlRouter } from "server";
 import { Demo2ByDemo1UseCase, Demo2QueryUseCase } from "../usecases";
 
 export default class DemoGraphqlRouter extends GraphqlRouter {

@@ -1,4 +1,4 @@
-# packages/lib
+# packages/server
 
 Shared library used by all servers in this monorepo. Built with rslib, tested with rstest.
 
@@ -11,7 +11,7 @@ protocol (gRPC, GraphQL, Kafka consumer, ...) but they all share one awilix cont
 routers/interceptors/plugins, and one lifecycle:
 
 ```ts
-import { ApolloDriver, GrpcDriver, KafkaDriver, PgAdapter, ServerApp, singleton } from 'lib';
+import { ApolloDriver, GrpcDriver, KafkaDriver, PgAdapter, ServerApp, singleton } from 'server';
 
 ServerApp.init([
   {
@@ -26,7 +26,7 @@ ServerApp.init([
   },
   KafkaDriver, // bare constructor — no port needed, e.g. a Kafka consumer
 ])
-  .database(PrismaClient, new PgAdapter(process.env.DATABASE_URL))  // adapter from lib, no factory fn needed
+  .database(PrismaClient, new PgAdapter(process.env.DATABASE_URL))  // adapter from server, no factory fn needed
   .containers({                   // register repositories — no awilix import needed in servers
     demoRepository: singleton(DemoRepository),
   })
@@ -144,7 +144,7 @@ Prisma 7 uses a rust-free "client" engine that **requires a driver adapter**.
 - Registers client as `prisma` (singleton) in the container
 - `run()` calls `$connect()`, `stop()` calls `$disconnect()` then `dbAdapter.end()`
 
-`PgAdapter` is provided by lib (PostgreSQL). To add another database in future, create a class implementing `DbAdapter`:
+`PgAdapter` is provided by server (PostgreSQL). To add another database in future, create a class implementing `DbAdapter`:
 ```ts
 export interface DbAdapter {
   readonly adapter: unknown;
@@ -153,7 +153,7 @@ export interface DbAdapter {
 ```
 
 ```ts
-import { PgAdapter } from 'lib';
+import { PgAdapter } from 'server';
 .database(PrismaClient, new PgAdapter(process.env.DATABASE_URL))
 // PgAdapter accepts a connection string or pg PoolConfig object
 ```
@@ -167,10 +167,10 @@ Each server has its own Prisma schema, config, and generated client:
 
 ### Registering dependencies
 
-Repositories must be registered via `.containers()` using helpers from lib — no awilix import needed in servers:
+Repositories must be registered via `.containers()` using helpers from server — no awilix import needed in servers:
 
 ```ts
-import { singleton, transient } from 'lib';
+import { singleton, transient } from 'server';
 
 .containers({
   userRepository: singleton(UserRepository),   // one instance per container
@@ -191,11 +191,11 @@ Use cases are auto-registered by the router (always transient, token = `lcFirst(
 Plugins are constructed by `ServerApp` as `new Plugin(container)` — the container is passed
 directly (not awilix PROXY mode, since plugins aren't resolved from the container). A plugin's
 `onStart()` typically registers infra clients into the container via `asValue()` so
-repositories/use cases can inject them from the cradle. `RedisPlugin` (`lib`'s own implementation)
+repositories/use cases can inject them from the cradle. `RedisPlugin` (`server`'s own implementation)
 is the concrete example:
 
 ```ts
-import { RedisPlugin, ServerApp } from 'lib';
+import { RedisPlugin, ServerApp } from 'server';
 
 ServerApp.init([...])
   .plugins([RedisPlugin])
@@ -250,7 +250,7 @@ about the hook is auth-specific, so a logging/OTel interceptor would just read a
 throw. `AuthInterceptor` is the concrete example:
 
 ```ts
-import { AuthInterceptor, ServerApp } from 'lib';
+import { AuthInterceptor, ServerApp } from 'server';
 
 ServerApp.init([...])
   .interceptors([AuthInterceptor])
@@ -315,8 +315,9 @@ export class AuthInterceptor extends BaseInterceptor {
   wraps whatever `addService` currently is (already-wrapped or original) at the time its own
   `apply()` runs, same as Express-style middleware chaining.
 
-`BaseInterceptor`, `InterceptorRequest`, and `InterceptorError` are all exported from `lib`'s
-top-level barrel specifically so a **server doesn't have to add its interceptor to `lib` at all** —
+`BaseInterceptor`, `InterceptorRequest`, and `InterceptorError` are all exported from `server`'s
+top-level barrel specifically so a consuming server doesn't have to add its interceptor to the
+`server` package at all —
 `intercept()` isn't auth-specific, so a server can write its own (logging, OTel, rate-limiting,
 whatever it needs) locally and wire it in with `.interceptors([...])` alongside `AuthInterceptor`.
 `servers/demo1/src/interceptors/LoggingInterceptor.ts` is the concrete example of this — see
@@ -332,7 +333,7 @@ server has any `KafkaConsumerRouter`s), and topic provisioning — configured di
 
 ```ts
 import { demo1EventsTopics } from 'api'; // shared topic declaration — see "Kafka serialization" below
-import { KafkaConsumerRouter, type KafkaHandlerMap } from 'lib';
+import { KafkaConsumerRouter, type KafkaHandlerMap } from 'server';
 import LogDemo1EventUseCase from '../usecases/LogDemo1EventUseCase';
 
 export class DemoKafkaRouter extends KafkaConsumerRouter<typeof demo1EventsTopics> {
@@ -346,7 +347,7 @@ export class DemoKafkaRouter extends KafkaConsumerRouter<typeof demo1EventsTopic
 Consumer server (has a `KafkaConsumerRouter` — e.g. `demo2`):
 
 ```ts
-import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from 'lib';
+import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from 'server';
 
 ServerApp.init([
   { driver: GrpcDriver, port: 5002 },
@@ -407,7 +408,7 @@ export interface KafkaSerializer {
 }
 ```
 
-`SchemaRegistryKafkaSerializer` is `lib`'s own concrete implementation, generalizing what used to
+`SchemaRegistryKafkaSerializer` is `server`'s own concrete implementation, generalizing what used to
 be inlined per-use-case (producer) and per-router (consumer) Confluent Schema Registry glue —
 `SchemaRegistryClient` + `ProtobufSerializer` + `ProtobufDeserializer` — into one class backed by a
 single shared client, instead of standing up a separate client per direction (or, on the consumer
@@ -467,7 +468,7 @@ class DemoKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
     `config.topics` (e.g. `{ 'demo1.events': Demo1Demo1eventProto.Demo1Event }`) — only each
     entry's `decode()` *return type* is used for inference; the entry's own `decode()` is never
     actually called, since the real decode always goes through the resolved `KafkaSerializer`.
-    `DecodedTopics<TTopicTypes>` (exported from `lib`) is the mapped type describing what
+    `DecodedTopics<TTopicTypes>` (exported from `server`) is the mapped type describing what
     `topics` actually returns, if you need to reference that shape directly.
   - Resolved **lazily on every access**, not cached from the constructor: `ServerApp.run()`
     constructs all routers (`new R(container)`) before any driver's `start()` runs, and
@@ -523,7 +524,7 @@ routers it recognizes (duck-typed via `schedules`/`dispatchers`, same technique 
 `isKafkaConsumerRouter`).
 
 ```ts
-import { CronDriver, CronRouter, type CronHandlerMap } from 'lib';
+import { CronDriver, CronRouter, type CronHandlerMap } from 'server';
 import CleanupStaleSessionsUseCase from '../usecases/CleanupStaleSessionsUseCase';
 
 const schedules = { cleanup: '0 0 * * *' }; // five-field cron expression, UTC — see Bun.cron docs
@@ -537,7 +538,7 @@ export class DemoCronRouter extends CronRouter<typeof schedules> {
 ```
 
 ```ts
-import { CronDriver, GrpcDriver, ServerApp } from 'lib';
+import { CronDriver, GrpcDriver, ServerApp } from 'server';
 
 ServerApp.init([
   { driver: GrpcDriver, port: 5001 },
@@ -631,7 +632,7 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
   expects. Externalizing it resolves the whole package from the consuming server's own
   `node_modules` at runtime (real Node/Bun module resolution, not Rspack's), sidestepping the
   bundling bug entirely — confirmed by running `demo1`/`demo2` after the fix, both boot cleanly.
-  Bundling everything (the pre-fix state) also roughly tripled `lib`'s built size (~2.5MB →
+  Bundling everything (the pre-fix state) also roughly tripled `server`'s built size (~2.5MB →
   ~7.6MB) for the unused KMS chain alone — externalizing fixes that too, as a side effect.
 - `RedisPlugin` uses Bun's built-in `RedisClient` (`import { RedisClient } from 'bun'`) — no
   npm dependency needed, unlike the Kafka/gRPC/GraphQL drivers. See its Interceptors vs Plugins
@@ -639,25 +640,6 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
 - `pg` + `@prisma/adapter-pg` — required by `PgAdapter` for Prisma 7 driver adapter
 - `@prisma/client-runtime-utils` — required by Prisma 7 (install explicitly if missing)
 - `PrismaAdapter` class is deleted — logic lives directly in `ServerApp.database()`
-
-## APIGenerator (script/)
-
-`APIGenerator` is a fluent builder for generating proto and GraphQL API types into `packages/api`.
-
-```ts
-import { APIGenerator } from 'lib';
-
-APIGenerator.init('demo1')
-  .apiLocation('../../packages/api')
-  .path('src/generated')
-  .generate();
-```
-
-- Checks for `graphql-codegen.exe` and `protoc.exe` in `node_modules/.bin` before running — skips gracefully if not found
-- After proto generation, writes `index.ts` barrel files recursively into each proto subdirectory
-- Writes a top-level `index.ts` barrel grouping exports by server name and type (e.g. `Demo1Graphql`, `Demo1Demo1Proto`)
-- Uses `chalk` for coloured log output (`log.info`, `log.warn`, `log.error`, `log.success`)
-- Helper utilities also exported: `writeSubDirBarrels`, `collectSubDirExports`, `createFolder`, `checkDependency`, `log`
 
 ## GraphQL federation
 
@@ -679,7 +661,7 @@ from each router's `typeDefs`/`resolvers`, rather than passing them to `ApolloSe
 - `ApolloDriver` still uses `startStandaloneServer`, so each server runs as a standalone subgraph — federating
   multiple subgraphs behind a gateway/router is out of scope here (use `@apollo/gateway` or the Apollo Router
   in front of these subgraph endpoints).
-- **`lib`'s `graphql` dependency is pinned to `^16.11.0`**, matching `@apollo/server`/`@apollo/subgraph` peer
+- **`server`'s `graphql` dependency is pinned to `^16.11.0`**, matching `@apollo/server`/`@apollo/subgraph` peer
   deps and every server in the monorepo. `graphql@17` is ESM-only and breaks `@apollo/subgraph`'s internal
   `require('graphql')` under Bun ("Cannot require() ES Module ... not yet fully loaded") — do not bump past v16
   until Apollo's federation packages support it.
@@ -704,7 +686,11 @@ await Promise.all([
 - Run `bun dev` at repo root — requires `turbo` with the correct platform binary installed
 - On Windows: `turbo` needs `@turbo/windows-64` and the Visual C++ Redistributable (2015–2022); **WSL is the recommended alternative**
 - Default `ServerApp` host is `0.0.0.0` — using `localhost` on Windows causes gRPC to fail binding (tries both `::1` and `127.0.0.1`)
-- `lib` must be built (`bun run build:lib`) before servers can start — turbo `dev` task has no `dependsOn` so build it manually first if needed
+- `server` must be built (`bun run build`) before servers can start — `turbo.json`'s `dev` task
+  declares `"dependsOn": ["^build"]`, so `turbo run dev` builds `server` (and any other workspace
+  dependency, e.g. `script`/`api`) automatically before starting a dependent server's `dev` watcher;
+  a standalone `bun run build` is only needed if you're running a server outside of `turbo run dev`
+  (e.g. `bun run index.ts` directly against a stale/missing `dist`)
 
 ## Generated API (packages/api)
 

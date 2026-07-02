@@ -1,4 +1,4 @@
-import { BaseUseCase } from "lib";
+import { BaseUseCase } from "server";
 
 export default class LogHeartbeatUseCase extends BaseUseCase<void, void> {
 	async execute(): Promise<void> {

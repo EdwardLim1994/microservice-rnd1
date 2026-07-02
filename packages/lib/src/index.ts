@@ -6,4 +6,3 @@ export * from './kafka';
 export * from './plugin';
 export * from './router';
 export { ServerApp, singleton, transient } from './ServerApp';
-export * from './script';

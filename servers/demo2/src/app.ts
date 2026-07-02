@@ -4,7 +4,7 @@ import {
 	KafkaDriver,
 	SchemaRegistryKafkaSerializer,
 	ServerApp,
-} from "lib";
+} from "server";
 import { DemoGraphqlRouter, DemoGrpcRouter, DemoKafkaRouter } from "./routers";
 
 export default async function main() {

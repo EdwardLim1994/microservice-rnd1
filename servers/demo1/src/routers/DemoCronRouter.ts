@@ -1,4 +1,4 @@
-import { type CronHandlerMap, CronRouter } from "lib";
+import { type CronHandlerMap, CronRouter } from "server";
 import { LogHeartbeatUseCase } from "../usecases/";
 
 const schedules = { heartbeat: "* * * * *" }; // every minute, UTC

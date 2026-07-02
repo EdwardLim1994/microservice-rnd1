@@ -1,5 +1,5 @@
 import { demo1EventsTopics } from "api";
-import { KafkaConsumerRouter, type KafkaHandlerMap } from "lib";
+import { KafkaConsumerRouter, type KafkaHandlerMap } from "server";
 import { LogDemo1EventUseCase } from "../usecases";
 
 // demo1EventsTopics (from `api`, same declaration demo1 uses for its config.topics) is the
