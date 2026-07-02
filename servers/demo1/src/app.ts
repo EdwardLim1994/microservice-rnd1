@@ -9,7 +9,7 @@ import {
 	ServerApp,
 	singleton,
 } from "lib";
-import { PrismaClient } from "./generated/prisma";
+import { PrismaClient } from "../generated/prisma";
 import { LoggingInterceptor } from "./interceptors";
 import { DemoRepository } from "./repositories";
 import { DemoCronRouter, DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
