@@ -70,6 +70,7 @@ in which case `.port()`/`.host()` configure it directly — useful when a server
 |---|---|---|
 | `GrpcDriver` | gRPC | `@grpc/grpc-js` |
 | `ApolloDriver` | GraphQL | `@apollo/server` |
+| `CronDriver` | Scheduled jobs | `Bun.cron` (built-in, no dep) |
 
 Both accept injectable server/factory params in their constructor for testability (avoids module mocking in tests).
 
@@ -407,6 +408,63 @@ instead, so they're provisioned up front rather than racing the broker's auto-cr
   [oven-sh/bun#24258](https://github.com/oven-sh/bun/issues/24258)), reproducible even after
   force-installing the matching Node-ABI prebuilt binary. `kafkajs` is pure JS with no native
   addon, so it works under Bun without caveats — do not switch back until those issues are closed.
+
+### CronRouter + CronDriver
+
+`CronDriver` runs scheduled background jobs using Bun's built-in **in-process** `Bun.cron()` —
+no `node-cron`/external dependency. Like `KafkaDriver`, it doesn't bind a port and only acts on
+routers it recognizes (duck-typed via `schedules`/`dispatchers`, same technique as
+`isKafkaConsumerRouter`).
+
+```ts
+import { CronDriver, CronRouter, type CronHandlerMap } from 'lib';
+import CleanupStaleSessionsUseCase from '../usecases/CleanupStaleSessionsUseCase';
+
+const schedules = { cleanup: '0 0 * * *' }; // five-field cron expression, UTC — see Bun.cron docs
+
+export class DemoCronRouter extends CronRouter<typeof schedules> {
+  get schedules() { return schedules; }
+  get handlers(): CronHandlerMap<typeof schedules> {
+    return { cleanup: CleanupStaleSessionsUseCase };
+  }
+}
+```
+
+```ts
+import { CronDriver, GrpcDriver, ServerApp } from 'lib';
+
+ServerApp.init([
+  { driver: GrpcDriver, port: 5001 },
+  { driver: CronDriver, onReady: () => console.log('Cron jobs scheduled') },
+])
+  .routers([DemoGrpcRouter, DemoCronRouter])
+  .run();
+```
+
+A server can also run **standalone as a cron-only server** — pass just `CronDriver` (bare or in a
+single-element array) to `ServerApp.init()` with no gRPC/GraphQL/Kafka driver at all; the container,
+`.database()`, `.plugins()` etc. all still work normally since they're driver-agnostic.
+
+- `CronRouter<TSchedules>` mirrors `KafkaConsumerRouter<TTopics>`: abstract `schedules` (schedule
+  name → cron expression, analogous to `topics`) and `handlers` (schedule name → `BaseUseCase`
+  subclass). Handler use cases take no input and return nothing (`BaseUseCase<void, void>`) — a
+  cron job doesn't decode a payload the way a Kafka message does. `dispatchers` auto-registers each
+  use case transiently into the container exactly like `KafkaConsumerRouter.dispatchers` (token =
+  `lcFirst(ClassName)`, skipped if already registered). `register()` is a no-op — `CronDriver` reads
+  `.schedules`/`.dispatchers` directly.
+- `CronDriver.start()` calls `Bun.cron(schedule, handler)` once per schedule entry across every
+  `CronRouter` passed to `.routers()`, keeping the returned `Bun.CronJob` handles; `stop()` calls
+  `.stop()` on each. Bun's in-process cron shares state across invocations (module-level
+  variables, DB connections persist) and dies with the process — it does not survive a reboot or
+  registration outside a running server. That's the deliberate tradeoff here (vs. Bun's other
+  `Bun.cron(path, schedule, title)` overload, which spawns a fresh OS-level process per fire and
+  survives reboots, but can't share the app's awilix container/DI-resolved use cases at all).
+- **Error isolation**: `Bun.cron`'s docs say an uncaught throw/rejection from a job callback
+  matches `setTimeout` semantics — without a listener, it takes the whole process down. `CronDriver`
+  wraps every dispatch in `try/catch` so one failing job can't crash a multi-driver server, reporting
+  through `CronDriverConfig.onError?: (error, name) => void` (defaults to `console.error`).
+- Cron expressions are always interpreted in **UTC**, regardless of the host's `TZ` — same as
+  `Bun.cron` itself.
 
 ### Abstract base classes
 

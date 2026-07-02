@@ -1,6 +1,7 @@
 import { Demo1Demo1Proto } from "api";
 import {
 	ApolloDriver,
+	CronDriver,
 	GrpcDriver,
 	KafkaDriver,
 	PgAdapter,
@@ -11,7 +12,7 @@ import {
 import { PrismaClient } from "./generated/prisma";
 import { LoggingInterceptor } from "./interceptors";
 import { DemoRepository } from "./repositories";
-import { DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
+import { DemoCronRouter, DemoGraphqlRouter, DemoGrpcRouter } from "./routers";
 
 export default async function main() {
 	await ServerApp.init([
@@ -34,6 +35,10 @@ export default async function main() {
 			config: { topics: { "demo1.events": Demo1Demo1Proto.Demo1 } },
 			onReady: () => console.log(`Kafka producer is running`),
 		},
+		{
+			driver: CronDriver,
+			onReady: () => console.log(`Cron driver is running`),
+		},
 	])
 		.interceptors([LoggingInterceptor])
 		.database(PrismaClient, new PgAdapter(import.meta.env.DATABASE_URL!))
@@ -41,6 +46,6 @@ export default async function main() {
 			demoRepository: singleton(DemoRepository),
 		})
 		.plugins([RedisPlugin])
-		.routers([DemoGrpcRouter, DemoGraphqlRouter])
+		.routers([DemoGrpcRouter, DemoGraphqlRouter, DemoCronRouter])
 		.run();
 }
