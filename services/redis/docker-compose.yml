@@ -15,14 +15,14 @@ services:
       timeout: 5s
       retries: 10
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: redis_commander_ui
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redis_insight_ui
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "8091:8081"
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-redispassword}
+      - "8091:5540"
     networks:
       - redis
     depends_on:

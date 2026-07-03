@@ -33,6 +33,7 @@
   },
   "scripts": {
     "dev": "bun run index.ts --watch --verbose",
-    "gen": "bun ./src/scripts/generate_api.sh.ts"
+    "gen": "bun ./src/scripts/generate_api.sh.ts",
+    "postinstall": "prisma generate"
   }
 }
