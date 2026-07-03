@@ -23,7 +23,7 @@ WORKDIR /app/servers/"${SERVER_NAME}"
 
 RUN  bun build ./index.ts \
     --compile \
-    --target=bun-linux-x64 \
+    --target=bun-linux-arm64 \
     --outfile=./"${SERVER_NAME}"
 
 # ── runtime ────────────────────────────────────────────────────────────────────

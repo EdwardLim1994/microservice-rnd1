@@ -1,10 +1,11 @@
 services:
-
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # This name appears in the UI Sidebar
       KAFKA_CLUSTERS_0_NAME: local-cluster
@@ -12,7 +13,7 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       # Allows you to delete messages or topics from the UI
       AUTH_TYPE: DISABLED
-      DYNAMIC_CONFIG_ENABLED: 'true'
+      DYNAMIC_CONFIG_ENABLED: "true"
     networks:
       - kafka
 
@@ -52,7 +53,11 @@ services:
     healthcheck:
       # Checks the broker actually answers requests (not just that the port is open —
       # Kafka can accept TCP connections before it's finished becoming leader/ready).
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092",
+        ]
       interval: 5s
       timeout: 10s
       retries: 20
