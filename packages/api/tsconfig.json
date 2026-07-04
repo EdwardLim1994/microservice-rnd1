@@ -1,16 +1,7 @@
 {
+  "extends": "config/src/typescript/tsconfig.bun-library.json",
   "compilerOptions": {
-    "lib": ["ES2022"],
-    "noEmit": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "resolveJsonModule": true,
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "useDefineForClassFields": true,
-    "allowImportingTsExtensions": true,
-    "rootDir": "src",
-    "types": ["bun"]
+    "rootDir": "src"
   },
   "include": ["src"]
 }

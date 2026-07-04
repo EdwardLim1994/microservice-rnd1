@@ -61,7 +61,10 @@ test('resolver function calls use case execute with args', async () => {
   expect(result).toBe('Hello World');
 });
 
-class Demo2ByDemo1UseCase extends BaseUseCase<{ id: string }, { id: string }[]> {
+class Demo2ByDemo1UseCase extends BaseUseCase<
+  { id: string },
+  { id: string }[]
+> {
   async execute(parent: { id: string }) {
     return [{ id: `${parent.id}-child` }];
   }

@@ -83,7 +83,10 @@ export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
   }
 
   async deserialize<T>(topic: string, payload: Uint8Array): Promise<T> {
-    return this.deserializer.deserialize(topic, Buffer.from(payload)) as Promise<T>;
+    return this.deserializer.deserialize(
+      topic,
+      Buffer.from(payload),
+    ) as Promise<T>;
   }
 
   // Binds this serializer's deserialize() to one topic, matching KafkaMessageType<T> so it drops

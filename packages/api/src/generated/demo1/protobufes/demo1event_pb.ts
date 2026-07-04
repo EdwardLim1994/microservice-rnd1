@@ -2,20 +2,23 @@
 // @generated from file demo1event.proto (package demo1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2';
+import { fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2';
+import type { Message } from '@bufbuild/protobuf';
 
 /**
  * Describes the file demo1event.proto.
  */
-export const file_demo1event: GenFile = /*@__PURE__*/
-  fileDesc("ChBkZW1vMWV2ZW50LnByb3RvEgVkZW1vMSImCgpEZW1vMUV2ZW50EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAliBnByb3RvMw");
+export const file_demo1event: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'ChBkZW1vMWV2ZW50LnByb3RvEgVkZW1vMSImCgpEZW1vMUV2ZW50EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAliBnByb3RvMw',
+  );
 
 /**
  * @generated from message demo1.Demo1Event
  */
-export type Demo1Event = Message<"demo1.Demo1Event"> & {
+export type Demo1Event = Message<'demo1.Demo1Event'> & {
   /**
    * @generated from field: string id = 1;
    */
@@ -31,6 +34,6 @@ export type Demo1Event = Message<"demo1.Demo1Event"> & {
  * Describes the message demo1.Demo1Event.
  * Use `create(Demo1EventSchema)` to create a new message.
  */
-export const Demo1EventSchema: GenMessage<Demo1Event> = /*@__PURE__*/
+export const Demo1EventSchema: GenMessage<Demo1Event> =
+  /*@__PURE__*/
   messageDesc(file_demo1event, 0);
-

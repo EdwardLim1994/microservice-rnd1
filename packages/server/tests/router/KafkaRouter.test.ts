@@ -2,7 +2,10 @@ import { expect, test } from '@rstest/core';
 import { asValue, createContainer, InjectionMode } from 'awilix';
 import { BaseUseCase } from '../../src/abstract/BaseUseCase';
 import type { KafkaSerializer } from '../../src/kafka/KafkaSerializer';
-import { KafkaConsumerRouter, type KafkaHandlerMap } from '../../src/router/KafkaRouter';
+import {
+  KafkaConsumerRouter,
+  type KafkaHandlerMap,
+} from '../../src/router/KafkaRouter';
 
 interface Demo1Event {
   id: string;

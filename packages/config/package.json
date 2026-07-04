@@ -1,0 +1,14 @@
+{
+	"name": "config",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"files": [
+		"src/typescript/tsconfig.base.json",
+		"src/typescript/tsconfig.bun-service.json",
+		"src/typescript/tsconfig.bun-library.json",
+		"src/typescript/tsconfig.frontend.json",
+		"src/buf/buf.yaml",
+		"src/biome/biome.json"
+	]
+}

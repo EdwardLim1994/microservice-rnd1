@@ -3,7 +3,8 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "latest",
+		"config": "workspace:*"
 	},
 	"dependencies": {
 		"@apollo/rover": "^0.40.0",

@@ -5,10 +5,10 @@
 // source: google/protobuf/empty.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { messageTypeRegistry } from "../../typeRegistry";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
+import { messageTypeRegistry } from '../../typeRegistry';
 
-export const protobufPackage = "google.protobuf";
+export const protobufPackage = 'google.protobuf';
 
 /**
  * A generic empty message that you can re-use to avoid defining duplicated
@@ -20,22 +20,23 @@ export const protobufPackage = "google.protobuf";
  *     }
  */
 export interface Empty {
-  $type: "google.protobuf.Empty";
+  $type: 'google.protobuf.Empty';
 }
 
 function createBaseEmpty(): Empty {
-  return { $type: "google.protobuf.Empty" };
+  return { $type: 'google.protobuf.Empty' };
 }
 
-export const Empty: MessageFns<Empty, "google.protobuf.Empty"> = {
-  $type: "google.protobuf.Empty" as const,
+export const Empty: MessageFns<Empty, 'google.protobuf.Empty'> = {
+  $type: 'google.protobuf.Empty' as const,
 
   encode(_: Empty, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Empty {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseEmpty();
     while (reader.pos < end) {
@@ -70,17 +71,31 @@ export const Empty: MessageFns<Empty, "google.protobuf.Empty"> = {
 
 messageTypeRegistry.set(Empty.$type, Empty);
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 export interface MessageFns<T, V extends string> {
   readonly $type: V;

@@ -1,1 +1,1 @@
-export { AuthInterceptor } from "./AuthInterceptor";
+export { AuthInterceptor } from './AuthInterceptor';

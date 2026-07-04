@@ -5,36 +5,40 @@
 // source: demo1event.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { messageTypeRegistry } from "./typeRegistry";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "demo1";
+export const protobufPackage = 'demo1';
 
 export interface Demo1Event {
-  $type: "demo1.Demo1Event";
+  $type: 'demo1.Demo1Event';
   id: string;
   name: string;
 }
 
 function createBaseDemo1Event(): Demo1Event {
-  return { $type: "demo1.Demo1Event", id: "", name: "" };
+  return { $type: 'demo1.Demo1Event', id: '', name: '' };
 }
 
-export const Demo1Event: MessageFns<Demo1Event, "demo1.Demo1Event"> = {
-  $type: "demo1.Demo1Event" as const,
+export const Demo1Event: MessageFns<Demo1Event, 'demo1.Demo1Event'> = {
+  $type: 'demo1.Demo1Event' as const,
 
-  encode(message: Demo1Event, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: Demo1Event,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
-    if (message.name !== "") {
+    if (message.name !== '') {
       writer.uint32(18).string(message.name);
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Demo1Event {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseDemo1Event();
     while (reader.pos < end) {
@@ -68,17 +72,17 @@ export const Demo1Event: MessageFns<Demo1Event, "demo1.Demo1Event"> = {
   fromJSON(object: any): Demo1Event {
     return {
       $type: Demo1Event.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
-      name: isSet(object.name) ? globalThis.String(object.name) : "",
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
+      name: isSet(object.name) ? globalThis.String(object.name) : '',
     };
   },
 
   toJSON(message: Demo1Event): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
-    if (message.name !== "") {
+    if (message.name !== '') {
       obj.name = message.name;
     }
     return obj;
@@ -87,27 +91,43 @@ export const Demo1Event: MessageFns<Demo1Event, "demo1.Demo1Event"> = {
   create<I extends Exact<DeepPartial<Demo1Event>, I>>(base?: I): Demo1Event {
     return Demo1Event.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Demo1Event>, I>>(object: I): Demo1Event {
+  fromPartial<I extends Exact<DeepPartial<Demo1Event>, I>>(
+    object: I,
+  ): Demo1Event {
     const message = createBaseDemo1Event();
-    message.id = object.id ?? "";
-    message.name = object.name ?? "";
+    message.id = object.id ?? '';
+    message.name = object.name ?? '';
     return message;
   },
 };
 
 messageTypeRegistry.set(Demo1Event.$type, Demo1Event);
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

@@ -45,7 +45,10 @@ function makeMockSerde() {
   };
 }
 
-function makeSerializer(mock: ReturnType<typeof makeMockSerde>, schemas?: Record<string, DescMessage>) {
+function makeSerializer(
+  mock: ReturnType<typeof makeMockSerde>,
+  schemas?: Record<string, DescMessage>,
+) {
   return new SchemaRegistryKafkaSerializer(
     { schemas },
     (schema, value) => ({ schema, value }),
@@ -73,7 +76,10 @@ test('serialize() builds a message via createMessage and delegates to the serial
   const result = await serializer.serialize('demo1.events', { id: '1' });
 
   expect(mock.serialized).toEqual([
-    { topic: 'demo1.events', message: { schema: Demo1Schema, value: { id: '1' } } },
+    {
+      topic: 'demo1.events',
+      message: { schema: Demo1Schema, value: { id: '1' } },
+    },
   ]);
   expect(result).toBe(mock.serializeResult);
 });
@@ -82,9 +88,9 @@ test('serialize() throws for a topic with no registered schema', async () => {
   const mock = makeMockSerde();
   const serializer = makeSerializer(mock, { 'demo1.events': Demo1Schema });
 
-  await expect(serializer.serialize('unknown.topic', { id: '1' })).rejects.toThrow(
-    /no schema registered for topic "unknown.topic"/,
-  );
+  await expect(
+    serializer.serialize('unknown.topic', { id: '1' }),
+  ).rejects.toThrow(/no schema registered for topic "unknown.topic"/);
 });
 
 test('deserialize() delegates to the deserializer for the given topic', async () => {
@@ -104,7 +110,9 @@ test('decoder() binds deserialize() to one topic, satisfying KafkaMessageType<T>
   const mock = makeMockSerde();
   const serializer = makeSerializer(mock);
 
-  const decoder = serializer.decoder<{ id: string; name: string }>('demo1.events');
+  const decoder = serializer.decoder<{ id: string; name: string }>(
+    'demo1.events',
+  );
   const result = await decoder.decode(new Uint8Array());
 
   expect(mock.deserializeCalls[0]?.topic).toBe('demo1.events');

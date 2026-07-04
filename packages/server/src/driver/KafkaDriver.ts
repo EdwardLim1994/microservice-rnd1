@@ -11,7 +11,9 @@ export interface KafkaProducer {
   send(topic: string, value: unknown): Promise<void>;
 }
 
-function isEncodedPayload(value: unknown): value is Buffer | Uint8Array | string {
+function isEncodedPayload(
+  value: unknown,
+): value is Buffer | Uint8Array | string {
   return typeof value === 'string' || value instanceof Uint8Array;
 }
 
@@ -120,7 +122,10 @@ export class KafkaDriver extends BaseDriver {
         await rawProducer.send({
           topic,
           messages: [
-            { value: typeof payload === 'string' ? payload : Buffer.from(payload) },
+            {
+              value:
+                typeof payload === 'string' ? payload : Buffer.from(payload),
+            },
           ],
         });
       },

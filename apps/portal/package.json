@@ -21,6 +21,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
     "@module-federation/rsbuild-plugin": "^0.24.0",
+    "config": "workspace:*",
     "@rsbuild/core": "^2.1.4",
     "@rsbuild/plugin-react": "^2.1.0",
     "@rsbuild/plugin-tailwindcss": "^2.0.3",

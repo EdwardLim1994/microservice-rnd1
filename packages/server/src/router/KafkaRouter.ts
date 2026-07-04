@@ -22,7 +22,9 @@ export type KafkaHandlerMap<
 // KafkaDriverConfig.topics, e.g. { 'demo1.events': Demo1Demo1eventProto.Demo1Event }) to the
 // KafkaMessageType<T> map a topic actually decodes to — each T inferred from that message's own
 // decode() return type. This is what KafkaConsumerRouter.topics returns automatically.
-export type DecodedTopics<TTopicTypes extends Record<string, KafkaMessageType<any>>> = {
+export type DecodedTopics<
+  TTopicTypes extends Record<string, KafkaMessageType<any>>,
+> = {
   [K in keyof TTopicTypes]: KafkaMessageType<
     Awaited<ReturnType<TTopicTypes[K]['decode']>>
   >;
@@ -54,11 +56,15 @@ export abstract class KafkaConsumerRouter<
   // constructed (ServerApp.run() builds all routers up front) — resolving in the constructor
   // would throw.
   get topics(): DecodedTopics<TTopicTypes> {
-    const serializer = this.container.resolve<KafkaSerializer>('kafkaSerializer');
+    const serializer =
+      this.container.resolve<KafkaSerializer>('kafkaSerializer');
     return Object.fromEntries(
       Object.keys(this.topicTypes).map((topic) => [
         topic,
-        { decode: (payload: Uint8Array) => serializer.deserialize(topic, payload) },
+        {
+          decode: (payload: Uint8Array) =>
+            serializer.deserialize(topic, payload),
+        },
       ]),
     ) as DecodedTopics<TTopicTypes>;
   }

@@ -7,7 +7,9 @@ import type { BaseUseCase } from '../abstract/BaseUseCase';
 export type CronScheduleMap = Record<string, string>;
 
 export type CronHandlerMap<TSchedules extends CronScheduleMap> = {
-  [K in keyof TSchedules]: new (...args: any[]) => BaseUseCase<void, void>;
+  [K in keyof TSchedules]: new (
+    ...args: any[]
+  ) => BaseUseCase<void, void>;
 };
 
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
