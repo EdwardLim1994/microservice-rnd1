@@ -1,7 +1,3 @@
-# AGENTS.md
-
-You are an expert in JavaScript, Rsbuild, and web application development. You write maintainable, performant, and accessible code.
-
 ## Commands
 
 - `bun run dev` - Start the dev server

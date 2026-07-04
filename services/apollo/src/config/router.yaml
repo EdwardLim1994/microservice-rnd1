@@ -3,6 +3,24 @@ supergraph:
   path: /graphql
   introspection: true
 
+cors:
+  policies:
+    # Local dev frontends: frontend1's own dev server (3001) and portal (3000),
+    # which loads frontend1 as a Module Federation remote.
+    - origins:
+        - http://localhost:3000
+        - http://localhost:3001
+      allow_headers:
+        - content-type
+      methods:
+        - GET
+        - POST
+        - OPTIONS
+    # Router default — Apollo Sandbox UI (enabled via `sandbox.enabled` above)
+    # queries this router directly from studio.apollographql.com.
+    - origins:
+        - https://studio.apollographql.com
+
 sandbox:
   enabled: true
 

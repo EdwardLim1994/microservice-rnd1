@@ -33,7 +33,7 @@
     "ts-proto": "^2.11.8"
   },
   "scripts": {
-    "dev": "bun run index.ts --watch --verbose",
+    "tdev": "bun run index.ts --watch --verbose",
     "gen": "bun ./src/scripts/generate_api.sh.ts",
     "postinstall": "prisma generate"
   }
