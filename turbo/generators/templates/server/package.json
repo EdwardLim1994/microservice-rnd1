@@ -7,7 +7,8 @@
 		"@types/bun": "latest"
 	},
 	"dependencies": {
-		"server": "workspace:*"
+		"server": "workspace:*",
+		"config": "workspace:*"
 	},
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose"

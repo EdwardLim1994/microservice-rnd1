@@ -248,6 +248,22 @@
         "protoc": "^35.1.0",
       },
     },
+    "servers/grpc-test-server": {
+      "name": "grpc-test-server",
+      "dependencies": {
+        "@grpc/grpc-js": "^1.14.4",
+        "api": "workspace:*",
+        "config": "workspace:*",
+        "script": "workspace:*",
+        "server": "workspace:*",
+        "ts-proto": "^2.11.8",
+      },
+      "devDependencies": {
+        "@bufbuild/buf": "^1.70.0",
+        "@types/bun": "latest",
+        "protoc": "^35.1.0",
+      },
+    },
     "services/adminer": {
       "name": "adminer",
       "devDependencies": {
@@ -2292,6 +2308,8 @@
     "graphql-tag": ["graphql-tag@2.12.7", "", { "dependencies": { "tslib": "^2.1.0" }, "peerDependencies": { "graphql": "^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0" } }, "sha512-xnE/NFzy+0eIesvAsREJZ284zTl/wYuBAvpsFSDhRGRdRHdnE90M21Q3xAWyYInb0J756c6x0pIQ62+vtvOs1Q=="],
 
     "graphql-ws": ["graphql-ws@6.0.8", "", { "peerDependencies": { "@fastify/websocket": "^10 || ^11", "crossws": "~0.3", "graphql": "^15.10.1 || ^16", "ws": "^8" }, "optionalPeers": ["@fastify/websocket", "crossws", "ws"] }, "sha512-m3EOaNsUBXwAnkBWbzPfe0Nq8pXUfxsWnolC54sru3FzHvhTZL0Ouf/BoQsaGAXqM+YPerXOJ47BUnmgmoupCw=="],
+
+    "grpc-test-server": ["grpc-test-server@workspace:servers/grpc-test-server"],
 
     "gtoken": ["gtoken@8.0.0", "", { "dependencies": { "gaxios": "^7.0.0", "jws": "^4.0.0" } }, "sha512-+CqsMbHPiSTdtSO14O51eMNlrp9N79gmeqmXeouJOhfucAedHw9noVe/n5uJk3tbKE6a+6ZCQg3RPhVhHByAIw=="],
 

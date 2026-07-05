@@ -1,18 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
-import { workspaceChoices } from "../helpers";
+import { detectIndent, workspaceChoices } from "../helpers";
 
 const PRISMA_VERSION = "^7.8.0";
+const DEFAULT_DB_PORT = 5101;
 const TEMPLATES_DIR = path.join(process.cwd(), "turbo", "generators", "templates", "database");
 
 function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
-}
-
-function detectIndent(raw: string): string {
-	const match = raw.match(/\n([ \t]+)\S/);
-	return match ? match[1] : "\t";
 }
 
 // Merges the prisma/@prisma packages + postinstall script into an existing package.json,
@@ -57,6 +53,30 @@ function appendDatabaseUrl(absPath: string, dbUrl: string, createIfMissing: bool
 	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
 	fs.writeFileSync(absPath, `${existing}${separator}\n# Database\n${dbUrl}\n`);
 	return `${relToRoot(absPath)} (+DATABASE_URL)`;
+}
+
+// Scans every servers/*/docker-compose.yml for a host port already bound to Postgres's
+// container port (5432) and returns the lowest port >= DEFAULT_DB_PORT not already taken —
+// e.g. demo1 has "5101:5432", so a second DB-enabled server gets 5102, not another 5101.
+function findAvailableDbPort(root: string): number {
+	const serversDir = path.join(root, "servers");
+	const usedPorts = new Set<number>();
+
+	if (fs.existsSync(serversDir)) {
+		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
+			if (!entry.isDirectory()) continue;
+			const composePath = path.join(serversDir, entry.name, "docker-compose.yml");
+			if (!fs.existsSync(composePath)) continue;
+			const raw = fs.readFileSync(composePath, "utf-8");
+			for (const match of raw.matchAll(/"(\d+):5432"/g)) {
+				usedPorts.add(Number(match[1]));
+			}
+		}
+	}
+
+	let port = DEFAULT_DB_PORT;
+	while (usedPorts.has(port)) port++;
+	return port;
 }
 
 function ensureAdminerNetworkDeclared(raw: string): string {
@@ -119,7 +139,8 @@ export default class DatabaseGenerator {
 		plop.setActionType("appendDatabaseEnv", (answers) => {
 			const { location } = answers as { location: string };
 			const name = path.basename(location);
-			const dbUrl = `DATABASE_URL=postgresql://myuser:mypassword@localhost:5101/${name}`;
+			const port = findAvailableDbPort(process.cwd());
+			const dbUrl = `DATABASE_URL=postgresql://myuser:mypassword@localhost:${port}/${name}`;
 			const results = [
 				appendDatabaseUrl(path.join(process.cwd(), location, ".env.sample"), dbUrl, true),
 				appendDatabaseUrl(path.join(process.cwd(), location, ".env"), dbUrl, false),
@@ -130,11 +151,12 @@ export default class DatabaseGenerator {
 		plop.setActionType("injectDatabaseDockerCompose", (answers, _config, plopApi) => {
 			const { location } = answers as { location: string };
 			const name = path.basename(location);
+			const port = findAvailableDbPort(process.cwd());
 			const template = fs.readFileSync(
 				path.join(TEMPLATES_DIR, "docker-compose-snippet.hbs"),
 				"utf-8",
 			);
-			const snippet = plopApi.renderString(template, { name });
+			const snippet = plopApi.renderString(template, { name, port });
 			return injectDockerComposeServices(
 				path.join(process.cwd(), location, "docker-compose.yml"),
 				snippet,

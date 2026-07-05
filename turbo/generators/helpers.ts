@@ -36,6 +36,16 @@ export function findServerWorkspacesWithoutPrisma(root: string): string[] {
 	return findServerWorkspaces(root).filter((rel) => !withPrisma.has(rel));
 }
 
+// The inverse: server workspaces that don't have gRPC wired up yet, i.e. eligible
+// targets for the "grpc" extension generator.
+export function findServerWorkspacesWithoutGrpc(root: string): string[] {
+	return findServerWorkspaces(root).filter((rel) => {
+		const appPath = path.join(root, rel, "src", "app.ts");
+		if (!fs.existsSync(appPath)) return true;
+		return !fs.readFileSync(appPath, "utf-8").includes("GrpcDriver");
+	});
+}
+
 // Shared "list" prompt choices for a location prompt, with a disabled placeholder
 // when no eligible workspace was found.
 export function workspaceChoices(
@@ -45,6 +55,13 @@ export function workspaceChoices(
 	return workspaces.length > 0
 		? workspaces
 		: [{ name: emptyMessage, value: "", disabled: true }];
+}
+
+// Detects a file's own indentation style (servers are inconsistent: demo1 uses
+// 2-space, demo2 uses tabs), so a JSON/TS rewrite can preserve it instead of clobbering it.
+export function detectIndent(raw: string): string {
+	const match = /\n([ \t]+)\S/.exec(raw);
+	return match ? match[1] : "\t";
 }
 
 function appendBarrelExport(absBarrelPath: string, name: string): string {

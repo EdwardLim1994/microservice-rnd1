@@ -23,7 +23,7 @@
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: {{ name }}
     ports:
-      - "5101:5432"
+      - "{{ port }}:5432"
     networks:
       - adminer
     healthcheck:
