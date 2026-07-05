@@ -3,6 +3,8 @@ services:
     build:
       context: ../..
       dockerfile: servers/demo1/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
     container_name: demo1_server
     ports:
       - "4001:4001"
@@ -34,6 +36,8 @@ services:
       context: ../..
       dockerfile: servers/demo1/Dockerfile
       target: migrate
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
     container_name: demo1_migrate
     env_file:
       - .env

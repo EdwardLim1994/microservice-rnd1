@@ -30,7 +30,8 @@ export function Demo1Page() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
+      {/* <Text style={styles.title}> */}
+      <Text className="text-lg font-semibold">
         {data.demo1.name} (#{data.demo1.id})
       </Text>
       {(data.demo1.demo2 ?? []).filter((child) => child != null).map((child) => (

@@ -3,11 +3,13 @@
 
 ARG BUN_VERSION=1.3.14
 ARG SERVER_NAME=demo1
+ARG BUN_TARGET=bun-linux-arm64
 
 # ── builder ────────────────────────────────────────────────────────────────────
 FROM oven/bun:${BUN_VERSION}-slim AS builder
 
 ARG SERVER_NAME
+ARG BUN_TARGET
 
 WORKDIR /app
 
@@ -23,7 +25,7 @@ WORKDIR /app/servers/"${SERVER_NAME}"
 
 RUN  bun build ./index.ts \
     --compile \
-    --target=bun-linux-arm64 \
+    --target="${BUN_TARGET}" \
     --outfile=./"${SERVER_NAME}"
 
 # ── migrate ────────────────────────────────────────────────────────────────────

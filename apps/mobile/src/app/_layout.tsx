@@ -1,3 +1,5 @@
+import '../../global.css';
+
 import { ApolloProvider } from '@apollo/client/react';
 import { Stack } from 'expo-router';
 import { GRAPHQL_URL } from '../config/env';

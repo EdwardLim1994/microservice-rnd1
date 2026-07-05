@@ -3,6 +3,8 @@ services:
     build:
       context: ../..
       dockerfile: servers/demo2/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
     container_name: demo2_server
     ports:
       - "4002:4002"
