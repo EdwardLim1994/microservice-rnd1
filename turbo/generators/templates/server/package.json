@@ -1,0 +1,15 @@
+{
+	"name": "{{ name }}",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"dependencies": {
+		"server": "workspace:*"
+	},
+	"scripts": {
+		"dev": "bun run index.ts --watch --verbose"
+	}
+}

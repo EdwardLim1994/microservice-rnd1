@@ -1,0 +1,8 @@
+import { BaseRepository } from "server";
+import type { PrismaClient } from "../../generated/prisma";
+
+export default class {{ name }} extends BaseRepository<PrismaClient> {
+	constructor({ prisma }: { prisma: PrismaClient }) {
+		super({ prisma });
+	}
+}

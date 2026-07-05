@@ -1,0 +1,12 @@
+import type { ServiceDefinition } from "@grpc/grpc-js";
+import { type GrpcHandlerMap, GrpcRouter } from "server";
+
+export default class {{ name }} extends GrpcRouter<Record<string, never>> {
+	get service(): ServiceDefinition<Record<string, never>> {
+		throw new Error("Not implemented");
+	}
+
+	get handlers(): GrpcHandlerMap<Record<string, never>> {
+		throw new Error("Not implemented");
+	}
+}

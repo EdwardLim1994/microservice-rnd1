@@ -1,10 +1,12 @@
 {
 	"name": "rnd1",
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "latest",
+		"@turbo/gen": "^2.10.2",
+		"config": "workspace:*"
 	},
 	"dependencies": {
-		"turbo": "^2.10.2"
+		"turbo": "^2.10.3"
 	},
 	"workspaces": [
 		"apps/*",
@@ -23,6 +25,7 @@
 		"compile": "turbo run compile",
 		"format": "turbo run format",
 		"lint": "turbo run lint",
-		"supergraph": "turbo run supergraph"
+		"supergraph": "turbo run supergraph",
+		"generate": "turbo gen"
 	}
 }

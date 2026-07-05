@@ -1,0 +1,11 @@
+import { type CronHandlerMap, CronRouter } from "server";
+
+export default class {{ name }} extends CronRouter<Record<string, never>> {
+	get schedules(): Record<string, never> {
+		throw new Error("Not implemented");
+	}
+
+	get handlers(): CronHandlerMap<Record<string, never>> {
+		throw new Error("Not implemented");
+	}
+}

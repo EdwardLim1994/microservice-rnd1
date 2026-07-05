@@ -1,0 +1,11 @@
+services:
+  {{ name }}:
+    build:
+      context: ../..
+      dockerfile: servers/{{ name }}/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
+    container_name: {{ name }}_server
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -1,0 +1,11 @@
+import { type GraphqlHandlerMap, GraphqlRouter } from "server";
+
+export default class {{ name }} extends GraphqlRouter {
+	get typeDefs(): string {
+		throw new Error("Not implemented");
+	}
+
+	get handlers(): GraphqlHandlerMap {
+		throw new Error("Not implemented");
+	}
+}
