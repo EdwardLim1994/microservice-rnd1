@@ -1,4 +1,4 @@
-import { CronDriver, ServerApp } from "server";
+import { ServerApp } from "server";
 
 export default async function main() {
 	await ServerApp.init([]).run(() => `Server is running`);
