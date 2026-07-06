@@ -1,0 +1,11 @@
+import { type KafkaHandlerMap, KafkaConsumerRouter } from "server";
+
+export default class {{ name }} extends KafkaConsumerRouter<Record<string, never>> {
+	get topicTypes(): Record<string, never> {
+		throw new Error("Not implemented");
+	}
+
+	get handlers(): KafkaHandlerMap<Record<string, never>> {
+		throw new Error("Not implemented");
+	}
+}

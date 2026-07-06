@@ -5,7 +5,7 @@ export default class RouterGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI, serverWorkspaces: string[]) {
 		plop.setGenerator("router", {
 			description:
-				'Generate a router (grpc, graphql, or cron; stub methods throw "Not implemented") into <server>/src/routers, registered in its barrel',
+				'Generate a router (grpc, graphql, kafka, or cron; stub methods throw "Not implemented") into <server>/src/routers, registered in its barrel',
 			prompts: [
 				{
 					type: "list",
@@ -23,6 +23,7 @@ export default class RouterGenerator {
 					choices: [
 						{ name: "gRPC", value: "Grpc" },
 						{ name: "GraphQL", value: "Graphql" },
+						{ name: "Kafka", value: "Kafka" },
 						{ name: "Cron", value: "Cron" },
 					],
 				},

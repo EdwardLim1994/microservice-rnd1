@@ -3,6 +3,7 @@
 	"include": [
 		"turbo/generators/*.ts",
 		"turbo/generators/serverCodeGenerator/*.ts",
-		"turbo/generators/serverExtension/*.ts"
+		"turbo/generators/serverExtension/*.ts",
+		"turbo/generators/serverDriver/*.ts"
 	]
 }

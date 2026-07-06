@@ -1,0 +1,7 @@
+import { createGraphqlCodegenConfig } from "script";
+
+export default createGraphqlCodegenConfig({
+	serverName: "{{ pascalName }}",
+	schema: "./src/schemas/graphql/{{ name }}.graphql",
+	out: "../../packages/api/src/generated/{{ name }}/graphql",
+});
