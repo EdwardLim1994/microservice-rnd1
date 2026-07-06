@@ -1,12 +1,24 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
+import { appendRootComposeInclude } from "../helpers";
 
 export default class ServerGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI) {
+		// Registers the new server's docker-compose.yml in the root docker-compose.yml's
+		// `include:` list, so `docker compose up` from repo root actually brings it up.
+		// Named distinctly from any other generator's action of a similar purpose —
+		// plop.setActionType is a single global registry keyed by name, not scoped per
+		// generator, so a same-named registration elsewhere would silently overwrite this one
+		// (confirmed the hard way: this exact collision happened with ProjectGenerator's).
+		plop.setActionType("appendServerComposeInclude", (answers) => {
+			const { name } = answers as { name: string };
+			return appendRootComposeInclude(process.cwd(), "servers", name);
+		});
+
 		plop.setGenerator("server", {
 			description:
-				"Create a new server under servers/<name>, from the templates/server plop template",
+				"Create a new server under servers/<name>, from the templates/server plop template. Registers its docker-compose.yml into the root docker-compose.yml's include: list",
 			prompts: [
 				{
 					type: "input",
@@ -31,6 +43,7 @@ export default class ServerGenerator {
 					templateFiles: "templates/server/**/*",
 					globOptions: { dot: true },
 				},
+				{ type: "appendServerComposeInclude" },
 			],
 		});
 	}

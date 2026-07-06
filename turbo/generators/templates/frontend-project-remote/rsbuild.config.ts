@@ -10,7 +10,7 @@ export default defineConfig({
     }),
     pluginTailwindcss(),
     pluginModuleFederation({
-      name: '{{ name }}',
+      name: '{{ mfName }}',
       exposes: {
         './App': './src/App',
       },

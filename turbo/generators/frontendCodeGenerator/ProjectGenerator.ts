@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
-import { findAvailableFrontendPort } from "../helpers";
+import { appendRootComposeInclude, findAvailableFrontendPort } from "../helpers";
 
 const FAVICON_SOURCE_PATH = path.join(
 	process.cwd(),
@@ -31,16 +31,22 @@ export default class ProjectGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI) {
 		// Runs before the "addMany" action below and mutates `answers` in place — node-plop
 		// threads the same answers object through every action in a run, so fields added here
-		// (port, envVarName) are visible to addMany's own Handlebars rendering, exactly like the
-		// prompt-answered fields (location, type, name) are. Only the "remote" template actually
-		// references envVarName (for its assetPrefix's <NAME>_HOST env var) — host/plain just
-		// ignore it.
+		// (port, envVarName, mfName) are visible to addMany's own Handlebars rendering, exactly
+		// like the prompt-answered fields (location, type, name) are. Only the "remote" template
+		// actually references envVarName (for its assetPrefix's <NAME>_HOST env var) — host/plain
+		// just ignore it.
 		plop.setActionType("computeFrontendProjectData", (answers) => {
 			const { location, type, name } = answers as { location: string; type: ProjectType; name: string };
 			const port = findAvailableFrontendPort(process.cwd());
 			const envVarName = name.toUpperCase().replaceAll("-", "_");
+			// Module Federation's `name` becomes a JS variable name in the built bundle (the var
+			// declaring library type) — a kebab-case project name (valid everywhere else, and what
+			// the "name" prompt's own validate allows) isn't a valid JS identifier and breaks the
+			// build with "Library name base (...) must be a valid identifier". host/remote's
+			// rsbuild.config.ts use this instead of the raw name; "plain" doesn't use MF at all.
+			const mfName = name.replaceAll("-", "_");
 			const role = templateRole(type, location);
-			Object.assign(answers as Record<string, unknown>, { port, envVarName });
+			Object.assign(answers as Record<string, unknown>, { port, envVarName, mfName });
 			const envNote = role === "remote" ? ` (env var ${envVarName}_HOST)` : "";
 			return `Assigned port ${port}, template "${role}"${envNote}`;
 		});
@@ -57,9 +63,19 @@ export default class ProjectGenerator {
 			return relToRoot(destPath);
 		});
 
+		// Registers the new project's docker-compose.yml in the root docker-compose.yml's
+		// `include:` list, so `docker compose up` from repo root actually brings it up. Named
+		// distinctly from ServerGenerator's equivalent — plop.setActionType is a single global
+		// registry keyed by name, not scoped per generator, so a same-named registration there
+		// would silently overwrite this one (or vice versa, depending on apply() order).
+		plop.setActionType("appendFrontendComposeInclude", (answers) => {
+			const { location, name } = answers as { location: string; name: string };
+			return appendRootComposeInclude(process.cwd(), location, name);
+		});
+
 		plop.setGenerator("web", {
 			description:
-				"Create a new React web app under apps/<name> or frontends/<name>, either a regular standalone app or a Module Federation microfrontend (role — host vs remote — inferred from location: apps/ scaffolds a host modeled on portal, frontends/ scaffolds a remote modeled on frontend1). No src/modules either way — add those with the 'module' generator",
+				"Create a new React web app under apps/<name> or frontends/<name>, either a regular standalone app or a Module Federation microfrontend (role — host vs remote — inferred from location: apps/ scaffolds a host modeled on portal, frontends/ scaffolds a remote modeled on frontend1). Includes a Dockerfile + docker-compose.yml (registered into the root docker-compose.yml's include: list). No src/modules either way — add those with the 'module' generator",
 			prompts: [
 				{
 					type: "list",
@@ -112,6 +128,7 @@ export default class ProjectGenerator {
 						globOptions: { dot: true },
 					},
 					{ type: "copyFrontendFavicon" },
+					{ type: "appendFrontendComposeInclude" },
 				];
 			},
 		});

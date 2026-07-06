@@ -10,7 +10,7 @@ export default defineConfig({
     }),
     pluginTailwindcss(),
     pluginModuleFederation({
-      name: '{{ name }}',
+      name: '{{ mfName }}',
       // Add remotes here as they're created, e.g.:
       // shop: `shop@http://${process.env.SHOP_HOST ?? 'localhost'}:3002/mf-manifest.json`,
       remotes: {},

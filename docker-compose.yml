@@ -5,3 +5,4 @@ include:
   - ./services/redis/docker-compose.yml
   - ./servers/demo1/docker-compose.yml
   - ./servers/demo2/docker-compose.yml
+  - ./frontends/frontend1/docker-compose.yml

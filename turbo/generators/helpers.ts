@@ -358,3 +358,21 @@ export function appendBarrelLine(absBarrelPath: string, line: string): string {
 	fs.writeFileSync(absBarrelPath, `${existing}${separator}${line}\n`);
 	return `${relToRoot(absBarrelPath)} (+${line})`;
 }
+
+// Registers a newly-scaffolded <location>/<name>/docker-compose.yml in the root
+// docker-compose.yml's `include:` list, so `docker compose up` from repo root actually brings
+// it up — shared by the "server" and "web" project generators, both of which scaffold their own
+// docker-compose.yml but otherwise had no way to wire it into the root project.
+export function appendRootComposeInclude(root: string, location: string, name: string): string {
+	const rootComposePath = path.join(root, "docker-compose.yml");
+	if (!fs.existsSync(rootComposePath)) {
+		return `${path.relative(root, rootComposePath)} not found, skipped`;
+	}
+	const line = `  - ./${location}/${name}/docker-compose.yml`;
+	const raw = fs.readFileSync(rootComposePath, "utf-8");
+	if (raw.includes(line)) {
+		return `${path.relative(root, rootComposePath)} already includes ${location}/${name}`;
+	}
+	fs.writeFileSync(rootComposePath, `${raw.replace(/\n+$/, "\n")}${line}\n`);
+	return `${path.relative(root, rootComposePath)} (+${location}/${name})`;
+}
