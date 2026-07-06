@@ -252,3 +252,109 @@ export function registerAppendBarrelAction(plop: PlopTypes.NodePlopAPI): void {
 		return appendBarrelExport(absBarrel, name);
 	});
 }
+
+// "web" (Rsbuild) is matched by rsbuild.config.ts, "native" (Expo/React Native) by
+// metro.config.js — a "react-dom" dependency check isn't reliable since apps/mobile's
+// package.json happens to list one too.
+export function frontendPlatform(root: string, location: string): "web" | "native" | null {
+	if (fs.existsSync(path.join(root, location, "rsbuild.config.ts"))) return "web";
+	if (fs.existsSync(path.join(root, location, "metro.config.js"))) return "native";
+	return null;
+}
+
+// React frontend workspaces (web or native) under apps/* and frontends/* — see
+// frontendPlatform for how each is told apart.
+export function findFrontendWorkspaces(root: string): string[] {
+	return ["apps", "frontends"].flatMap((dir) => {
+		const base = path.join(root, dir);
+		if (!fs.existsSync(base)) return [];
+		return fs
+			.readdirSync(base, { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => path.join(dir, entry.name))
+			.filter((rel) => frontendPlatform(root, rel) !== null);
+	});
+}
+
+const DEFAULT_FRONTEND_PORT = 3000;
+
+// Scans every apps/*/rsbuild.config.ts and frontends/*/rsbuild.config.ts for a dev server port
+// already in use (matched within its `server: { ... port: N ... }` block specifically, not the
+// `dev.assetPrefix` string which embeds the same port number in a different spot) and returns
+// the lowest one >= DEFAULT_FRONTEND_PORT not already taken — e.g. apps/portal has 3000 and
+// frontends/frontend1 has 3001, so a third project gets 3002.
+export function findAvailableFrontendPort(root: string): number {
+	const usedPorts = new Set<number>();
+
+	for (const dir of ["apps", "frontends"]) {
+		const base = path.join(root, dir);
+		if (!fs.existsSync(base)) continue;
+		for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+			if (!entry.isDirectory()) continue;
+			const configPath = path.join(base, entry.name, "rsbuild.config.ts");
+			if (!fs.existsSync(configPath)) continue;
+			const match = /server:\s*\{[^}]*port:\s*(\d+)/s.exec(fs.readFileSync(configPath, "utf-8"));
+			if (match) usedPorts.add(Number(match[1]));
+		}
+	}
+
+	let port = DEFAULT_FRONTEND_PORT;
+	while (usedPorts.has(port)) port++;
+	return port;
+}
+
+const DEFAULT_MOBILE_PORT = 3011;
+
+// Scans every apps/*/package.json for a `--port N` already used in its "dev" script (Expo's
+// dev-server/tunnel port — apps/mobile's own is `expo start --host tunnel --port 3011`) and
+// returns the lowest one >= DEFAULT_MOBILE_PORT not already taken. Harmless to scan every
+// apps/* workspace, not just Expo ones — an Rsbuild-based app's "dev" script ("rsbuild --open")
+// never matches the `--port` pattern, so it's simply skipped.
+export function findAvailableMobilePort(root: string): number {
+	const usedPorts = new Set<number>();
+
+	const appsDir = path.join(root, "apps");
+	if (fs.existsSync(appsDir)) {
+		for (const entry of fs.readdirSync(appsDir, { withFileTypes: true })) {
+			if (!entry.isDirectory()) continue;
+			const pkgPath = path.join(appsDir, entry.name, "package.json");
+			if (!fs.existsSync(pkgPath)) continue;
+			const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
+				| string
+				| undefined;
+			const match = devScript ? /--port\s+(\d+)/.exec(devScript) : null;
+			if (match) usedPorts.add(Number(match[1]));
+		}
+	}
+
+	let port = DEFAULT_MOBILE_PORT;
+	while (usedPorts.has(port)) port++;
+	return port;
+}
+
+// Existing modules (each a directory) under <location>/src/modules — the eligible targets for
+// the page/viewmodel/component generators, which add into a module rather than create one.
+export function findFrontendModules(root: string, location: string): string[] {
+	const modulesDir = path.join(root, location, "src", "modules");
+	if (!fs.existsSync(modulesDir)) return [];
+	return fs
+		.readdirSync(modulesDir, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name);
+}
+
+// Appends a raw export line to a barrel file (creating the folder/file if missing) — the
+// frontend module convention uses both named re-exports (pages: `export { X } from './X';`,
+// matching frontend1's src/modules/demo1/pages/index.ts) and wildcard re-exports (viewmodel/
+// types: `export * from './x';`), so this takes the fully-formed line rather than assuming one
+// style, unlike the backend's appendBarrelExport.
+export function appendBarrelLine(absBarrelPath: string, line: string): string {
+	fs.mkdirSync(path.dirname(absBarrelPath), { recursive: true });
+	const existing = fs.existsSync(absBarrelPath) ? fs.readFileSync(absBarrelPath, "utf-8") : "";
+	if (existing.includes(line)) {
+		return `${relToRoot(absBarrelPath)} already has this export`;
+	}
+	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+	fs.writeFileSync(absBarrelPath, `${existing}${separator}${line}\n`);
+	return `${relToRoot(absBarrelPath)} (+${line})`;
+}
