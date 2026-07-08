@@ -3,6 +3,7 @@ include:
   - ./services/apollo/docker-compose.yml
   - ./services/kafka/docker-compose.yml
   - ./services/redis/docker-compose.yml
-  - ./servers/demo1/docker-compose.yml
-  - ./servers/demo2/docker-compose.yml
-  - ./frontends/frontend1/docker-compose.yml
+  - ./servers/test1/docker-compose.yml
+  - ./servers/test2/docker-compose.yml
+  - ./apps/web1/docker-compose.yml
+  - ./frontends/mfe1/docker-compose.yml

@@ -1,0 +1,44 @@
+services:
+  test2:
+    build:
+      context: ../..
+      dockerfile: servers/test2/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-x64}
+    container_name: test2_server
+    env_file:
+      - .env
+    # .env is written for host-based `bun run dev` (localhost:<mapped-port> addresses) — inside
+    # this container, `localhost` means the container itself, not the kafka/schema-registry
+    # containers. These override .env's copies with the Docker-network service hostnames (only
+    # reachable because of the `networks:` below), same pattern as
+    # frontends/mfe1/docker-compose.yml's PUBLIC_GRAPHQL_URL override for its own host-vs-Docker
+    # split. KAFKA_BROKERS specifically: port 9092 (not 29092) — 29092/PLAINTEXT_HOST is only
+    # advertised as "localhost:29092" for host clients; 9092/PLAINTEXT is advertised as
+    # "kafka:9092", which only resolves for another container on the `kafka` network like this
+    # one, not from the host (see services/kafka/docker-compose.yml's listener comments).
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    networks:
+      - kafka
+      # Lets Apollo Router (services/apollo, on this same network) reach this container by its
+      # service name — see services/apollo/src/config/supergraph.yaml's routing_url comment for
+      # why that value has to match whatever's actually running test2 (host `bun run dev` vs this
+      # container) and needs to be kept in sync when you switch between them.
+      - graphql
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  # Empty here on purpose — the "real" definitions (driver: bridge) live in
+  # services/kafka/docker-compose.yml and services/apollo/docker-compose.yml respectively;
+  # Compose merges same-named top-level networks across every file pulled in by the root
+  # docker-compose.yml's `include:`, same convention frontends/mfe1/docker-compose.yml follows
+  # for its own `graphql` network reference.
+  kafka:
+  graphql:

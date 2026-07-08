@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
-import { appendRootComposeInclude } from "../helpers";
+import { appendRootComposeInclude, copyWithSubstitutions } from "../helpers";
+
+const TEMPLATES_DIR = path.join(process.cwd(), "turbo", "generators", "templates", "server");
 
 export default class ServerGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI) {
@@ -14,6 +16,15 @@ export default class ServerGenerator {
 		plop.setActionType("appendServerComposeInclude", (answers) => {
 			const { name } = answers as { name: string };
 			return appendRootComposeInclude(process.cwd(), "servers", name);
+		});
+
+		plop.setActionType("copyServerDeployConfig", (answers) => {
+			const { name } = answers as { name: string };
+			const destRoot = path.join(process.cwd(), "servers", name);
+			for (const dir of ["helm", "terraform"]) {
+				copyWithSubstitutions(path.join(TEMPLATES_DIR, dir), path.join(destRoot, dir), { name });
+			}
+			return `servers/${name}/{helm,terraform}`;
 		});
 
 		plop.setGenerator("server", {
@@ -40,9 +51,10 @@ export default class ServerGenerator {
 					type: "addMany",
 					destination: "{{ turbo.paths.root }}/servers/{{ name }}",
 					base: "templates/server",
-					templateFiles: "templates/server/**/*",
+					templateFiles: ["templates/server/**/*", "!templates/server/helm/**", "!templates/server/terraform/**"],
 					globOptions: { dot: true },
 				},
+				{ type: "copyServerDeployConfig" },
 				{ type: "appendServerComposeInclude" },
 			],
 		});

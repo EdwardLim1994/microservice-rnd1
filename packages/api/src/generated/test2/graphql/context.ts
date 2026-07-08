@@ -1,0 +1,1 @@
+export type Test2ContextType = Record<string, never>;

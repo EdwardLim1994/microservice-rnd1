@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
-import { appendRootComposeInclude, findAvailableFrontendPort } from "../helpers";
+import {
+	appendRootComposeInclude,
+	copyWithSubstitutions,
+	DEFAULT_FRONTEND_PORT,
+	findAvailableFrontendPort,
+} from "../helpers";
 
 const FAVICON_SOURCE_PATH = path.join(
 	process.cwd(),
@@ -10,6 +15,18 @@ const FAVICON_SOURCE_PATH = path.join(
 	"templates",
 	"frontend-project-static",
 	"favicon.png",
+);
+
+// Shared by all three project roles (host/remote/plain) — their Dockerfiles are identical in
+// runtime shape (single port, `bun run preview`, oven/bun runtime — see
+// frontends/frontend1/terraform/CLAUDE.md), so one generic Helm chart/Terraform module covers
+// all of them, parameterized by name/port/location the same way templates/server's does by name.
+const DEPLOY_TEMPLATES_DIR = path.join(
+	process.cwd(),
+	"turbo",
+	"generators",
+	"templates",
+	"frontend-deploy",
 );
 
 function relToRoot(absPath: string): string {
@@ -61,6 +78,27 @@ export default class ProjectGenerator {
 			const destPath = path.join(destDir, "favicon.png");
 			fs.copyFileSync(FAVICON_SOURCE_PATH, destPath);
 			return relToRoot(destPath);
+		});
+
+		// Copies the shared helm/terraform deploy scaffolding — see DEPLOY_TEMPLATES_DIR's comment
+		// for why one template covers all three roles. Runs after computeFrontendProjectData,
+		// which put `port` on `answers`.
+		plop.setActionType("copyFrontendDeployConfig", (answers) => {
+			const { location, name, port } = answers as { location: string; name: string; port: number };
+			const destRoot = path.join(process.cwd(), location, name);
+			// See helm/values.yaml's own comment for why NodePort, not ClusterIP, and why this
+			// particular offset — kept collision-free by construction, since it's derived from
+			// the already-collision-checked dev port (findAvailableFrontendPort).
+			const nodePort = 30000 + (port - DEFAULT_FRONTEND_PORT);
+			for (const dir of ["helm", "terraform"]) {
+				copyWithSubstitutions(path.join(DEPLOY_TEMPLATES_DIR, dir), path.join(destRoot, dir), {
+					name,
+					port: String(port),
+					nodePort: String(nodePort),
+					location,
+				});
+			}
+			return `${location}/${name}/{helm,terraform} (NodePort ${nodePort})`;
 		});
 
 		// Registers the new project's docker-compose.yml in the root docker-compose.yml's
@@ -128,6 +166,7 @@ export default class ProjectGenerator {
 						globOptions: { dot: true },
 					},
 					{ type: "copyFrontendFavicon" },
+					{ type: "copyFrontendDeployConfig" },
 					{ type: "appendFrontendComposeInclude" },
 				];
 			},

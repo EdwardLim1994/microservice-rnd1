@@ -30,6 +30,19 @@ which the router container mounts read-only (see `docker-compose.yml`'s `volumes
   documented in `servers/demo1/CLAUDE.md`/`services/kafka/CLAUDE.md`, switch depending on whether
   the router is running in Docker or the subgraph servers are running on the host.
 
+## Kubernetes deployment uses a hand-patched copy, not a recompose
+
+`services/apollo/helm/files/supergraph.graphql` (mounted by the `infra`-namespace Router
+deployment — see `services/terraform/CLAUDE.md`) is a **copy** of `dist/supergraph.graphql` with
+`demo1`'s `join__graph` URL manually changed to the in-cluster Service FQDN
+(`http://demo1.demo1.svc.cluster.local:4001`) instead of the docker-compose hostname. Running
+`bun run supergraph` again will overwrite `dist/supergraph.graphql` with docker-compose URLs and
+does **not** touch the helm copy automatically — re-copy and re-patch the `DEMO1` line by hand
+after any real schema change, then `helm upgrade apollo-router ./helm -n infra &&
+kubectl rollout restart deployment apollo-router -n infra` (ConfigMap volume mounts don't
+hot-reload, and Terraform's `helm_release` won't see the file diff at all — see
+`services/terraform/CLAUDE.md`). `demo2` isn't deployed to k8s, so its URL is left unpatched.
+
 ## Dependencies
 
 - `@apollo/rover` — the `rover` CLI used by `compose_supergraph.sh.ts` (`--elv2-license=accept`

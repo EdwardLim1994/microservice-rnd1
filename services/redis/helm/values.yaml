@@ -1,0 +1,9 @@
+namespace: infra
+
+image: redis:latest
+
+# Matches services/redis/docker-compose.yml's REDIS_PASSWORD default.
+password: redispassword
+
+persistence:
+  size: 1Gi

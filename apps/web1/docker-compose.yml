@@ -1,0 +1,16 @@
+services:
+  web1:
+    build:
+      context: ../..
+      dockerfile: apps/web1/Dockerfile
+    container_name: web1_web
+    ports:
+      - "3000:3000"
+    networks:
+      - graphql
+    depends_on:
+      - mfe1
+    restart: unless-stopped
+
+networks:
+  graphql:

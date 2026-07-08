@@ -1,0 +1,28 @@
+replicaCount: 1
+
+image:
+  app:
+    repository: mfe1
+    tag: local
+  pullPolicy: IfNotPresent
+
+# Any PUBLIC_* config (e.g. PUBLIC_GRAPHQL_URL on the remote/plain templates) is inlined into the
+# client JS bundle by Rsbuild at *image build* time (see Dockerfile's comment, src/config/env.ts)
+# — not read from the pod's environment at deploy time. There's nothing this chart can inject to
+# change it; it's fixed by whatever --build-arg the image was built with. No configmap.yaml in
+# this chart for that reason — see frontends/frontend1/terraform/CLAUDE.md for the concrete
+# example this was modeled on.
+port: 3001
+
+service:
+  # NodePort, not ClusterIP: unlike a backend API (accessed indirectly through a router/gateway),
+  # this app is loaded directly by a browser — the initial page load if this is a host, or (for
+  # a Module Federation remote) fetched client-side via its mf-manifest.json URL, which the
+  # browser resolves itself and a ClusterIP Service can't serve outside `kubectl port-forward`.
+  # Reachable at `minikube ip`:nodePort from a browser on the same machine/network as minikube.
+  type: NodePort
+  # 30000 + (dev port - 3000): stable, predictable, and collision-free across every frontend app
+  # this generator creates, since findAvailableFrontendPort already guarantees the dev port
+  # itself doesn't collide (see turbo/generators/helpers.ts). Kubernetes' valid NodePort range is
+  # 30000-32767.
+  nodePort: 30001

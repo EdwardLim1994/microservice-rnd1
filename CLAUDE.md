@@ -18,13 +18,20 @@ package (`packages/api`), backed by Docker Compose infra services.
   has a Postgres DB) and `demo2` (gRPC + GraphQL + Kafka consumer, GraphQL federation subgraph
   extending `demo1`'s type, no DB). `servers/demo1/CLAUDE.md`'s Layout section documents the
   standard shape a new server should follow.
-- `services/` — Docker Compose–only infra, no application code: `kafka` (broker + schema registry
-  + UI), `apollo` (Apollo Router + supergraph composition script), `adminer` (DB admin UI), `redis`
-  (password-protected Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` —
-  see `servers/demo1/CLAUDE.md`'s Redis cache section for a concrete usage example). Each has its
-  own `CLAUDE.md`.
+- `services/` — Docker Compose infra: `kafka` (broker + schema registry + UI), `apollo` (Apollo
+  Router + supergraph composition script), `adminer` (DB admin UI), `redis` (password-protected
+  Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` — see
+  `servers/demo1/CLAUDE.md`'s Redis cache section for a concrete usage example). Each has its own
+  `CLAUDE.md`. `kafka`/`redis`/`apollo` (not `adminer`) also each have a `helm/` + `terraform/` for
+  an independent Kubernetes deployment — see `services/terraform/CLAUDE.md`.
 - `generators/*`, `apps/*` — declared in `package.json`'s `workspaces` for future use; neither
   directory exists yet.
+- `terraform/` — root Kubernetes deployment config, aggregating every app (`servers/**`,
+  `frontends/**`, `apps/**`) into one `terraform apply`. Contains no resource logic of its own —
+  see `terraform/CLAUDE.md` for the module-reuse pattern each app follows (e.g.
+  `servers/demo1/terraform`) and the root-vs-per-app state ownership rule. `services/terraform/`
+  is a **separate, independent** root for Kafka/Redis/Apollo Router (always-on shared infra,
+  deployed/torn down as its own unit — never touched by this one) — see its own `CLAUDE.md`.
 
 Root `docker-compose.yml` just `include`s every `services/*/docker-compose.yml` and
 `servers/*/docker-compose.yml` — there's no compose config at the root itself.
@@ -34,7 +41,18 @@ Root `docker-compose.yml` just `include`s every `services/*/docker-compose.yml` 
 - `bun install` — installs all workspaces.
 - `bun run build` — `turbo run build`, builds every `packages/*` library (`server`, `script`,
   `api`) via rslib. Only needed standalone for a one-off rebuild — `dev` (below) already runs this
-  as a dependency, so it's not a required manual step before `bun dev`.
+  as a dependency, so it's not a required manual step before `bun dev`. `turbo.json`'s `build`
+  task declares `"env": ["PUBLIC_*", "*_HOST", "*_PORT"]` — Turborepo v2 defaults to strict env
+  mode, silently stripping any env var not listed here from the spawned build subprocess, even
+  though it's a real OS env var in turbo's own process. Confirmed the hard way:
+  `apps/portal/rsbuild.config.ts`'s Module Federation remote address (`FRONTEND1_HOST`/
+  `FRONTEND1_PORT`, baked into the client bundle by Rsbuild at build time) was silently missing
+  from the built bundle when built via `bun run build` at repo root (through turbo) — building
+  directly inside `apps/portal` (bypassing turbo) baked it correctly. Every frontend `Dockerfile`
+  builds via the former path (`RUN bun run build` at repo root, before switching `WORKDIR` into
+  the project), so this pattern must cover every client-bundle-baked env var any frontend project
+  uses, present or future: `PUBLIC_*` (`frontends/*`'s `PUBLIC_GRAPHQL_URL` convention) and
+  `*_HOST`/`*_PORT` (each Module Federation remote's own env var pair).
 - `bun dev` — `turbo run dev` across all servers/packages/apps. `turbo.json`'s `dev` task declares
   `"dependsOn": ["^build"]`, so turbo builds each package's workspace dependencies (e.g. `demo1`/
   `demo2` depend on `server`/`script`/`api`) to completion first, then starts the persistent `dev`
@@ -49,6 +67,69 @@ Root `docker-compose.yml` just `include`s every `services/*/docker-compose.yml` 
   (NOT `bun test` — see `packages/server/CLAUDE.md`'s Testing section for why).
 - `bun run supergraph` — `turbo run supergraph`, composes the Apollo Federation supergraph schema.
   See `services/apollo/CLAUDE.md`.
+- `bun run k8s:build` — `eval "$(minikube docker-env)" && turbo run k8s:build`, builds every
+  project's `docker build` for minikube (`demo1`, `frontend1`, `portal`, and any project scaffolded
+  by `turbo gen server`/`turbo gen web` after it) in one command, instead of running `docker build`
+  by hand per project. The `eval` has to happen in the same shell invocation as `turbo run` (not
+  just once, standalone, beforehand) since it sets `DOCKER_HOST`/`DOCKER_TLS_VERIFY`/
+  `DOCKER_CERT_PATH` for that shell only — bundling both into one script means `bun run k8s:build`
+  always targets minikube's own Docker daemon, never your host's. `turbo.json`'s `k8s:build` task
+  lists those same three vars (plus `MINIKUBE_ACTIVE_DOCKERD`) in its own `env` array for the same
+  strict-env-mode reason as `build`'s `PUBLIC_*`/`*_HOST`/`*_PORT` above — without it, turbo would
+  strip them from the spawned `docker build` subprocess and it'd silently build against your host's
+  Docker daemon instead of minikube's. Each project's own `package.json` `"k8s:build"` script holds
+  its actual `docker build -f .../Dockerfile --build-arg ...` invocation (`cd ../..` first, since
+  every Dockerfile's build context is the repo root) — edit that script directly if a project's
+  build-args change (e.g. a different `kubectl port-forward` port).
+
+## Kubernetes end-to-end testing (minikube)
+
+Current status: `services/**` (Kafka, Redis, Apollo Router — `services/terraform/`) and
+`servers/demo1` + `frontends/frontend1` + `apps/portal` (`terraform/`) have all been deployed and
+verified working together in minikube, including a real federated GraphQL query flowing
+browser → portal → frontend1 → Apollo Router → demo1. `demo2` is not yet deployed to k8s.
+`servers/demo1`'s Helm values still point at docker-compose-based Kafka/Redis addresses
+(`host.minikube.internal:*`), not the new in-cluster `services/**` addresses — that rewiring is a
+deliberate, separate follow-up (see `services/terraform/CLAUDE.md`).
+
+**You are on WSL2 with a Windows-side browser** — `minikube ip`:nodePort is unreachable from it
+(only `localhost` auto-forwards WSL2→Windows). Every browser-facing Service needs its own
+`kubectl port-forward` instead; see `terraform/CLAUDE.md` for why.
+
+Runbook, from a cold cluster:
+
+1. `minikube start --driver=docker` (or `minikube start` if already the default driver).
+2. `bun run k8s:build` from repo root — builds `demo1:local`, `frontend1:local`, `portal:local`
+   against minikube's own Docker daemon in one command (see the `Commands` section above for what
+   this actually does). Each project's build-args (matching the `kubectl port-forward` targets in
+   step 6) live in that project's own `package.json` `"k8s:build"` script — edit there, not here,
+   if a port changes.
+3. Deploy shared infra first (`services/terraform/` — separate state, must exist before any app
+   that depends on it): `cd services/terraform && terraform apply`.
+4. Deploy the apps (`terraform/` — separate state, aggregates demo1/frontend1/portal):
+   `cd terraform && terraform apply`.
+5. Port-forward every browser-facing Service (each in its own terminal, or backgrounded):
+   ```bash
+   kubectl port-forward -n infra svc/apollo-router 4000:4000
+   kubectl port-forward -n frontend1 svc/frontend1 3001:3001
+   kubectl port-forward -n portal svc/portal 3000:3000
+   ```
+6. Open `http://localhost:3000` — portal should load, render frontend1's federated component, and
+   frontend1's component should successfully fetch data through the router from demo1.
+
+**If a pod gets deleted/restarted, its port-forward dies with it** — reconnects don't survive a
+backing pod change; re-run the `kubectl port-forward` command for that Service.
+
+**Chart edits need a manual push.** `terraform apply` doesn't detect local Helm chart file
+changes (no pinned chart `version` — see `terraform/CLAUDE.md`); use
+`helm upgrade <release> <chart-path> -n <namespace>` directly, then (for ConfigMap-mounted files
+specifically, which don't hot-reload even after `helm upgrade`) `kubectl rollout restart
+deployment <name> -n <namespace>`.
+
+**Full teardown**, in reverse order — `terraform destroy` in `terraform/` then
+`services/terraform/`, then `minikube delete` (wipes the cluster *and* its Docker image cache, so
+step 2's `bun run k8s:build` needs rerunning next time) or `minikube stop` (preserves both, no
+rebuild needed for a same-day retest).
 
 ## Bun
 

@@ -1,9 +1,0 @@
-README.md
-CLAUDE.md
-AGENT.md
-.git
-.gitignore
-.turbo
-**/node_modules
-**/dist
-**/*.test.ts

@@ -98,6 +98,26 @@ export function addNamedImport(raw: string, source: string, importName: string):
 	return raw.replace(importRegex, `import { ${names.join(", ")} } from "${source}";`);
 }
 
+// Like addNamedImport, but tolerates `source` not being imported yet — merges into an existing
+// `import { ... } from "<source>"` if one exists, else adds a fresh import statement right after
+// the last top-level import. Useful when the caller can't guarantee the target file already
+// imports from that source (e.g. injecting a new page's import into a router file that may not
+// yet import anything from that page's module).
+export function addOrMergeNamedImport(raw: string, source: string, importName: string): string {
+	const importRegex = new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*["']${source}["'];?`);
+	if (importRegex.test(raw)) {
+		return addNamedImport(raw, source, importName);
+	}
+	const importLine = `import { ${importName} } from "${source}";`;
+	const importMatches = [...raw.matchAll(/^import\s[^;]*;$/gm)];
+	const lastImport = importMatches.at(-1);
+	if (!lastImport) {
+		return `${importLine}\n${raw}`;
+	}
+	const insertAt = (lastImport.index ?? 0) + lastImport[0].length;
+	return `${raw.slice(0, insertAt)}\n${importLine}${raw.slice(insertAt)}`;
+}
+
 function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
 }
@@ -276,7 +296,7 @@ export function findFrontendWorkspaces(root: string): string[] {
 	});
 }
 
-const DEFAULT_FRONTEND_PORT = 3000;
+export const DEFAULT_FRONTEND_PORT = 3000;
 
 // Scans every apps/*/rsbuild.config.ts and frontends/*/rsbuild.config.ts for a dev server port
 // already in use (matched within its `server: { ... port: N ... }` block specifically, not the
@@ -375,4 +395,250 @@ export function appendRootComposeInclude(root: string, location: string, name: s
 	}
 	fs.writeFileSync(rootComposePath, `${raw.replace(/\n+$/, "\n")}${line}\n`);
 	return `${path.relative(root, rootComposePath)} (+${location}/${name})`;
+}
+
+// Recursively copies srcDir to destDir, substituting every `{{ key }}` (whitespace-tolerant)
+// with its value from `replacements` — a plain, targeted string substitution, NOT Handlebars
+// compilation. Used for helm/terraform deploy scaffolding (servers/demo1/helm's own
+// `{{ include "server.fullname" . | nindent 4 }}`-style Go-template syntax, and every
+// terraform/*.tf file's HCL `${ }` interpolation) that must survive verbatim into the generated
+// output — running these through plop's addMany (full Handlebars compilation) would try, and
+// fail, to parse `{{ include ... }}` as a Handlebars expression. This only ever touches the
+// literal text `{{ <key> }}` for keys actually passed in `replacements`, leaving every other
+// `{{ ... }}`/`${ ... }` alone — safe regardless of what other template syntax a file contains.
+export function copyWithSubstitutions(
+	srcDir: string,
+	destDir: string,
+	replacements: Record<string, string>,
+): void {
+	for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+		const srcPath = path.join(srcDir, entry.name);
+		const destPath = path.join(destDir, entry.name);
+		if (entry.isDirectory()) {
+			fs.mkdirSync(destPath, { recursive: true });
+			copyWithSubstitutions(srcPath, destPath, replacements);
+			continue;
+		}
+		let raw = fs.readFileSync(srcPath, "utf-8");
+		for (const [key, value] of Object.entries(replacements)) {
+			raw = raw.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value);
+		}
+		fs.mkdirSync(path.dirname(destPath), { recursive: true });
+		fs.writeFileSync(destPath, raw);
+	}
+}
+
+// Keeps <location>/helm/values.yaml's ports.<key> in sync with whatever port
+// GraphqlGenerator/GrpcGenerator actually assigned (findAvailableGraphqlPort/
+// findAvailableGrpcPort auto-increment past ports already used by other servers, so the
+// assigned port won't always match the chart's 4001/5001 defaults) — shared by both generators
+// since they only differ in which values.yaml key and .env.sample var they're syncing from.
+// Skipped (not an error) if helm/values.yaml doesn't exist (a server predating this generator
+// enhancement) or has no "ports.<key>:" entry to update.
+export function syncHelmPort(location: string, key: "graphql" | "grpc", port: number): string {
+	const absPath = path.join(process.cwd(), location, "helm", "values.yaml");
+	if (!fs.existsSync(absPath)) {
+		return `${relToRoot(absPath)} not found, skipped`;
+	}
+	const raw = fs.readFileSync(absPath, "utf-8");
+	const pattern = new RegExp(`(^\\s*${key}:\\s*)\\d+`, "m");
+	if (!pattern.test(raw)) {
+		return `${relToRoot(absPath)} has no "${key}:" port entry, skipped`;
+	}
+	fs.writeFileSync(absPath, raw.replace(pattern, `$1${port}`));
+	return `${relToRoot(absPath)} (ports.${key} -> ${port})`;
+}
+
+// --- docker-compose.yml service-block editing -------------------------------------------------
+//
+// Text-splicing, not a YAML parse/stringify round-trip — consistent with every other generator
+// action in this file (e.g. injectDockerComposeServices/ensureAdminerNetworkDeclared in
+// DatabaseGenerator.ts) and deliberately so: a full YAML round-trip would silently drop every
+// hand-written comment elsewhere in the file (docker-compose.yml files in this repo routinely
+// have them — see servers/test1/docker-compose.yml), not just in whatever block is being edited.
+// All of the below assumes this repo's consistent 2-space YAML indentation (service names at 2
+// spaces, service body keys at 4, list items/map entries under those at 6, and so on).
+
+// Scans forward from immediately after `headerEndIndex` (the position right after a header
+// line's own newline) for the first non-blank line whose indentation is less than `bodyIndent`
+// spaces — i.e. the end of that header's indented body — or EOF. Shared primitive behind every
+// "find or create a nested block" helper below.
+function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: number): number {
+	const lines = raw.slice(headerEndIndex).split("\n");
+	let offset = headerEndIndex;
+	for (const line of lines) {
+		if (line.trim() !== "") {
+			const indent = line.length - line.trimStart().length;
+			if (indent < bodyIndent) return offset;
+		}
+		offset += line.length + 1;
+	}
+	return raw.length;
+}
+
+// Finds a top-level `services:` entry's own body range (everything indented under `  <name>:`),
+// e.g. for locating servers/<name>/docker-compose.yml's main app service. Returns null if that
+// service isn't declared in the file at all.
+function findComposeServiceBody(raw: string, serviceName: string): { start: number; end: number } | null {
+	const header = new RegExp(`^  ${serviceName}:[ \\t]*\\n`, "m").exec(raw);
+	if (!header) return null;
+	const start = header.index + header[0].length;
+	return { start, end: findIndentedBodyEnd(raw, start, 4) };
+}
+
+// Returns the offset of the end of the last non-blank line within raw.slice(start, end) — i.e.
+// `end` pulled back before any trailing blank-line run. Insertion points are computed from a
+// block's full dedent boundary (findIndentedBodyEnd), which can land after a blank line some
+// earlier edit left as a section separator (e.g. ensureComposeNetworkDeclared's blank line before
+// the top-level `networks:` section) — inserting new content there would land the new lines
+// *after* that separator, visually detached from the block they actually belong to.
+function trimTrailingBlankLines(raw: string, start: number, end: number): number {
+	const trimmedLength = raw.slice(start, end).replace(/\n+$/, "\n").length;
+	return start + trimmedLength;
+}
+
+// Renders one `key: value` map entry line — plain `key: value` for a scalar, or `key:` (no
+// trailing space) followed by `value`'s own already-indented continuation lines when `value`
+// itself starts with a newline (a nested map, e.g. depends_on's per-service `condition:` block).
+function renderMapEntryLine(key: string, value: string): string {
+	return value.startsWith("\n") ? `${key}:${value}` : `${key}: ${value}`;
+}
+
+// Ensures `  <serviceName>:` has a `    <mapKey>:` sub-block (creating an empty one at the end
+// of the service body if missing) containing every `entries` pair not already present as a
+// `      <key>: ...` line — used for both `environment:` (mapKey="environment", entries are
+// plain `KEY: value`) and a `depends_on:` map whose values are themselves nested maps (pass
+// pre-rendered multi-line entries, e.g. `kafka:\n    condition: service_healthy`, indented for
+// the depends_on map's own entry level by the caller).
+function ensureComposeServiceMapEntries(
+	raw: string,
+	serviceName: string,
+	mapKey: string,
+	entries: Record<string, string>,
+): string {
+	const service = findComposeServiceBody(raw, serviceName);
+	if (!service) return raw;
+
+	const mapHeader = new RegExp(`^    ${mapKey}:[ \\t]*\\n`, "m");
+	const withinService = raw.slice(service.start, service.end);
+	const mapMatch = mapHeader.exec(withinService);
+
+	if (mapMatch) {
+		const mapStart = service.start + mapMatch.index + mapMatch[0].length;
+		const mapEnd = findIndentedBodyEnd(raw, mapStart, 6);
+		const missing = Object.entries(entries).filter(
+			([key]) => !new RegExp(`^      ${key}:`, "m").test(raw.slice(mapStart, mapEnd)),
+		);
+		if (missing.length === 0) return raw;
+		const insertAt = trimTrailingBlankLines(raw, mapStart, mapEnd);
+		const lines = missing.map(([key, value]) => `      ${renderMapEntryLine(key, value)}\n`).join("");
+		return `${raw.slice(0, insertAt)}${lines}${raw.slice(insertAt)}`;
+	}
+
+	const block = `    ${mapKey}:\n${Object.entries(entries)
+		.map(([key, value]) => `      ${renderMapEntryLine(key, value)}\n`)
+		.join("")}`;
+	const insertAt = trimTrailingBlankLines(raw, service.start, service.end);
+	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
+}
+
+// Same idea as ensureComposeServiceMapEntries, but for a `    networks:` YAML list (`      -
+// item`) instead of a map.
+function ensureComposeServiceListItems(
+	raw: string,
+	serviceName: string,
+	listKey: string,
+	items: string[],
+): string {
+	const service = findComposeServiceBody(raw, serviceName);
+	if (!service) return raw;
+
+	const listHeader = new RegExp(`^    ${listKey}:[ \\t]*\\n`, "m");
+	const withinService = raw.slice(service.start, service.end);
+	const listMatch = listHeader.exec(withinService);
+
+	if (listMatch) {
+		const listStart = service.start + listMatch.index + listMatch[0].length;
+		const listEnd = findIndentedBodyEnd(raw, listStart, 6);
+		const existing = raw.slice(listStart, listEnd);
+		const missing = items.filter((item) => !new RegExp(`^\\s*-\\s*${item}\\s*$`, "m").test(existing));
+		if (missing.length === 0) return raw;
+		const insertAt = trimTrailingBlankLines(raw, listStart, listEnd);
+		const lines = missing.map((item) => `      - ${item}\n`).join("");
+		return `${raw.slice(0, insertAt)}${lines}${raw.slice(insertAt)}`;
+	}
+
+	const block = `    ${listKey}:\n${items.map((item) => `      - ${item}\n`).join("")}`;
+	const insertAt = trimTrailingBlankLines(raw, service.start, service.end);
+	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
+}
+
+// Ensures the top-level `networks:` stanza declares `<networkName>:` with an empty body — the
+// "real" definition (driver: bridge) lives wherever that network actually originates (e.g.
+// services/kafka/docker-compose.yml for "kafka"); Compose merges same-named top-level networks
+// across every file pulled in by the root docker-compose.yml's `include:`, so an empty
+// re-declaration here is enough. Creates the whole `networks:` section if the file doesn't have
+// one yet.
+export function ensureComposeNetworkDeclared(absComposePath: string, networkName: string): string {
+	if (!fs.existsSync(absComposePath)) {
+		return `${relToRoot(absComposePath)} not found, skipped`;
+	}
+	const raw = fs.readFileSync(absComposePath, "utf-8");
+	if (new RegExp(`^  ${networkName}:`, "m").test(raw) && /^networks:\s*$/m.test(raw)) {
+		// Only treat as already-declared if it's under a real top-level `networks:` section —
+		// a same-named service/env key elsewhere shouldn't false-positive this check.
+		const networksIndex = raw.search(/^networks:\s*$/m);
+		if (networksIndex !== -1 && raw.indexOf(`\n  ${networkName}:`, networksIndex) !== -1) {
+			return `${relToRoot(absComposePath)} already declares ${networkName}`;
+		}
+	}
+	const next = /^networks:\s*$/m.test(raw)
+		? raw.replace(/^networks:\s*$/m, `networks:\n  ${networkName}:`)
+		: `${raw.replace(/\n+$/, "\n")}\nnetworks:\n  ${networkName}:\n`;
+	fs.writeFileSync(absComposePath, next);
+	return `${relToRoot(absComposePath)} (+${networkName} network)`;
+}
+
+// Wires an existing service in docker-compose.yml onto a Docker network, with `environment:`
+// overrides (for env vars that otherwise come from .env — written for host-based `bun run dev`
+// and meaningless inside a container, see servers/test1/docker-compose.yml's comments for the
+// full story) and `depends_on:` entries for startup ordering. Skips (returns a "not found"
+// message) if the target service doesn't exist in the file — same "skip, don't error" convention
+// as syncHelmPort/addKafkaHelmValues for a server predating whatever's calling this.
+export function wireComposeService(
+	location: string,
+	serviceName: string,
+	options: {
+		networks: string[];
+		environment: Record<string, string>;
+		dependsOn: Record<string, string>;
+	},
+): string {
+	const absPath = path.join(process.cwd(), location, "docker-compose.yml");
+	if (!fs.existsSync(absPath)) {
+		return `${relToRoot(absPath)} not found, skipped`;
+	}
+	let raw = fs.readFileSync(absPath, "utf-8");
+
+	if (Object.keys(options.environment).length > 0) {
+		raw = ensureComposeServiceMapEntries(raw, serviceName, "environment", options.environment);
+	}
+	if (options.networks.length > 0) {
+		raw = ensureComposeServiceListItems(raw, serviceName, "networks", options.networks);
+	}
+	if (Object.keys(options.dependsOn).length > 0) {
+		const dependsOnEntries = Object.fromEntries(
+			Object.entries(options.dependsOn).map(([service, condition]) => [
+				service,
+				`\n        condition: ${condition}`,
+			]),
+		);
+		raw = ensureComposeServiceMapEntries(raw, serviceName, "depends_on", dependsOnEntries);
+	}
+
+	fs.writeFileSync(absPath, raw);
+	for (const networkName of options.networks) {
+		ensureComposeNetworkDeclared(absPath, networkName);
+	}
+	return `${relToRoot(absPath)} (${serviceName}: +networks/environment/depends_on)`;
 }

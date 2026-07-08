@@ -1,0 +1,11 @@
+namespace: infra
+
+kafka:
+  image: confluentinc/cp-kafka:8.2.2
+  nodeId: 1
+  clusterId: "q1Sh-6xeT1el6Ghiu7VO9A"
+  persistence:
+    size: 2Gi
+
+schemaRegistry:
+  image: confluentinc/cp-schema-registry:8.2.2

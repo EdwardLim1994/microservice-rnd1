@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package {{ name }};
+
+message {{ pascalName }} {
+  string id = 1;
+}
+
+service {{ pascalName }}Service {
+  rpc Get{{ pascalName }} ({{ pascalName }}) returns ({{ pascalName }});
+}

@@ -2,6 +2,14 @@
 #   docker build -f {{ location }}/{{ name }}/Dockerfile -t {{ name }} .
 
 ARG BUN_VERSION=1.3.14
+# This host has no remotes wired up yet (rsbuild.config.ts's `remotes: {}`) — once one is added
+# by hand, add a matching ARG/ENV pair here too, mirroring frontends/*/Dockerfile's own
+# PUBLIC_GRAPHQL_URL pattern, e.g.:
+#   ARG SHOP_HOST=localhost
+#   ARG SHOP_PORT=3002
+# and set both as ENV in the builder stage below (see rsbuild.config.ts's remotes comment for
+# what these need to resolve to once this host is deployed to k8s). Also add a matching
+# --build-arg to this project's package.json "k8s:build" script once you do.
 
 # ── builder ────────────────────────────────────────────────────────────────────
 FROM oven/bun:${BUN_VERSION}-slim AS builder

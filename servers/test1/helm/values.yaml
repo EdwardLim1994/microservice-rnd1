@@ -1,0 +1,45 @@
+replicaCount: 1
+
+image:
+  app:
+    repository: test1
+    tag: local
+  # Built from the Dockerfile's "migrate" stage (`docker build --target migrate`), separately
+  # from the runtime image above — see package.json's k8s:build script. Run once as a Job before
+  # the app Deployment's pods can serve real data (see migration-job.yaml).
+  migrate:
+    repository: test1-migrate
+    tag: local
+  pullPolicy: IfNotPresent
+
+# Defaults match GraphqlGenerator/GrpcGenerator's DEFAULT_GRAPHQL_PORT/DEFAULT_GRPC_PORT (4001,
+# 5001) — but those generators auto-increment past ports already used by other servers'
+# .env.sample, so if this isn't the first server generated, update these to match whatever
+# GRAPHQL_PORT/GRPC_PORT actually landed in this server's .env.sample once you add drivers via
+# `turbo gen`. Fresh (no drivers added yet), nothing listens on either port — the Deployment's
+# readiness/liveness probes won't pass until a driver is added.
+ports:
+  graphql: 4001
+  grpc: 5001
+
+kafka:
+  clientId: test1
+  # In-cluster Kafka (services/kafka/helm, shared "infra" namespace) — see
+  # servers/demo1/helm/values.yaml's kafka.brokers comment for why this isn't the
+  # docker-compose address.
+  brokers: kafka.infra.svc.cluster.local:9092
+
+schemaRegistry:
+  url: http://schema-registry.infra.svc.cluster.local:8081
+
+# Self-contained Postgres for this server alone (postgres-deployment.yaml/-pvc.yaml/-service.yaml)
+# — mirrors docker-compose.yml's test1-db, not a shared cluster-wide database the way Kafka/Schema
+# Registry are. Deliberately plain env-var credentials, no Secret — matches this chart's existing
+# simplicity level (kafka/schemaRegistry above aren't secreted either); revisit if this ever needs
+# to be more than a local/demo deployment.
+postgres:
+  image: postgres:15.3-alpine
+  user: myuser
+  password: mypassword
+  database: test1
+  storageSize: 1Gi

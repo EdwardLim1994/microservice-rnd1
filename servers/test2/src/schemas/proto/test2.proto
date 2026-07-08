@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package test2;
+
+import "google/protobuf/empty.proto";
+
+message Test2 {
+  string id = 1;
+}
+
+service Test2Service {
+  rpc GetTest2 (google.protobuf.Empty) returns (Test2);
+}

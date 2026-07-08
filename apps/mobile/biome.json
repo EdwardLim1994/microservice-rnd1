@@ -1,9 +1,0 @@
-{
-  "extends": ["config/src/biome/biome.json"],
-  "css": {
-    "parser": {
-      "cssModules": true,
-      "tailwindDirectives": true
-    }
-  }
-}

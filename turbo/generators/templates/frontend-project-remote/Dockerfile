@@ -7,12 +7,24 @@ ARG BUN_VERSION=1.3.14
 # runtime container has no effect on this. Override via `docker build --build-arg` /
 # docker-compose's `build.args:` instead (see docker-compose.yml).
 ARG PUBLIC_GRAPHQL_URL=http://router:4000/graphql
+# This remote's own public-facing address, baked into dist/mf-manifest.json's publicPath (via
+# rsbuild.config.ts's output.assetPrefix) — a consuming host resolves this remote's asset URLs
+# against it, so it must match wherever this remote is actually reachable from a browser: the
+# NodePort address or a `kubectl port-forward` target port, not this remote's internal dev port
+# ({{ port }}) unless that happens to be the same number. See frontends/frontend1/rsbuild.config.ts
+# for the full story on why this exists (RUNTIME-008 / "Unexpected token '<'" otherwise).
+ARG {{ envVarName }}_HOST=localhost
+ARG {{ envVarName }}_PORT={{ port }}
 
 # ── builder ────────────────────────────────────────────────────────────────────
 FROM oven/bun:${BUN_VERSION}-slim AS builder
 
 ARG PUBLIC_GRAPHQL_URL
+ARG {{ envVarName }}_HOST
+ARG {{ envVarName }}_PORT
 ENV PUBLIC_GRAPHQL_URL=${PUBLIC_GRAPHQL_URL}
+ENV {{ envVarName }}_HOST=${{ envVarName }}_HOST
+ENV {{ envVarName }}_PORT=${{ envVarName }}_PORT
 
 WORKDIR /app
 

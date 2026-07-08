@@ -1,0 +1,26 @@
+services:
+  mfe1:
+    build:
+      context: ../..
+      dockerfile: frontends/mfe1/Dockerfile
+      args:
+        # Build-time only — see Dockerfile's comment on why this can't be a plain `environment:`
+        # entry below. This gets inlined into the CLIENT bundle and fetched by the BROWSER, not
+        # by this container — "router" (the Docker service name) only resolves for other
+        # containers on the `graphql` network, not for a browser on the host loading mfe1's page.
+        # Apollo Router's port 4000 is mapped to the host (see services/apollo/docker-compose.yml),
+        # so localhost is what the browser actually needs — same reasoning as MFE1_HOST below.
+        PUBLIC_GRAPHQL_URL: http://localhost:4000/graphql
+    container_name: mfe1_web
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    networks:
+      - graphql
+    depends_on:
+      - router
+    restart: unless-stopped
+
+networks:
+  graphql:

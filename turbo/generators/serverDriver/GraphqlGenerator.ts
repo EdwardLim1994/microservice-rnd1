@@ -6,6 +6,7 @@ import {
 	ensureGenScript,
 	injectDriverEntry,
 	mergePackageJsonDeps,
+	syncHelmPort,
 	writePackageJson,
 } from "../helpers";
 import type { ServerDriverExtension } from "./types";
@@ -217,6 +218,20 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 		return results.length > 0 ? results.join("; ") : "no .env files updated";
 	});
 
+	plop.setActionType("syncGraphqlHelmPort", (answers) => {
+		// Runs after appendGraphqlPortEnv, which already wrote GRAPHQL_PORT to .env.sample —
+		// read it back rather than recomputing findAvailableGraphqlPort, same reasoning as
+		// appendSupergraphSubgraph below.
+		const { location } = answers as { location: string };
+		const envSamplePath = path.join(process.cwd(), location, ".env.sample");
+		const envSample = fs.readFileSync(envSamplePath, "utf-8");
+		const match = /^GRAPHQL_PORT=(\d+)/m.exec(envSample);
+		if (!match) {
+			throw new Error(`Could not find GRAPHQL_PORT in ${relToRoot(envSamplePath)}`);
+		}
+		return syncHelmPort(location, "graphql", Number(match[1]));
+	});
+
 	plop.setActionType("injectGraphqlDriver", (answers) => {
 		const { location } = answers as { location: string };
 		return injectDriverEntry(
@@ -253,6 +268,7 @@ const GraphqlGenerator: ServerDriverExtension = {
 		{ type: "addGraphqlCodegenConfig" },
 		{ type: "addGraphqlPackageJson" },
 		{ type: "appendGraphqlPortEnv" },
+		{ type: "syncGraphqlHelmPort" },
 		{ type: "injectGraphqlDriver" },
 		{ type: "appendSupergraphSubgraph" },
 	],

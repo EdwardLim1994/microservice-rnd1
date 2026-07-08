@@ -1,0 +1,32 @@
+{
+	"name": "test2",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@bufbuild/buf": "^1.70.0",
+		"protoc": "^35.1.0",
+		"@graphql-codegen/add": "^7.0.1",
+		"@graphql-codegen/cli": "^7.1.2",
+		"@graphql-codegen/schema-ast": "^6.0.1",
+		"@graphql-codegen/typescript": "^6.0.2",
+		"@graphql-codegen/typescript-resolvers": "^6.0.2"
+	},
+	"dependencies": {
+		"server": "workspace:*",
+		"config": "workspace:*",
+		"@grpc/grpc-js": "^1.14.4",
+		"ts-proto": "^2.11.8",
+		"api": "workspace:*",
+		"script": "workspace:*",
+		"graphql": "^16.14.2",
+		"kafkajs": "^2.2.4",
+		"@confluentinc/schemaregistry": "^1.9.1"
+	},
+	"scripts": {
+		"dev": "bun run index.ts --watch --verbose",
+		"k8s:build": "cd ../.. && docker build -f servers/test2/Dockerfile -t test2:local .",
+		"gen": "bun ./src/scripts/generate_api.sh.ts"
+	}
+}

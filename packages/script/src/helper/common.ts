@@ -20,5 +20,6 @@ export const createFolder = (folderPath: string) => {
 };
 
 export const checkDependency = (dependency: string) => {
-  return existsSync(`node_modules/.bin/${dependency}`);
+  const suffix = process.platform === 'win32' ? '.exe' : '';
+  return existsSync(`node_modules/.bin/${dependency}${suffix}`);
 };

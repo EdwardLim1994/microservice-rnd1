@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "schemaRegistry.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "schemaRegistry.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http

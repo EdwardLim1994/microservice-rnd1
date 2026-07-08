@@ -12,7 +12,8 @@
     "test": "rstest",
     "test:watch": "rstest --watch",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "k8s:build": "cd ../.. && docker build -f {{ location }}/{{ name }}/Dockerfile --build-arg PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql --build-arg {{ envVarName }}_HOST=localhost --build-arg {{ envVarName }}_PORT={{ port }} -t {{ name }}:local ."
   },
   "dependencies": {
     "@apollo/client": "^4.2.5",

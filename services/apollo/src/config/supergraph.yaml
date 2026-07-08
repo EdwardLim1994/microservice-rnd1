@@ -1,12 +1,19 @@
 subgraphs:
-   demo1:
+   test1:
+      # Two valid values depending on how test1 is currently running — swap the active line to
+      # match, and recompose (see services/apollo/CLAUDE.md):
+      #   - test1 as a Docker container (servers/test1/docker-compose.yml, on this same `graphql`
+      #     network): use the Docker service name, http://test1:4001.
+      #   - test1 via host-based `bun run dev`: localhost here would mean the router container
+      #     itself, not the host — host.docker.internal is what docker-compose.yml's extra_hosts
+      #     resolves to the host's own network.
+      routing_url: http://test1:4001
       # routing_url: http://host.docker.internal:4001
-      routing_url: http://demo1:4001
       schema:
-         file: ../../../../servers/demo1/src/schemas/graphql/demo1.graphql
+         file: ../../../../servers/test1/src/schemas/graphql/test1.graphql
 
-   demo2:
+   test2:
+      routing_url: http://test2:4002
       # routing_url: http://host.docker.internal:4002
-      routing_url: http://demo2:4002
       schema:
-         file: ../../../../servers/demo2/src/schema/graphql/demo2.graphql
+         file: ../../../../servers/test2/src/schemas/graphql/test2.graphql

@@ -6,6 +6,7 @@ import {
 	ensureGenScript,
 	injectDriverEntry,
 	mergePackageJsonDeps,
+	syncHelmPort,
 	writePackageJson,
 } from "../helpers";
 import type { ServerDriverExtension } from "./types";
@@ -15,6 +16,19 @@ const TEMPLATES_DIR = path.join(process.cwd(), "turbo", "generators", "templates
 
 function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
+}
+
+function pascalCase(name: string): string {
+	return name
+		.split(/[-_]/)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join("");
+}
+
+// Proto package names can't contain hyphens (unlike server workspace names, which are
+// kebab-case) — underscore-join the name for use as the stub's `package` declaration.
+function protoPackage(name: string): string {
+	return name.replace(/-/g, "_");
 }
 
 // Merges the gRPC packages + "gen" script into an existing package.json, preserving that
@@ -104,6 +118,20 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 		return results.length > 0 ? results.join("; ") : "no .env files updated";
 	});
 
+	plop.setActionType("syncGrpcHelmPort", (answers) => {
+		// Runs after appendGrpcPortEnv, which already wrote GRPC_PORT to .env.sample — read it
+		// back rather than recomputing findAvailableGrpcPort, same reasoning as
+		// GraphqlGenerator's appendSupergraphSubgraph/syncGraphqlHelmPort.
+		const { location } = answers as { location: string };
+		const envSamplePath = path.join(process.cwd(), location, ".env.sample");
+		const envSample = fs.readFileSync(envSamplePath, "utf-8");
+		const match = /^GRPC_PORT=(\d+)/m.exec(envSample);
+		if (!match) {
+			throw new Error(`Could not find GRPC_PORT in ${relToRoot(envSamplePath)}`);
+		}
+		return syncHelmPort(location, "grpc", Number(match[1]));
+	});
+
 	plop.setActionType("injectGrpcDriver", (answers) => {
 		const { location } = answers as { location: string };
 		return injectDriverEntry(
@@ -116,6 +144,22 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 	plop.setActionType("addGrpcApiScript", (answers) => {
 		const { location } = answers as { location: string };
 		return addApiScript(location);
+	});
+
+	plop.setActionType("addGrpcProtoFile", (answers, _config, plopApi) => {
+		const { location } = answers as { location: string };
+		const name = path.basename(location);
+		const destPath = path.join(process.cwd(), location, "src", "schemas", "proto", `${name}.proto`);
+		if (fs.existsSync(destPath)) {
+			return `${relToRoot(destPath)} already exists`;
+		}
+		const template = fs.readFileSync(path.join(TEMPLATES_DIR, "schema.proto.hbs"), "utf-8");
+		fs.mkdirSync(path.dirname(destPath), { recursive: true });
+		fs.writeFileSync(
+			destPath,
+			plopApi.renderString(template, { name: protoPackage(name), pascalName: pascalCase(name) }),
+		);
+		return relToRoot(destPath);
 	});
 
 	plop.setActionType("addGrpcBufGenYaml", (answers, _config, plopApi) => {
@@ -136,9 +180,11 @@ const GrpcGenerator: ServerDriverExtension = {
 	registerActionTypes,
 	actions: [
 		{ type: "addGrpcApiScript" },
+		{ type: "addGrpcProtoFile" },
 		{ type: "addGrpcBufGenYaml" },
 		{ type: "addGrpcPackageJson" },
 		{ type: "appendGrpcPortEnv" },
+		{ type: "syncGrpcHelmPort" },
 		{ type: "injectGrpcDriver" },
 	],
 };

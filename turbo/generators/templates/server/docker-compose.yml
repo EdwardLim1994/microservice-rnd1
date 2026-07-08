@@ -4,7 +4,7 @@ services:
       context: ../..
       dockerfile: servers/{{ name }}/Dockerfile
       args:
-        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-x64}
     container_name: {{ name }}_server
     env_file:
       - .env

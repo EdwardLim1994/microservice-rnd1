@@ -1,4 +1,5 @@
 import { existsSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import lodash from 'lodash';
 import { collectSubDirExports, writeSubDirBarrels } from '../helper/barrel';
@@ -46,7 +47,7 @@ export default class APIGenerator {
   }
 
   private async generateGraphqlAPI() {
-    const isGraphqlCodeGenExists = checkDependency('graphql-codegen.exe');
+    const isGraphqlCodeGenExists = checkDependency('graphql-codegen');
 
     if (isGraphqlCodeGenExists) {
       log.info('GraphQL Codegen is installed. Compiling...');
@@ -58,11 +59,20 @@ export default class APIGenerator {
   }
 
   private async generateGrpcAPI() {
-    const isProtocExists = checkDependency('protoc.exe');
+    const isProtocExists = checkDependency('protoc');
 
     if (isProtocExists) {
       log.info('Protoc is installed. Compiling...');
-      const bufCacheDir = `${process.env.LOCALAPPDATA ?? process.env.USERPROFILE + '/.cache'}/buf/cache`;
+      // LOCALAPPDATA is Windows-only; every other platform (Linux/WSL/macOS) falls back to the
+      // XDG convention (~/.cache, or $XDG_CACHE_HOME if set). The previous fallback here used
+      // process.env.USERPROFILE (also Windows-only) — undefined on Linux/WSL, so the template
+      // string silently produced the literal path "undefined/.cache/buf/cache", which `buf`
+      // then created relative to cwd as a real "undefined/" directory inside the server project.
+      const bufCacheDir = join(
+        process.env.LOCALAPPDATA ?? process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'),
+        'buf',
+        'cache',
+      );
       await Bun.$`./node_modules/.bin/buf generate --template ./src/configs/proto/buf.gen.yaml`.env(
         { ...process.env, BUF_CACHE_DIR: bufCacheDir },
       );

@@ -6,7 +6,7 @@
 		"config": "workspace:*"
 	},
 	"dependencies": {
-		"turbo": "^2.10.3"
+		"turbo": "^2.10.4"
 	},
 	"workspaces": [
 		"apps/*",
@@ -26,6 +26,7 @@
 		"format": "turbo run format",
 		"lint": "turbo run lint",
 		"supergraph": "turbo run supergraph",
-		"generate": "turbo gen"
+		"generate": "turbo gen",
+		"k8s:build": "eval \"$(minikube docker-env)\" && turbo run k8s:build"
 	}
 }

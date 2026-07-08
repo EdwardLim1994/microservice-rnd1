@@ -1,9 +1,0 @@
-{
-  "extends": "config/src/typescript/tsconfig.bun-service.json",
-  "compilerOptions": {
-    "paths": {
-      "script": ["../../packages/script/src/index.ts"],
-      "api/generated/*": ["../../packages/api/generated/*"]
-    }
-  }
-}

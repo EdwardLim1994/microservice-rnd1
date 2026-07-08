@@ -1,5 +1,0 @@
-[0m[2m[35m$[0m [2m[1mbun ./src/scripts/generate_api.sh.ts[0m
-[34m[INFO]: API will be generated in ../../packages/api/src/generated[39m
-[33m[WARN]: GraphQL Codegen is not installed. Skipping...[39m
-[33m[WARN]: Protoc is not installed. Skipping...[39m
-[32m[SUCCESS]: Barrel file written to ../../packages/api/src/generated/index.ts[39m

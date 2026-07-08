@@ -1,0 +1,53 @@
+[0m[2m[35m$[0m [2m[1mbun ./src/scripts/generate_api.sh.ts[0m
+[34m[INFO]: API will be generated in ../../packages/api/src/generated[39m
+[34m[INFO]: GraphQL Codegen is installed. Compiling...[39m
+❯ Parse Configuration
+✔ Parse Configuration
+❯ Generate outputs
+❯ Generate to ../../packages/api/src/generated/test1/graphql/resolvers.ts
+❯ Generate to ../../packages/api/src/generated/test1/graphql/context.ts
+❯ Generate to ../../packages/api/src/generated/test1/graphql/typedefs.graphql
+❯ Generate to ../../packages/api/src/generated/test1/graphql/typedefs.ts
+❯ Generate to ../../packages/api/src/generated/test1/graphql/index.ts
+❯ Load GraphQL schemas
+❯ Load GraphQL schemas
+❯ Load GraphQL schemas
+❯ Load GraphQL schemas
+❯ Load GraphQL schemas
+✔ Load GraphQL schemas
+✔ Load GraphQL schemas
+✔ Load GraphQL schemas
+✔ Load GraphQL schemas
+✔ Load GraphQL schemas
+❯ Load GraphQL documents
+❯ Load GraphQL documents
+❯ Load GraphQL documents
+❯ Load GraphQL documents
+❯ Load GraphQL documents
+✔ Load GraphQL documents
+✔ Load GraphQL documents
+✔ Load GraphQL documents
+✔ Load GraphQL documents
+✔ Load GraphQL documents
+❯ Generate
+❯ Generate
+❯ Generate
+❯ Generate
+❯ Generate
+✔ Generate
+✔ Generate
+✔ Generate
+✔ Generate to ../../packages/api/src/generated/test1/graphql/context.ts
+✔ Generate to ../../packages/api/src/generated/test1/graphql/typedefs.ts
+✔ Generate to ../../packages/api/src/generated/test1/graphql/index.ts
+✔ Generate
+✔ Generate
+✔ Generate to ../../packages/api/src/generated/test1/graphql/resolvers.ts
+✔ Generate to ../../packages/api/src/generated/test1/graphql/typedefs.graphql
+✔ Generate outputs
+[32m[SUCCESS]: GraphQL Codegen compiled successfully[39m
+[34m[INFO]: Protoc is installed. Compiling...[39m
+(node:323357) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[32m[SUCCESS]: Protoc compiled successfully[39m
+[32m[SUCCESS]: Barrel file written to ../../packages/api/src/generated/index.ts[39m
