@@ -21,9 +21,11 @@ package (`packages/api`), backed by Docker Compose infra services.
 - `services/` — Docker Compose infra: `kafka` (broker + schema registry + UI), `apollo` (Apollo
   Router + supergraph composition script), `adminer` (DB admin UI), `redis` (password-protected
   Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` — see
-  `servers/demo1/CLAUDE.md`'s Redis cache section for a concrete usage example). Each has its own
-  `CLAUDE.md`. `kafka`/`redis`/`apollo` (not `adminer`) also each have a `helm/` + `terraform/` for
-  an independent Kubernetes deployment — see `services/terraform/CLAUDE.md`.
+  `servers/demo1/CLAUDE.md`'s Redis cache section for a concrete usage example), `meilisearch`
+  (master-key-protected Meilisearch instance with its own built-in dashboard, consumed via
+  `server`'s `MeilisearchPlugin` — see `packages/server/CLAUDE.md`'s Plugins section). Each has its
+  own `CLAUDE.md`. `kafka`/`redis`/`apollo`/`meilisearch` (not `adminer`) also each have a `helm/`
+  + `terraform/` for an independent Kubernetes deployment — see `services/terraform/CLAUDE.md`.
 - `generators/*`, `apps/*` — declared in `package.json`'s `workspaces` for future use; neither
   directory exists yet.
 - `terraform/` — root Kubernetes deployment config, aggregating every app (`servers/**`,

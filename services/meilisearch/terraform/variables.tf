@@ -11,19 +11,12 @@ variable "kube_context" {
 }
 
 variable "namespace" {
-  description = "Shared Kubernetes namespace for kafka/redis/apollo-router — created once, here"
+  description = "Kubernetes namespace meilisearch is deployed into — must already exist (shared infra namespace, not created by this config; see services/terraform/CLAUDE.md)"
   type        = string
   default     = "infra"
 }
 
-variable "redis_password" {
-  description = "Redis auth password"
-  type        = string
-  default     = "redispassword"
-  sensitive   = true
-}
-
-variable "meilisearch_master_key" {
+variable "master_key" {
   description = "Meilisearch master key"
   type        = string
   default     = "meilimasterkey"

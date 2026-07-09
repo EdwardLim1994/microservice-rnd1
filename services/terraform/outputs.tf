@@ -13,3 +13,7 @@ output "redis_release_status" {
 output "apollo_router_release_status" {
   value = module.apollo_router.release_status
 }
+
+output "meilisearch_release_status" {
+  value = module.meilisearch.release_status
+}

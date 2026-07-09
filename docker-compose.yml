@@ -2,6 +2,7 @@ include:
   - ./services/adminer/docker-compose.yml
   - ./services/apollo/docker-compose.yml
   - ./services/kafka/docker-compose.yml
+  - ./services/meilisearch/docker-compose.yml
   - ./services/redis/docker-compose.yml
   - ./servers/test1/docker-compose.yml
   - ./servers/test2/docker-compose.yml

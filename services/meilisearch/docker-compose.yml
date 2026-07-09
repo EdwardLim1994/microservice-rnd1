@@ -1,0 +1,25 @@
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.14
+    container_name: meilisearch
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-meilimasterkey}
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch-data:/meili_data
+    networks:
+      - meilisearch
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  meilisearch-data:
+
+networks:
+  meilisearch:
+    driver: bridge

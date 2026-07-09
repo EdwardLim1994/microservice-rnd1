@@ -22,3 +22,10 @@ module "apollo_router" {
 
   namespace = kubernetes_namespace.infra.metadata[0].name
 }
+
+module "meilisearch" {
+  source = "../meilisearch/terraform/module"
+
+  namespace  = kubernetes_namespace.infra.metadata[0].name
+  master_key = var.meilisearch_master_key
+}

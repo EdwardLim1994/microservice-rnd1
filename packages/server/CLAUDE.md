@@ -231,6 +231,42 @@ constructor({ redis }: { redis: RedisClient }) { ... }  // awilix PROXY, token =
   param, same testability pattern as the drivers (avoids touching the real Bun Redis client in
   tests) — just async, since the default implementation's `import('bun')` is itself a promise.
 
+`MeilisearchPlugin` follows the exact same shape (`extends BasePlugin`, constructed as
+`new Plugin(container)`, `onStart()` registers the client via `asValue()`), with one difference
+from `RedisPlugin`:
+
+```ts
+import { MeilisearchPlugin, ServerApp } from 'server';
+
+ServerApp.init([...])
+  .plugins([MeilisearchPlugin])
+  .routers([...])
+  .run();
+
+// elsewhere, e.g. a repository:
+constructor({ meilisearch }: { meilisearch: MeiliSearch }) { ... }  // awilix PROXY, token = 'meilisearch'
+```
+
+- Uses the official **`meilisearch` npm package** (`import { MeiliSearch } from 'meilisearch'`),
+  not a Bun builtin — it's a regular isomorphic (fetch-based) client with no native bindings, so
+  unlike `RedisPlugin` it's a plain **top-level static import**, no dynamic `await import('bun')`
+  trick and no `rslib.config.ts` `externals` entry needed. It resolves normally under both the
+  Bun runtime and rstest's Node-based test runner, and bundles fine through rslib.
+  `MEILISEARCH_HOST` (default `http://localhost:7700`) / `MEILISEARCH_API_KEY` env vars configure
+  the default client — same "configure via env vars only" constraint as `RedisPlugin`, since
+  `ServerApp.plugins()` only takes bare constructors, never `{ plugin, config }` entries.
+- Auth is a **master key sent as an `Authorization: Bearer <key>` header** (handled internally by
+  the client's `apiKey` option), not embedded in the host URL the way Redis's connection string
+  carries its password — see `services/meilisearch/CLAUDE.md`.
+- `onStart()` calls `await this.client.health()` eagerly — throws on a bad host/key, failing
+  server startup instead of surfacing later on first search request, same rationale as
+  `RedisPlugin`'s eager `.connect()` and `database()`'s eager `$connect()`.
+- `onStop()` is a no-op — Meilisearch's client is stateless HTTP (no persistent connection to
+  close), unlike `RedisPlugin.onStop()`'s `client.close()`.
+- Takes the same injectable `createClient: () => MeiliSearch` factory constructor param as
+  `RedisPlugin`'s `createClient` (just synchronous, since constructing a `MeiliSearch` instance
+  doesn't need an awaited dynamic import) — same testability pattern, tests inject their own mock.
+
 Kafka is **not** modeled as a plugin — see `KafkaDriver` below. It needs producer/consumer/admin
 lifecycle tied to the same driver-level config (`config` on a `DriverEntry`), and no separate
 plugin instance to duck-type through `DriverStartOptions.plugins`.
@@ -637,6 +673,9 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
 - `RedisPlugin` uses Bun's built-in `RedisClient` (`import { RedisClient } from 'bun'`) — no
   npm dependency needed, unlike the Kafka/gRPC/GraphQL drivers. See its Interceptors vs Plugins
   section above for why that import has to be lazy, and why `rslib.config.ts` marks `bun` external.
+- `meilisearch` — official JS SDK for `MeilisearchPlugin`, a regular npm dependency (unlike
+  `RedisPlugin`'s Bun builtin) bundled directly into `dist` like `kafkajs`, no `rslib.config.ts`
+  external needed.
 - `pg` + `@prisma/adapter-pg` — required by `PgAdapter` for Prisma 7 driver adapter
 - `@prisma/client-runtime-utils` — required by Prisma 7 (install explicitly if missing)
 - `PrismaAdapter` class is deleted — logic lives directly in `ServerApp.database()`
