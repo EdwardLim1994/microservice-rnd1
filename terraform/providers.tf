@@ -11,6 +11,24 @@ terraform {
       version = "~> 2.16"
     }
   }
+
+  # Remote backend, required so `terraform apply` can run from ephemeral GitHub Actions runners
+  # with proper state locking — the local .tfstate this root used until now can't be shared or
+  # locked across runs. Bucket/region/key are intentionally left unset: fill them in via
+  # `terraform init -backend-config=...` (CI) or a local, un-committed `backend.hcl` file once
+  # the target cloud/bucket is decided. See docs/ci-cd.md.
+  #
+  # This root is shared by both the `uat` and `prod` CD stages via Terraform workspaces
+  # (`terraform workspace select uat` / `prod`), not separate backend keys — the workspace name
+  # is automatically appended to the state path by Terraform, so one backend block covers both.
+  backend "s3" {
+    # bucket = "TODO"
+    # key    = "apps/terraform.tfstate"
+    # region = "TODO"
+    # State locking: either `use_lockfile = true` (S3 native locking, Terraform >= 1.10) or a
+    # `dynamodb_table = "TODO"` if using an older locking mechanism. GCS backend has native
+    # locking built in and needs no lock table equivalent.
+  }
 }
 
 provider "kubernetes" {

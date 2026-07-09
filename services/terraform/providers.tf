@@ -11,6 +11,17 @@ terraform {
       version = "~> 2.16"
     }
   }
+
+  # Remote backend — see terraform/providers.tf's comment for why this is required for CI. This
+  # root's state must use a DIFFERENT key/prefix from the app-level terraform/ root (they're
+  # already separate state owners per this directory's own CLAUDE.md — nothing that applies here
+  # should ever be able to touch the app-level state, and vice versa).
+  backend "s3" {
+    # bucket = "TODO"
+    # key    = "services/terraform.tfstate"
+    # region = "TODO"
+    # State locking: `use_lockfile = true` (S3, Terraform >= 1.10) or `dynamodb_table = "TODO"`.
+  }
 }
 
 provider "kubernetes" {

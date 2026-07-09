@@ -1,0 +1,107 @@
+# CI/CD
+
+GitHub Actions pipeline implementing the branching/tagging strategy documented in the root
+`CLAUDE.md`. Every workflow lives in `.github/workflows/`.
+
+## Workflow → branch/event map
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci-verify.yml` | `pull_request` (any branch) | `turbo run check test` scoped to affected packages, fails on any `check`-driven working-tree diff, SonarCloud scan, Claude Code review comment. |
+| `cd-release.yml` | `push` to `release/**` | Cuts (`release:cut`) or bumps (`release:bump-rc`) `release-manifest.json` and every touched app's version, commits it back (`[skip ci]`), builds+pushes a DockerHub image per touched app at its rc version, `terraform apply`s the app-level root against the `uat` Terraform workspace. |
+| `cd-prod.yml` | `push` to `main` | If `release-manifest.json` is present (a release just merged), strips every app's `-rcN` suffix (`release:promote`), deletes the manifest, retags (no rebuild) each app's last rc image to its final version, `terraform apply`s the `prod` workspace. No-ops cleanly on any other main push. |
+| `cd-hotfix.yml` | `push` to `hotfix/**` | Identifies the single touched app (`release:touched-apps`), bumps its patch version (`release:hotfix`), builds+pushes its image, `terraform apply -target` for just that app against `prod`. Fails if zero or more than one app is touched. |
+
+`ci-verify.yml` should be added as a **required status check** via GitHub branch protection
+rules once these workflows land — that setting lives in repo settings, not a file, so it has to
+be turned on manually.
+
+## Release-manifest lifecycle (`packages/script/src/release/`)
+
+`ReleaseManager` (exported from `script`, wrapped by `scripts/release_manager.sh.ts`, the same
+per-`bun run <script>` pattern each server's `generate_api.sh.ts` uses for `APIGenerator`) is the
+tool behind every `release:*` root script:
+
+- `release:cut <release-branch> [baseRef=main]` — first push to a release branch. Diffs against
+  `baseRef` for touched apps under `servers/*`/`frontends/*`/`apps/*` (`packages/*` are shared
+  libraries, deliberately excluded), bumps each to `x.(y+1).0-rc1`, bumps the root
+  `package.json` version (the release-bundle version) the same way, writes
+  `release-manifest.json`.
+- `release:bump-rc [baseRef=main]` — every subsequent push to that release branch (a UAT-failure
+  fix). Apps already in the manifest get their rc counter incremented only; an app touched for
+  the first time this cycle is seeded fresh at `-rc1`. Idempotent.
+- `release:promote` — run when the release branch merges to `main`. Strips every `-rcN` suffix.
+- `release:hotfix <app>` — run on a `hotfix/**` branch off `main`. Bumps only that app's patch
+  version, independent of any in-flight release manifest.
+- `release:touched-apps [baseRef=main]` — read-only; lists deployable app names touched since
+  `baseRef`. Used by `cd-hotfix.yml` to identify which app a hotfix branch targets.
+
+The root `package.json`'s own `"version"` field tracks the release-bundle version (what gets
+tagged on `main` once UAT passes) — separate from, and coordinated across, each app's own
+version in its own `package.json`.
+
+## Required secrets / variables
+
+Set these in GitHub repo settings (Settings → Secrets and variables → Actions) before any CD
+workflow can run end-to-end — none of this is wired up automatically:
+
+| Name | Kind | Used by |
+|---|---|---|
+| `DOCKERHUB_USERNAME` | secret | `cd-release.yml`, `cd-prod.yml`, `cd-hotfix.yml` |
+| `DOCKERHUB_TOKEN` | secret | same |
+| `DOCKERHUB_NAMESPACE` | variable | same — DockerHub org/namespace, not yet decided; images push to `<namespace>/<app>:<version>` |
+| `SONAR_TOKEN` | secret | `ci-verify.yml` — SonarCloud project already keyed via root `sonar-project.properties` (`EdwardLim1994_microservice-rnd1`) |
+| `ANTHROPIC_API_KEY` | secret | `ci-verify.yml`'s Claude Code review step |
+| Terraform backend credentials | secret(s), cloud-specific | not yet decided — see below |
+| Cluster credentials (`KUBECONFIG` or cloud-specific auth) | secret | every `terraform apply` step, so the `kubernetes`/`helm` providers can reach the real cluster from a GitHub Actions runner instead of `minikube` |
+
+## Terraform remote backend — required manual follow-up
+
+Both `terraform/providers.tf` and `services/terraform/providers.tf` now declare an empty
+`backend "s3"` block (generic S3/GCS-shaped placeholder — the target cloud wasn't decided yet).
+**Local `.tfstate` files can't be used from ephemeral CI runners** (no locking, no shared state
+across runs), so this is a hard prerequisite for `cd-release.yml`/`cd-prod.yml`/`cd-hotfix.yml`'s
+`terraform apply` steps to work — they will fail at `terraform init` until this is done.
+
+Once a bucket (or GCS equivalent) exists:
+
+1. Fill in `bucket`/`key`/`region` (or GCS's `bucket`/`prefix`) in both `providers.tf` files —
+   **different `key`/`prefix` per root**, they're independent state owners per each directory's
+   own `CLAUDE.md`.
+2. Locally: `terraform init -migrate-state` in each of `terraform/` and `services/terraform/` to
+   move the existing local state into the new backend (one-time, do this before CI ever runs
+   `terraform apply` against either root — otherwise CI would start from empty state and try to
+   recreate every resource).
+3. In CI, `terraform init` (no extra flags needed once the backend block itself has real values)
+   — the workflows already call this.
+
+### UAT vs prod separation
+
+The app-level `terraform/` root is shared by both `cd-release.yml` (UAT) and `cd-prod.yml`/
+`cd-hotfix.yml` (prod) via **Terraform workspaces**, not a module split — `terraform workspace
+select -or-create uat` / `prod`. UAT deploys additionally override each app's namespace to
+`<app>-uat` (via a generated `terraform/release.auto.tfvars.json`) so UAT and prod never target
+the same Kubernetes namespace; prod keeps the existing namespace defaults in `variables.tf`.
+
+`services/terraform/` (Kafka/Redis/Apollo Router) isn't touched by any of these workflows —
+matches its own CLAUDE.md's "never touched by the app-aggregating root" rule; it stays a
+manually-applied, always-on shared root for now.
+
+## Known gaps (surfaced while building this, not fixed here)
+
+- **No package defines a `"lint"` script anywhere in the repo**, despite `turbo.json` declaring a
+  `lint` task — `turbo run lint` is currently a silent no-op everywhere. `ci-verify.yml` uses
+  `check` (Biome's combined lint+format) instead, which every `packages/*`/`apps/web1`/
+  `frontends/mfe1` package does define.
+- **`check`/`format` scripts run Biome in `--write` mode** (fine for local dev, auto-fixing on
+  save) — there's no separate non-mutating variant. `ci-verify.yml` works around this by running
+  `check` and then failing the job if `git diff --exit-code` finds anything the `--write` step
+  changed, rather than needing a new script per package.
+- **`servers/test1`/`servers/test2` have no `test` script**, and `servers/test2` has no
+  `Dockerfile` yet (`demo2` isn't deployed to k8s per `services/terraform/CLAUDE.md`) — the CD
+  workflows' Dockerfile-existence check skips image build/push gracefully for such apps rather
+  than failing the whole release, but they also get **no UAT/prod deploy** until that catches up.
+- **DockerHub namespace, SonarCloud project visibility, and the terraform backend's cloud/bucket
+  are all still open decisions** — this pass scaffolded around placeholders for all three; fill
+  in the actual values (secrets/vars above, `providers.tf` backend blocks) before relying on any
+  CD workflow's terraform/docker steps.

@@ -32,6 +32,10 @@ package (`packages/api`), backed by Docker Compose infra services.
   `servers/demo1/terraform`) and the root-vs-per-app state ownership rule. `services/terraform/`
   is a **separate, independent** root for Kafka/Redis/Apollo Router (always-on shared infra,
   deployed/torn down as its own unit — never touched by this one) — see its own `CLAUDE.md`.
+- `.github/workflows/` — CI/CD: PR verification (test/lint/format/SonarQube/Claude Code review),
+  and branch-triggered release/prod/hotfix deploys implementing this repo's branching/tagging
+  strategy (per-app semver + `-rcN` during UAT, a release-bundle version on `main`). See
+  `docs/ci-cd.md` for the full workflow-to-branch map, required secrets, and known gaps.
 
 Root `docker-compose.yml` just `include`s every `services/*/docker-compose.yml` and
 `servers/*/docker-compose.yml` — there's no compose config at the root itself.

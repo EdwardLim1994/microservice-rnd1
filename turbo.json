@@ -23,6 +23,7 @@
 		},
 		"format": {},
 		"lint": {},
+		"check": {},
 		"test": {},
 		"supergraph": {
 			"cache": false

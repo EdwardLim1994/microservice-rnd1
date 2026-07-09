@@ -1,0 +1,131 @@
+name: CD Release (UAT)
+
+# Fires on every push to a release/** branch: cuts (first push) or bumps (subsequent
+# UAT-failure-fix pushes) the release manifest, commits it back with [skip ci] (so the
+# auto-commit itself doesn't re-trigger this workflow), then builds+pushes a Docker image for
+# every touched app at its rc version and applies the app-level terraform root against the
+# `uat` workspace — this branch's UAT deploy is a real integration environment covering every
+# app touched in this release, not per-app isolated deploys, since UAT here means integration
+# testing (see docs/ci-cd.md).
+on:
+  push:
+    branches:
+      - "release/**"
+
+concurrency:
+  group: cd-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-manifest:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.manifest.outputs.apps }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run build --filter=script
+
+      - name: Cut or bump the release manifest
+        run: |
+          if [ -f release-manifest.json ]; then
+            bun run release:bump-rc main
+          else
+            bun run release:cut "${GITHUB_REF#refs/heads/}" main
+          fi
+
+      - name: Commit manifest + app version bumps
+        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
+        with:
+          commit_message: "chore(release): update release manifest [skip ci]"
+          file_pattern: "release-manifest.json package.json servers/*/package.json frontends/*/package.json apps/*/package.json"
+
+      - name: Expose manifest apps as a job output
+        id: manifest
+        run: |
+          echo "apps=$(jq -c '.apps | to_entries | map({name: .key, version: .value})' release-manifest.json)" >> "$GITHUB_OUTPUT"
+
+  build-and-push:
+    needs: release-manifest
+    if: needs.release-manifest.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJson(needs.release-manifest.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Locate the app's directory
+        id: locate
+        run: |
+          for root in servers frontends apps; do
+            if [ -d "$root/${{ matrix.app.name }}" ]; then
+              echo "path=$root/${{ matrix.app.name }}" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
+      - name: Skip apps with no Dockerfile yet
+        id: has_dockerfile
+        run: |
+          if [ -f "${{ steps.locate.outputs.path }}/Dockerfile" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::${{ matrix.app.name }} has no Dockerfile yet — skipping image build (see servers/demo1/CLAUDE.md's Layout section for the expected shape)."
+          fi
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        if: steps.has_dockerfile.outputs.exists == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        if: steps.has_dockerfile.outputs.exists == 'true'
+        with:
+          context: .
+          file: ${{ steps.locate.outputs.path }}/Dockerfile
+          push: true
+          tags: ${{ vars.DOCKERHUB_NAMESPACE }}/${{ matrix.app.name }}:${{ matrix.app.version }}
+
+  terraform-apply-uat:
+    needs: [release-manifest, build-and-push]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+
+      - name: Build tfvars from the release manifest
+        # Maps each touched app's rc version + a `-uat`-suffixed namespace onto this root's
+        # `<app>_app_image_tag` / `<app>_namespace` variables (see terraform/variables.tf).
+        # Apps untouched in this release keep their existing defaults (not part of the manifest).
+        run: |
+          jq -n \
+            --argjson apps '${{ needs.release-manifest.outputs.apps }}' \
+            '[$apps[] | {("\(.name)_app_image_tag"): .version, ("\(.name)_namespace"): "\(.name)-uat"}] | add' \
+            > terraform/release.auto.tfvars.json
+          cat terraform/release.auto.tfvars.json
+
+      - name: terraform init
+        working-directory: terraform
+        run: terraform init
+        # Backend config (bucket/region/key) supplied via -backend-config once decided — see
+        # docs/ci-cd.md. This step will fail until then, which is expected/documented.
+
+      - name: terraform apply (uat workspace)
+        working-directory: terraform
+        run: |
+          terraform workspace select -or-create uat
+          terraform apply -auto-approve -var-file=release.auto.tfvars.json
