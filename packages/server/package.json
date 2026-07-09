@@ -41,6 +41,17 @@
   },
   "private": true,
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.220.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.220.0",
+    "@opentelemetry/instrumentation": "^0.220.0",
+    "@opentelemetry/instrumentation-graphql": "^0.68.0",
+    "@opentelemetry/instrumentation-grpc": "^0.220.0",
+    "@opentelemetry/instrumentation-kafkajs": "^0.29.0",
+    "@opentelemetry/resources": "^2.9.0",
+    "@opentelemetry/sdk-metrics": "^2.9.0",
+    "@opentelemetry/sdk-node": "^0.220.0",
+    "@opentelemetry/semantic-conventions": "^1.42.0",
     "@prisma/adapter-pg": "^7.8.0",
     "awilix": "^13.0.5",
     "pg": "^8.22.0"

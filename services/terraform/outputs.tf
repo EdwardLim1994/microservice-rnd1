@@ -21,3 +21,7 @@ output "meilisearch_release_status" {
 output "vault_release_status" {
   value = module.vault.release_status
 }
+
+output "monitoring_release_status" {
+  value = module.monitoring.release_status
+}

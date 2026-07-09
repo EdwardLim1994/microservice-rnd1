@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  serviceName: grafana
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "grafana.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "grafana.labels" . | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: grafana
+          image: "{{ .Values.grafana.image }}"
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: GF_SECURITY_ADMIN_USER
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-secret
+                  key: GF_SECURITY_ADMIN_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+            # No dashboard JSON committed yet (see services/monitoring/CLAUDE.md) — this just
+            # gives dashboards.yaml's configured path something to point at so Grafana doesn't
+            # warn about a missing directory.
+            - name: dashboards-json
+              mountPath: /etc/grafana/provisioning/dashboards/json
+            - name: data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+        - name: dashboards-json
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.grafana.persistence.size }}

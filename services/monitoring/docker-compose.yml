@@ -1,0 +1,118 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Lets OtelPlugin (packages/server) push metrics straight here via OTLP/gRPC — POST
+      # /api/v1/otlp/v1/metrics — without a Collector in front yet (see CLAUDE.md).
+      - --web.enable-otlp-receiver
+      # Lets Tempo's metrics_generator (service-graphs/span-metrics, see config/tempo.yaml)
+      # remote_write RED metrics derived from ingested traces into this same Prometheus.
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://localhost:9090/-/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./config/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://localhost:3100/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: tempo
+    command: -config.file=/etc/tempo/tempo.yaml
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+      # otel-collector below now owns 4317/4318 (the standard OTLP ports) as the single ingress
+      # point for every server/frontend — these non-standard host ports remain for direct-to-Tempo
+      # testing that bypasses the collector, same reasoning as before, just no longer "reserved for
+      # later", the collector is here now.
+      - "4319:4317"
+      - "4320:4318"
+    networks:
+      - monitoring
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      # The address every server's OtelPlugin points at by default (OTEL_EXPORTER_OTLP_ENDPOINT,
+      # default http://localhost:4317) — see packages/server/CLAUDE.md.
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - monitoring
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      # 3000/3001 are already taken by apps/web1 and frontends/mfe1 respectively.
+      - "3002:3000"
+    networks:
+      - monitoring
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+
+volumes:
+  prometheus-data:
+  loki-data:
+  tempo-data:
+  grafana-data:
+
+networks:
+  monitoring:
+    driver: bridge

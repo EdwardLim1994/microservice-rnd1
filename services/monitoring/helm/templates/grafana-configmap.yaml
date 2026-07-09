@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+data:
+  # Real copies of services/monitoring/config/grafana/provisioning/**/*.yaml — see
+  # prometheus-configmap.yaml's comment for why (Helm .Files.Get chart-directory restriction).
+  # Both reference the other components by plain Service name (prometheus/loki/tempo) — resolves
+  # fine as-is in-cluster, same namespace, no FQDN rewrite needed.
+  datasources.yaml: |
+{{ .Files.Get "files/grafana-datasources.yaml" | indent 4 }}
+  dashboards.yaml: |
+{{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}

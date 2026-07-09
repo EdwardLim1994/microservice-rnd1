@@ -36,3 +36,11 @@ module "vault" {
   namespace         = kubernetes_namespace.infra.metadata[0].name
   dev_root_token_id = var.vault_dev_root_token_id
 }
+
+module "monitoring" {
+  source = "../monitoring/terraform/module"
+
+  namespace               = kubernetes_namespace.infra.metadata[0].name
+  grafana_admin_user      = var.grafana_admin_user
+  grafana_admin_password  = var.grafana_admin_password
+}

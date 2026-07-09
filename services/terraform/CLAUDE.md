@@ -1,12 +1,14 @@
 
 # services/terraform
 
-Root Terraform config for Kafka + Schema Registry, Redis, Apollo Router, and Meilisearch —
-shared, always-on infrastructure, deployed and torn down as one unit, **never** by the
-app-aggregating `terraform/` at the repo root. Adminer, kafka-ui, and redisinsight are
-deliberately excluded (debugging UIs, not runtime dependencies of anything); Meilisearch's own
-built-in dashboard (`MEILI_ENV=development`) is likewise not exposed by this config for the same
-reason.
+Root Terraform config for Kafka + Schema Registry, Redis, Apollo Router, Meilisearch, Vault, and
+Monitoring (Prometheus/Loki/Tempo/Grafana — see `services/monitoring/CLAUDE.md`) — shared,
+always-on infrastructure, deployed and torn down as one unit, **never** by the app-aggregating
+`terraform/` at the repo root. Adminer, kafka-ui, and redisinsight are deliberately excluded
+(debugging UIs, not runtime dependencies of anything); Meilisearch's own built-in dashboard
+(`MEILI_ENV=development`) is likewise not exposed by this config for the same reason. Grafana
+*is* exposed (unlike those debugging UIs) since it's the actual point of the monitoring stack, not
+an incidental admin panel.
 
 ## Separate from the app-level `terraform/` on purpose
 

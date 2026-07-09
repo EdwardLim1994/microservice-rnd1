@@ -319,6 +319,50 @@ constructor({ meilisearch }: { meilisearch: MeiliSearch }) { ... }  // awilix PR
   `RedisPlugin`'s `createClient` (just synchronous, since constructing a `MeiliSearch` instance
   doesn't need an awaited dynamic import) — same testability pattern, tests inject their own mock.
 
+`OtelPlugin` sets up OpenTelemetry (traces + metrics, exported via OTLP/gRPC to a Collector — no
+`services/*` counterpart exists yet, this only wires up the server-side SDK) and instruments
+exactly this framework's own protocol surface — gRPC, GraphQL, Kafka:
+
+```ts
+import { OtelPlugin, ServerApp } from 'server';
+
+ServerApp.init([...])
+  .plugins([OtelPlugin])
+  .routers([...])
+  .run();
+
+// elsewhere, e.g. a use case that wants a custom span/counter:
+constructor({ otelTracer, otelMeter }: { otelTracer: Tracer; otelMeter: Meter }) { ... }
+```
+
+- Configured via env vars only, same constraint as every other plugin: `OTEL_SERVICE_NAME`
+  (default `unknown-service`), `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`).
+  `OtelPluginConfig` also accepts `metricExportIntervalMillis` and a custom `instrumentations`
+  array, but only when instantiated directly (bypassing `ServerApp.plugins()`) or in tests — not
+  reachable through `.plugins([OtelPlugin])`, same as `RedisPlugin`/`MeilisearchPlugin`.
+- Default instrumentations are `GrpcInstrumentation`, `GraphQLInstrumentation`,
+  `KafkaJsInstrumentation` — deliberately not the much larger
+  `@opentelemetry/auto-instrumentations-node` bundle, which instruments every Node core
+  module/HTTP client this framework doesn't touch directly.
+- **All `@opentelemetry/*` imports are dynamic (`await import(...)` inside the default factory),
+  not static top-level imports** — only type-only imports appear at module scope. Reason: some of
+  these packages (`@opentelemetry/api` in particular) publish a custom `"module"` exports
+  condition pointing at an ESM build with extensionless relative imports (e.g. `./baggage/utils`,
+  no `.js`) — Rspack's own bundler-time resolver tolerates this fine (confirmed: the production
+  build bundles them cleanly), but rstest's Node-based test runner resolves it via the runtime's
+  strict ESM resolver and throws `Cannot find module`. Same pattern/rationale as `RedisPlugin`'s
+  lazy `await import('bun')`: loading `OtelPlugin.ts` itself never touches the real packages, and
+  the real dynamic import only runs inside the default factory — tests always inject their own
+  mock factory (`createOtel`) in its place, so it never executes under rstest.
+- `onStart()` calls `NodeSDK#start()`, which is synchronous and only registers providers with the
+  OTel API — unlike `RedisPlugin`'s eager `.connect()`/`MeilisearchPlugin`'s eager `.health()`, it
+  does **not** eagerly verify the collector endpoint, so a bad `OTEL_EXPORTER_OTLP_ENDPOINT`
+  doesn't fail server startup — it fails silently on the first periodic export attempt instead.
+- Registers `otelTracer`/`otelMeter` (`asValue`, from `trace.getTracer()`/`metrics.getMeter()`)
+  into the container so any repository/use case can inject them from the cradle, same as
+  `redis`/`meilisearch`.
+- `onStop()` calls `NodeSDK#shutdown()`, flushing any buffered spans/metrics before the process exits.
+
 Kafka is **not** modeled as a plugin — see `KafkaDriver` below. It needs producer/consumer/admin
 lifecycle tied to the same driver-level config (`config` on a `DriverEntry`), and no separate
 plugin instance to duck-type through `DriverStartOptions.plugins`.
