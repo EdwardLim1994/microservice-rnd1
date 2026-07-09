@@ -3,10 +3,10 @@ import {
 	ApolloDriver,
 	GrpcDriver,
 	KafkaDriver,
-	PgAdapter,
 	SchemaRegistryKafkaSerializer,
 	ServerApp,
 	singleton,
+	VaultPgAdapter,
 } from "server";
 import { PrismaClient } from "../generated/prisma";
 import Test1GrpcClient from "./clients/Test1GrpcClient";
@@ -45,7 +45,7 @@ export default async function main() {
 			onReady: () => console.log("Kafka producer is running"),
 		},
 	])
-		.database(PrismaClient, new PgAdapter(import.meta.env.DATABASE_URL!))
+		.database(PrismaClient, () => VaultPgAdapter.fromEnv())
 		.containers({
 			test1GrpcClient: singleton(Test1GrpcClient),
 			test1Repository: singleton(Test1Repository),

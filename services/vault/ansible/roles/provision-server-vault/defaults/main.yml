@@ -1,0 +1,16 @@
+---
+# Overridable per-server via ansible/vars.yml, but these prototype defaults are fine for every
+# server today.
+vault_db_default_ttl: "1h"
+vault_db_max_ttl: "24h"
+vault_approle_token_ttl: "1h"
+vault_approle_token_max_ttl: "4h"
+
+# db_admin_url is a full postgresql://user:pass@host:port/db connection string (see
+# servers/<name>/ansible/vars.yml) — split into parts here so individual fields (username,
+# password) can be passed to Vault's database/config write, which wants connection_url with the
+# {{username}}/{{password}} template placeholders substituted at lease-generation time, not the
+# real admin credential embedded directly.
+db_admin_url_parts: "{{ db_admin_url | urlsplit }}"
+db_admin_username: "{{ db_admin_url_parts.username }}"
+db_admin_password: "{{ db_admin_url_parts.password }}"

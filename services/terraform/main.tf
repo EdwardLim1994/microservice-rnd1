@@ -29,3 +29,10 @@ module "meilisearch" {
   namespace  = kubernetes_namespace.infra.metadata[0].name
   master_key = var.meilisearch_master_key
 }
+
+module "vault" {
+  source = "../vault/terraform/module"
+
+  namespace         = kubernetes_namespace.infra.metadata[0].name
+  dev_root_token_id = var.vault_dev_root_token_id
+}

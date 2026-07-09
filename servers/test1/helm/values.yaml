@@ -36,10 +36,21 @@ schemaRegistry:
 # — mirrors docker-compose.yml's test1-db, not a shared cluster-wide database the way Kafka/Schema
 # Registry are. Deliberately plain env-var credentials, no Secret — matches this chart's existing
 # simplicity level (kafka/schemaRegistry above aren't secreted either); revisit if this ever needs
-# to be more than a local/demo deployment.
+# to be more than a local/demo deployment. Also doubles as Vault's own DB-admin credential (see
+# services/vault/CLAUDE.md) — no separate Vault-only identity.
 postgres:
   image: postgres:15.3-alpine
   user: myuser
   password: mypassword
   database: test1
   storageSize: 1Gi
+
+# In-cluster Vault (services/vault/helm, shared "infra" namespace) — see services/vault/CLAUDE.md
+# for the dynamic-credential provisioning this depends on.
+vault:
+  addr: http://vault.infra.svc.cluster.local:8200
+  dbRole: test1-role
+  # Filled in manually after running services/vault/ansible's provisioning role against the
+  # in-cluster Vault — Vault-issued, not knowable at `turbo gen` time.
+  roleId: ""
+  secretId: ""

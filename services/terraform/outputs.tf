@@ -17,3 +17,7 @@ output "apollo_router_release_status" {
 output "meilisearch_release_status" {
   value = module.meilisearch.release_status
 }
+
+output "vault_release_status" {
+  value = module.vault.release_status
+}

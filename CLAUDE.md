@@ -23,9 +23,13 @@ package (`packages/api`), backed by Docker Compose infra services.
   Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` — see
   `servers/demo1/CLAUDE.md`'s Redis cache section for a concrete usage example), `meilisearch`
   (master-key-protected Meilisearch instance with its own built-in dashboard, consumed via
-  `server`'s `MeilisearchPlugin` — see `packages/server/CLAUDE.md`'s Plugins section). Each has its
-  own `CLAUDE.md`. `kafka`/`redis`/`apollo`/`meilisearch` (not `adminer`) also each have a `helm/`
-  + `terraform/` for an independent Kubernetes deployment — see `services/terraform/CLAUDE.md`.
+  `server`'s `MeilisearchPlugin` — see `packages/server/CLAUDE.md`'s Plugins section), `vault`
+  (HashiCorp Vault, dev-mode single instance — issues short-lived per-server Postgres credentials
+  via its database secrets engine + AppRole, consumed via `server`'s `VaultPgAdapter`; see
+  `packages/server/CLAUDE.md`'s Database section and `services/vault/CLAUDE.md`). Each has its
+  own `CLAUDE.md`. `kafka`/`redis`/`apollo`/`meilisearch`/`vault` (not `adminer`) also each have a
+  `helm/` + `terraform/` for an independent Kubernetes deployment — see
+  `services/terraform/CLAUDE.md`.
 - `generators/*`, `apps/*` — declared in `package.json`'s `workspaces` for future use; neither
   directory exists yet.
 - `terraform/` — root Kubernetes deployment config, aggregating every app (`servers/**`,
@@ -147,3 +151,19 @@ Default to using Bun instead of Node.js.
 - Use `bunx <package> <command>` instead of `npx <package> <command>`
 - Bun automatically loads `.env`, so don't use `dotenv` — except where a server's `prisma.config.ts`
   needs it explicitly outside Bun's own runtime (see that server's `CLAUDE.md`).
+
+## Ansible (Vault provisioning only)
+
+The only non-Bun tooling in this repo: `services/vault/ansible/` provisions Vault's database
+secrets engine + AppRole auth per server (see `services/vault/CLAUDE.md`), using the
+`community.hashi_vault` collection. **No local Python/ansible install needed** — it runs inside
+`services/vault/docker-compose.yml`'s `ansible` service, a one-off tool container (gated behind
+the `tools` Compose profile, so it never starts with a plain `docker compose up`) with
+`ansible-core`/`hvac`/the collection baked in at build time.
+
+Run per server via `bun run vault:provision` inside that server's own directory (after
+`docker compose up` brings up both `vault` and that server's own Postgres) — see
+`packages/server/CLAUDE.md`'s Database section for what this feeds into (`VaultPgAdapter.fromEnv()`).
+That script just wraps `docker compose run --rm ansible ansible-playbook ...`; only rebuild the
+image (`docker compose build ansible`) if `services/vault/ansible/requirements.yml` or its
+`Dockerfile` changes.

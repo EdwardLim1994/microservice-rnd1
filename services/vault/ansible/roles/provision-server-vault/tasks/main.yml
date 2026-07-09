@@ -1,0 +1,126 @@
+---
+# Every task here is written to be safely re-runnable — Vault dev mode wipes all of this on
+# restart (see services/vault/CLAUDE.md), so this isn't a one-shot setup, it's the thing you run
+# every time Vault comes back up empty.
+
+- name: Read current secret engine mounts
+  community.hashi_vault.vault_read:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: sys/mounts
+  register: current_mounts
+
+- name: Enable the database secrets engine
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: sys/mounts/database
+    data:
+      type: database
+  when: "'database/' not in current_mounts.data.data"
+
+- name: Read currently enabled auth methods
+  community.hashi_vault.vault_read:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: sys/auth
+  register: current_auth_methods
+
+- name: Enable AppRole auth
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: sys/auth/approle
+    data:
+      type: approle
+  when: "'approle/' not in current_auth_methods.data.data"
+
+- name: Configure the database connection for this server's Postgres
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "database/config/{{ server_name }}-db"
+    data:
+      plugin_name: postgresql-database-plugin
+      connection_url: "postgresql://{% raw %}{{username}}:{{password}}{% endraw %}@{{ db_host }}:{{ db_port }}/{{ db_name }}?sslmode=disable"
+      username: "{{ db_admin_username }}"
+      password: "{{ db_admin_password }}"
+      allowed_roles: ["{{ server_name }}-role"]
+
+- name: Create the dynamic-credential database role
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "database/roles/{{ server_name }}-role"
+    data:
+      db_name: "{{ server_name }}-db"
+      creation_statements: >-
+        CREATE ROLE "{% raw %}{{name}}{% endraw %}" WITH LOGIN PASSWORD '{% raw %}{{password}}{% endraw %}' VALID UNTIL '{% raw %}{{expiration}}{% endraw %}';
+        GRANT ALL PRIVILEGES ON DATABASE "{{ db_name }}" TO "{% raw %}{{name}}{% endraw %}";
+      default_ttl: "{{ vault_db_default_ttl }}"
+      max_ttl: "{{ vault_db_max_ttl }}"
+
+- name: Write the policy scoping this server to only its own database role's creds path
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "sys/policy/{{ server_name }}-policy"
+    data:
+      policy: |-
+        path "database/creds/{{ server_name }}-role" {
+          capabilities = ["read"]
+        }
+
+- name: Create the AppRole bound to this server's policy
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "auth/approle/role/{{ server_name }}-role"
+    data:
+      token_policies: ["{{ server_name }}-policy"]
+      token_ttl: "{{ vault_approle_token_ttl }}"
+      token_max_ttl: "{{ vault_approle_token_max_ttl }}"
+
+- name: Read this server's AppRole role_id
+  community.hashi_vault.vault_read:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "auth/approle/role/{{ server_name }}-role/role-id"
+  register: role_id_result
+
+- name: Generate a fresh secret_id for this server's AppRole
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "auth/approle/role/{{ server_name }}-role/secret-id"
+    data: {}
+  register: secret_id_result
+
+- name: Set facts for the resulting AppRole credentials
+  ansible.builtin.set_fact:
+    resolved_role_id: "{{ role_id_result.data.data.role_id }}"
+    resolved_secret_id: "{{ secret_id_result.data.data.secret_id }}"
+
+- name: Check whether the server's real .env exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../../../servers/{{ server_name }}/.env"
+  register: dotenv_stat
+
+# Only ever written into .env (gitignored, real-secret territory) — never .env.sample (committed).
+# Vault-issued role_id/secret_id are per-provisioning-run secrets, not template defaults, so
+# there's nothing sensible to commit; requires a developer to have already copied .env.sample to
+# .env themselves, same convention DatabaseGenerator.ts's appendDatabaseEnv follows for its own
+# .env-only writes.
+- name: Write VAULT_ROLE_ID into the server's .env, if it exists
+  ansible.builtin.lineinfile:
+    path: "{{ playbook_dir }}/../../../servers/{{ server_name }}/.env"
+    regexp: "^VAULT_ROLE_ID="
+    line: "VAULT_ROLE_ID={{ resolved_role_id }}"
+  when: dotenv_stat.stat.exists
+
+- name: Write VAULT_SECRET_ID into the server's .env, if it exists
+  ansible.builtin.lineinfile:
+    path: "{{ playbook_dir }}/../../../servers/{{ server_name }}/.env"
+    regexp: "^VAULT_SECRET_ID="
+    line: "VAULT_SECRET_ID={{ resolved_secret_id }}"
+  when: dotenv_stat.stat.exists

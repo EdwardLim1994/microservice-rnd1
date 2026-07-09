@@ -301,11 +301,53 @@ test("init() without config still uses a driver's own constructor defaults", () 
   expect(driver.value).toBe('default');
 });
 
-test('database() registers prisma in container', () => {
+test('run() resolves a sync database() adapter and registers prisma in container', async () => {
   const app = ServerApp.init([StubDriver]).database(
     StubPrismaClient,
     new StubDbAdapter(),
   );
+  await app.run();
   const container = (app as any).container;
   expect(container.resolve('prisma')).toBeInstanceOf(StubPrismaClient);
+});
+
+test('run() awaits an async database() factory before registering prisma', async () => {
+  let factoryCalled = false;
+  const app = ServerApp.init([StubDriver]).database(StubPrismaClient, async () => {
+    factoryCalled = true;
+    return new StubDbAdapter();
+  });
+  await app.run();
+
+  expect(factoryCalled).toBe(true);
+  const container = (app as any).container;
+  expect(container.resolve('prisma')).toBeInstanceOf(StubPrismaClient);
+});
+
+test('run() resolves database() before any plugin onStart or driver start', async () => {
+  const order: string[] = [];
+
+  class OrderedPlugin extends BasePlugin {
+    async onStart() {
+      order.push('plugin');
+    }
+    async onStop() {}
+  }
+
+  class OrderedDriver extends BaseDriver {
+    async start() {
+      order.push('driver');
+    }
+    async stop() {}
+  }
+
+  await ServerApp.init([OrderedDriver])
+    .database(StubPrismaClient, async () => {
+      order.push('database');
+      return new StubDbAdapter();
+    })
+    .plugins([OrderedPlugin])
+    .run();
+
+  expect(order).toEqual(['database', 'plugin', 'driver']);
 });

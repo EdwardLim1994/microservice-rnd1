@@ -11,7 +11,7 @@ protocol (gRPC, GraphQL, Kafka consumer, ...) but they all share one awilix cont
 routers/interceptors/plugins, and one lifecycle:
 
 ```ts
-import { ApolloDriver, GrpcDriver, KafkaDriver, PgAdapter, ServerApp, singleton } from 'server';
+import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp, singleton, VaultPgAdapter } from 'server';
 
 ServerApp.init([
   {
@@ -26,7 +26,7 @@ ServerApp.init([
   },
   KafkaDriver, // bare constructor — no port needed, e.g. a Kafka consumer
 ])
-  .database(PrismaClient, new PgAdapter(process.env.DATABASE_URL))  // adapter from server, no factory fn needed
+  .database(PrismaClient, () => VaultPgAdapter.fromEnv())  // async factory — see Database section below; sync new PgAdapter(...) also accepted
   .containers({                   // register repositories — no awilix import needed in servers
     demoRepository: singleton(DemoRepository),
   })
@@ -139,10 +139,16 @@ Only repositories declare `prisma` as a constructor dependency — enforced by c
 
 Prisma 7 uses a rust-free "client" engine that **requires a driver adapter**.
 
-`ServerApp.database(ClientClass, dbAdapter)` accepts the Prisma client class and a `DbAdapter` instance. Internally it:
-- Instantiates `new ClientClass({ adapter: dbAdapter.adapter })`
-- Registers client as `prisma` (singleton) in the container
-- `run()` calls `$connect()`, `stop()` calls `$disconnect()` then `dbAdapter.end()`
+`ServerApp.database(ClientClass, dbAdapter)` accepts the Prisma client class and either a `DbAdapter`
+instance **or** an async factory (`() => Promise<DbAdapter>`) — the factory form exists specifically
+for `VaultPgAdapter.fromEnv()` below, which needs an awaited Vault round-trip before a `DbAdapter`
+exists at all. Internally:
+- The adapter is resolved (awaited, if a factory) as the very first step of `run()` — before
+  `$connect()`, before any plugin's `onStart()`, before any driver starts — since `ClientClass`
+  itself can't be instantiated until a real adapter exists.
+- `new ClientClass({ adapter: dbAdapter.adapter })` is then registered as `prisma` (singleton) in
+  the container.
+- `run()` calls `$connect()`, `stop()` calls `$disconnect()` then `dbAdapter.end()`.
 
 `PgAdapter` is provided by server (PostgreSQL). To add another database in future, create a class implementing `DbAdapter`:
 ```ts
@@ -155,8 +161,54 @@ export interface DbAdapter {
 ```ts
 import { PgAdapter } from 'server';
 .database(PrismaClient, new PgAdapter(process.env.DATABASE_URL))
-// PgAdapter accepts a connection string or pg PoolConfig object
+// PgAdapter accepts a connection string or pg PoolConfig object — this is also the "switch to
+// root for testing" path: manually swap the generated VaultPgAdapter.fromEnv() call below for
+// new PgAdapter(process.env.DATABASE_URL!) to bypass Vault entirely with the server's static
+// superuser credential (DATABASE_URL is already present in every server's .env — see below).
 ```
+
+### Vault-backed credentials — VaultPgAdapter
+
+Every server generated via `turbo gen`'s `database` extension defaults to a Vault-issued,
+short-lived Postgres credential instead of a static one:
+
+```ts
+import { VaultPgAdapter, ServerApp } from 'server';
+
+ServerApp.init([...])
+  .database(PrismaClient, () => VaultPgAdapter.fromEnv())
+  .run();
+```
+
+- `VaultPgAdapter.fromEnv()` (async — this is the reason `.database()` accepts a factory, not just
+  a value) logs into Vault via AppRole (`VAULT_ROLE_ID`/`VAULT_SECRET_ID` env vars), then reads
+  `database/creds/<VAULT_DB_ROLE>` to get a freshly-generated `username`/`password`, and builds a
+  `PgAdapter` from `postgresql://<username>:<password>@<DB_HOST>:<DB_PORT>/<DB_NAME>`. Plain
+  `fetch` against Vault's HTTP API — no `node-vault` dependency, same thin-client convention as
+  `MeilisearchPlugin`.
+- Env vars: `VAULT_ADDR` (default `http://localhost:8200`), `VAULT_ROLE_ID`, `VAULT_SECRET_ID`,
+  `VAULT_DB_ROLE` (e.g. `test1-role`), `DB_HOST`/`DB_PORT`/`DB_NAME` — Vault only returns a
+  username/password, not a full connection string, so these are needed to assemble one. All
+  optionally overridable via `VaultPgAdapter.fromEnv({ vaultAddr, roleId, secretId, dbRole, dbHost, dbPort, dbName })`.
+  `DATABASE_URL` also still exists alongside these (same static superuser) — `prisma.config.ts`
+  (`createPrismaConfig()`) reads it directly for Prisma CLI operations (`generate`/`migrate`),
+  which need a static connection regardless of Vault; `VaultPgAdapter` never reads it.
+- **Where `VAULT_ROLE_ID`/`VAULT_SECRET_ID` actually come from**: Vault dev mode starts with no
+  database secrets engine, no AppRole auth, no roles at all — see `services/vault/ansible/`, a
+  role-based Ansible playbook (`community.hashi_vault` collection) that provisions all of this per
+  server and writes the resulting AppRole credentials into that server's `.env`/`.env.sample`.
+  Run via `bun run vault:provision` inside the server's own directory. **Must be re-run any time
+  Vault itself restarts** — dev mode forgets everything, see `services/vault/CLAUDE.md`.
+- **No lease renewal.** The dynamic credential expires at its Vault lease TTL (`default_ttl: 1h`,
+  set in the Ansible role's `database/roles/<name>-role`) — nothing in this integration renews it.
+  A long-running server will start failing new Postgres connections once the lease expires; the
+  fix is restarting the server (which calls `VaultPgAdapter.fromEnv()` again and gets a fresh
+  lease), not a background refresh. Accepted as a known gap for this prototype's scope — see
+  `services/vault/CLAUDE.md`.
+- **The "root" testing override** (`new PgAdapter(process.env.DATABASE_URL!)` above) uses the
+  exact same Postgres superuser Vault itself uses as its DB-admin connection
+  (`database/config/<name>-db`) — there's deliberately no separate Vault-only admin identity, see
+  `services/vault/CLAUDE.md`.
 
 Each server has its own Prisma schema, config, and generated client:
 - Schema: `servers/<name>/src/schemas/prisma/schema.prisma`

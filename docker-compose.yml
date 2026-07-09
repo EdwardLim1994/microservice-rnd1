@@ -4,6 +4,7 @@ include:
   - ./services/kafka/docker-compose.yml
   - ./services/meilisearch/docker-compose.yml
   - ./services/redis/docker-compose.yml
+  - ./services/vault/docker-compose.yml
   - ./servers/test1/docker-compose.yml
   - ./servers/test2/docker-compose.yml
   - ./apps/web1/docker-compose.yml

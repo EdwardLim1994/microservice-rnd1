@@ -1,0 +1,8 @@
+namespace: infra
+
+image: hashicorp/vault:1.20
+
+# Matches services/vault/docker-compose.yml's VAULT_DEV_ROOT_TOKEN_ID default. Dev mode only —
+# every restart (including a pod reschedule) wipes all secrets-engine/AppRole configuration; see
+# services/vault/CLAUDE.md before assuming this token survives anything.
+devRootTokenId: root

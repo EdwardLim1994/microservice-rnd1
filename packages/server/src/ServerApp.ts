@@ -69,6 +69,10 @@ export class ServerApp {
   private _interceptors: Constructor<BaseInterceptor>[] = [];
   private _plugins: Constructor<BasePlugin>[] = [];
   private _pluginInstances: BasePlugin[] = [];
+  private _database?: {
+    Client: PrismaClientConstructor<PrismaLifecycle>;
+    dbAdapterOrFactory: DbAdapter | (() => Promise<DbAdapter>);
+  };
   private _prismaClient?: PrismaLifecycle;
   private _dbAdapter?: DbAdapter;
   private _port?: number;
@@ -94,13 +98,18 @@ export class ServerApp {
     return new ServerApp(Array.isArray(drivers) ? drivers : [drivers]);
   }
 
+  // dbAdapter can be a plain sync value (e.g. new PgAdapter(process.env.DATABASE_URL!), for
+  // a manual root-credential testing override) or an async factory (e.g.
+  // VaultPgAdapter.fromEnv(), the generated default) — resolved inside run(), before plugins
+  // start, since a factory needs an awaited Vault round-trip that can't happen synchronously here.
   database<TClient extends PrismaLifecycle>(
     Client: PrismaClientConstructor<TClient>,
-    dbAdapter: DbAdapter,
+    dbAdapter: DbAdapter | (() => Promise<DbAdapter>),
   ): this {
-    this._dbAdapter = dbAdapter;
-    this._prismaClient = new Client({ adapter: dbAdapter.adapter });
-    this.container.register({ prisma: asValue(this._prismaClient) });
+    this._database = {
+      Client: Client as PrismaClientConstructor<PrismaLifecycle>,
+      dbAdapterOrFactory: dbAdapter,
+    };
     return this;
   }
 
@@ -136,6 +145,17 @@ export class ServerApp {
   }
 
   async run(callback?: (info: DriverReadyInfo) => void): Promise<void> {
+    if (this._database) {
+      const { Client, dbAdapterOrFactory } = this._database;
+      const dbAdapter =
+        typeof dbAdapterOrFactory === 'function'
+          ? await dbAdapterOrFactory()
+          : dbAdapterOrFactory;
+      this._dbAdapter = dbAdapter;
+      this._prismaClient = new Client({ adapter: dbAdapter.adapter });
+      this.container.register({ prisma: asValue(this._prismaClient) });
+    }
+
     await this._prismaClient?.$connect();
 
     const routers = this._routers.map((R) => new R(this.container));

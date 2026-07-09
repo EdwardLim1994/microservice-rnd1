@@ -1,0 +1,51 @@
+services:
+  vault:
+    image: hashicorp/vault:1.20
+    container_name: vault
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN_ID:-root}
+      # Dev mode defaults to loopback-only (127.0.0.1) — must be 0.0.0.0 or nothing outside the
+      # container (Ansible provisioning, servers' VaultPgAdapter) can reach it, same class of
+      # gotcha as redis's `--requirepass` needing to be set explicitly.
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    networks:
+      - vault
+      # Vault's own database secrets engine connects directly to each server's Postgres
+      # container by hostname (e.g. "test1-db") — the "adminer" network is the shared network
+      # every server's Postgres joins (see services/adminer/CLAUDE.md), so vault needs to be on
+      # it too, or it can't resolve/reach any server's DB.
+      - adminer
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8200/v1/sys/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-off tool container (ansible-core + hvac + community.hashi_vault, baked in at build time
+  # via ansible/Dockerfile) — NOT a long-running service, so it's gated behind the "tools" profile
+  # to stay out of a plain `docker compose up`. Invoked via `docker compose run --rm ansible
+  # ansible-playbook ...` (see each server's own `vault:provision` package.json script and
+  # services/vault/ansible/provision.yml). Only needs the "vault" network — it only ever talks to
+  # Vault's own HTTP API (vault_addr), never directly to a server's Postgres.
+  ansible:
+    build:
+      context: ./ansible
+    profiles:
+      - tools
+    volumes:
+      - ../..:/workspace
+    working_dir: /workspace
+    networks:
+      - vault
+
+networks:
+  vault:
+    driver: bridge
+  # Empty here on purpose — the "real" definition (driver: bridge) lives in
+  # services/adminer/docker-compose.yml; Compose merges same-named top-level networks across
+  # every file pulled in by the root docker-compose.yml's `include:`.
+  adminer:

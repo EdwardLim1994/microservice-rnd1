@@ -1,0 +1,18 @@
+---
+# Provisions Vault's database secrets engine + AppRole auth for one server. Vault dev mode forgets
+# all of this on every restart (see services/vault/CLAUDE.md) — this playbook is designed to be
+# re-run any time that happens, not just once. Run via each server's own
+# `bun run vault:provision` (package.json script generated alongside `.database()` wiring — see
+# turbo/generators/serverExtension/DatabaseGenerator.ts), which runs this inside the "ansible"
+# one-off runner container (services/vault/docker-compose.yml — ansible-core/hvac/
+# community.hashi_vault baked in at build time, no local Python install needed) and passes that
+# server's own ansible/vars.yml as extra-vars:
+#
+#   docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml \
+#     -e @servers/<name>/ansible/vars.yml
+- name: Provision Vault for a server's dynamic database credentials
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - provision-server-vault

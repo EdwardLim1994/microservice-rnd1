@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     # .env is written for host-based `bun run dev` (localhost:<mapped-port> addresses) — inside
-    # this container, `localhost` means the container itself, not the kafka/test1-db/
+    # this container, `localhost` means the container itself, not the kafka/test1-db/vault/
     # schema-registry containers. These override .env's copies with the Docker-network service
     # hostnames (only reachable because of the `networks:` below), same pattern as
     # frontends/mfe1/docker-compose.yml's PUBLIC_GRAPHQL_URL override for its own host-vs-Docker
@@ -19,11 +19,16 @@ services:
     # one, not from the host (see services/kafka/docker-compose.yml's listener comments).
     environment:
       KAFKA_BROKERS: kafka:9092
-      DATABASE_URL: postgresql://myuser:mypassword@test1-db:5432/test1
+      DB_HOST: test1-db
+      DB_PORT: "5432"
+      VAULT_ADDR: http://vault:8200
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
     networks:
       - kafka
       - adminer
+      # Lets this container reach the vault service by hostname — see
+      # services/vault/docker-compose.yml's own network declaration.
+      - vault
       # Lets Apollo Router (services/apollo, on this same network) reach this container by its
       # service name — see services/apollo/src/config/supergraph.yaml's routing_url comment for
       # why that value has to match whatever's actually running test1 (host `bun run dev` vs this
@@ -86,3 +91,4 @@ networks:
   # for its own `graphql` network reference.
   kafka:
   graphql:
+  vault:
