@@ -31,10 +31,15 @@ package (`packages/api`), backed by Docker Compose infra services.
   (Kafka Connect worker running Debezium's Postgres connector — per-server Change Data Capture
   into Kafka, provisioned via an Ansible playbook the same shape as `vault`'s; see
   `services/debezium/CLAUDE.md`), `authentik` (server + worker, dedicated Postgres + Redis —
-  standalone for now, no integration into `server` yet; see `services/authentik/CLAUDE.md`). Each
-  has its own `CLAUDE.md`. `kafka`/`redis`/`apollo`/`meilisearch`/`vault`/`debezium`/`authentik`
-  (not `adminer`) also each have a `helm/` + `terraform/` for an independent Kubernetes deployment
-  — see `services/terraform/CLAUDE.md`.
+  standalone for now, no integration into `server` yet; see `services/authentik/CLAUDE.md`),
+  `traefik` (reverse proxy fronting every browser-facing service — user-facing apps and
+  admin-tool UIs alike in docker-compose via label-based `Host(*.localhost)` routing with admin
+  tools additionally gated by a shared basic-auth middleware; a plain Kubernetes `Ingress` in
+  k8s, narrower there since none of docker-compose's admin-tool UIs have a k8s Service to route
+  to; see `services/traefik/CLAUDE.md`). Each has its own `CLAUDE.md`.
+  `kafka`/`redis`/`apollo`/`meilisearch`/`vault`/`debezium`/`authentik`/`traefik` (not `adminer`)
+  also each have a `helm/` + `terraform/` for an independent
+  Kubernetes deployment — see `services/terraform/CLAUDE.md`.
 - `generators/*`, `apps/*` — declared in `package.json`'s `workspaces` for future use; neither
   directory exists yet.
 - `terraform/` — root Kubernetes deployment config, aggregating every app (`servers/**`,
@@ -134,6 +139,15 @@ Runbook, from a cold cluster:
 
 **If a pod gets deleted/restarted, its port-forward dies with it** — reconnects don't survive a
 backing pod change; re-run the `kubectl port-forward` command for that Service.
+
+**Alternative to step 5's three port-forwards: one to Traefik instead.** `services/terraform` also
+deploys Traefik (see `services/traefik/CLAUDE.md`'s Kubernetes section), fronting Apollo Router/
+`web1`/`mfe1`/Grafana/Authentik via `Ingress` objects keyed on the same `*.localhost` hostnames as
+the docker-compose stack. `kubectl port-forward -n infra svc/traefik 80:80`, then hit
+`http://portal.localhost`/`http://mfe1.localhost`/`http://graphql.localhost` etc. (with a
+`Host` header, or directly if your resolver honors `*.localhost` — most modern browsers do)
+instead of the three separate per-Service port-forwards above. Confirmed working end-to-end
+against a real cluster.
 
 **Chart edits need a manual push.** `terraform apply` doesn't detect local Helm chart file
 changes (no pinned chart `version` — see `terraform/CLAUDE.md`); use

@@ -19,6 +19,12 @@ services:
       # every server's Postgres joins (see services/adminer/CLAUDE.md), so vault needs to be on
       # it too, or it can't resolve/reach any server's DB.
       - adminer
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vault.rule=Host(`vault.localhost`)
+      - traefik.http.routers.vault.middlewares=admin-auth
+      - traefik.http.services.vault.loadbalancer.server.port=8200
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8200/v1/sys/health || exit 1"]
       interval: 5s
@@ -49,3 +55,5 @@ networks:
   # services/adminer/docker-compose.yml; Compose merges same-named top-level networks across
   # every file pulled in by the root docker-compose.yml's `include:`.
   adminer:
+  # Same pattern — real definition lives in services/traefik/docker-compose.yml.
+  traefik:

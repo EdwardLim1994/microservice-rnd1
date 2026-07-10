@@ -25,9 +25,15 @@ services:
       - "8091:5540"
     networks:
       - redis
+      - traefik
     depends_on:
       redis:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.redisinsight.rule=Host(`redis.localhost`)
+      - traefik.http.routers.redisinsight.middlewares=admin-auth
+      - traefik.http.services.redisinsight.loadbalancer.server.port=5540
 
 volumes:
   redis-data:
@@ -35,3 +41,6 @@ volumes:
 networks:
   redis:
     driver: bridge
+  # Empty here on purpose — real definition lives in services/traefik/docker-compose.yml (see
+  # that file's own comment on this pattern, mirroring services/vault's "adminer" reference).
+  traefik:

@@ -51,6 +51,13 @@ port-forward`. In principle reachable at `minikube ip`:nodePort. See
 every generator-created frontend follows, and that same template's `rsbuild.config.ts` comment for
 how a host needs to reference a remote's address/nodePort (not its dev port) once deployed.
 
+Every frontend chart also carries an `Ingress` (`helm/templates/ingress.yaml`, generated from
+`turbo/generators/templates/frontend-deploy/helm/templates/ingress.yaml`), routed through the
+shared Traefik deployed by `services/terraform` (see `services/traefik/CLAUDE.md`'s Kubernetes
+section) — additive to the `NodePort` above, not a replacement for it. Its hostname comes from
+`values.yaml`'s `ingress.host` (defaults to `<project-name>.localhost`; `apps/web1` overrides it to
+`portal.localhost` to match its docker-compose route).
+
 **On WSL2 with a Windows-side browser, `minikube ip`:nodePort is unreachable — use
 `kubectl port-forward` instead.** `minikube ip` (the minikube Docker bridge IP, e.g.
 `192.168.49.2`) lives inside WSL2's own network namespace; only `localhost` is auto-forwarded from

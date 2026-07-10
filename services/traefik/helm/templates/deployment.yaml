@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "traefik.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "traefik.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "traefik.labels" . | nindent 8 }}
+    spec:
+      # See services/kafka/helm/templates/schema-registry-deployment.yaml's comment — an
+      # auto-injected <SVC>_PORT env var crashed that image outright; disabling Service env var
+      # injection here too, defensively, same as every other infra pod in this repo.
+      enableServiceLinks: false
+      serviceAccountName: traefik
+      containers:
+        - name: traefik
+          image: "{{ .Values.image }}"
+          args:
+            - --providers.kubernetesingress=true
+            # Only route Ingress objects that opt in via this class — see templates/ingressclass.yaml.
+            - --providers.kubernetesingress.ingressclass={{ .Values.ingressClassName }}
+            - --entrypoints.web.address=:{{ .Values.webPort }}
+            # No CRD-routed dashboard here (see values.yaml's dashboardPort comment for why) — the
+            # dashboard/API is served in the clear on its own port instead, reachable only via an
+            # explicit `kubectl port-forward` since templates/service.yaml never exposes it as
+            # NodePort. This is the k8s-side equivalent of docker-compose's `--api.insecure=false`
+            # + basic-auth-gated dashboard route, just achieved differently since there's no
+            # Middleware CRD installed to gate a routed dashboard here.
+            - --api.dashboard=true
+            - --api.insecure=true
+            - --log.level=INFO
+          ports:
+            - name: web
+              containerPort: {{ .Values.webPort }}
+            - name: dashboard
+              containerPort: {{ .Values.dashboardPort }}
+          readinessProbe:
+            tcpSocket:
+              port: web
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: web
+            initialDelaySeconds: 10
+            periodSeconds: 20

@@ -8,9 +8,19 @@ services:
       - "3000:3000"
     networks:
       - graphql
+      - traefik
     depends_on:
       - mfe1
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.web1.rule=Host(`portal.localhost`)
+      - traefik.http.services.web1.loadbalancer.server.port=3000
 
 networks:
   graphql:
+  # Empty here on purpose — the real definition (driver: bridge) lives in
+  # services/traefik/docker-compose.yml; Compose merges same-named top-level networks across
+  # every file pulled in by the root docker-compose.yml's `include:` (same pattern
+  # services/vault/docker-compose.yml uses for its own "adminer" network reference).
+  traefik:

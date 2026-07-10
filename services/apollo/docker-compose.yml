@@ -6,6 +6,7 @@ services:
       - 4000:4000
     networks:
       - graphql
+      - traefik
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -14,7 +15,14 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.apollo-router.rule=Host(`graphql.localhost`)
+      - traefik.http.services.apollo-router.loadbalancer.server.port=4000
 
 networks:
   graphql:
     driver: bridge
+  # Empty here on purpose — real definition lives in services/traefik/docker-compose.yml (see
+  # that file's own comment on this pattern, mirroring services/vault's "adminer" reference).
+  traefik:

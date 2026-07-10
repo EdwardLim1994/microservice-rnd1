@@ -29,3 +29,7 @@ output "monitoring_release_status" {
 output "authentik_release_status" {
   value = module.authentik.release_status
 }
+
+output "traefik_release_status" {
+  value = module.traefik.release_status
+}

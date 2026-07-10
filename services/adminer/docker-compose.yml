@@ -8,7 +8,16 @@ services:
       - 8090:8080
     networks:
       - adminer
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.adminer.rule=Host(`adminer.localhost`)
+      - traefik.http.routers.adminer.middlewares=admin-auth
+      - traefik.http.services.adminer.loadbalancer.server.port=8080
 
 networks:
   adminer:
     driver: bridge
+  # Empty here on purpose — real definition lives in services/traefik/docker-compose.yml (see
+  # that file's own comment on this pattern, mirroring services/vault's "adminer" reference).
+  traefik:

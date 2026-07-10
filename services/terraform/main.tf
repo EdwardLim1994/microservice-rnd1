@@ -59,3 +59,16 @@ module "authentik" {
   postgresql_password = var.authentik_postgresql_password
   bootstrap_password  = var.authentik_bootstrap_password
 }
+
+# Deployed last of this file's modules only by convention (no ordering dependency on the others —
+# Terraform still applies purely off the kubernetes_namespace.infra reference every module shares).
+# Fronts apollo_router/monitoring's grafana/authentik's Ingress objects (all three in this same
+# "infra" namespace) plus whatever Ingress objects exist in the app-aggregating root terraform/'s
+# own namespaces (mfe1, web1) — see services/traefik/CLAUDE.md's Kubernetes section for the full
+# routed set and why a ClusterRole (not a namespaced Role) is required for that cross-namespace
+# reach.
+module "traefik" {
+  source = "../traefik/terraform/module"
+
+  namespace = kubernetes_namespace.infra.metadata[0].name
+}

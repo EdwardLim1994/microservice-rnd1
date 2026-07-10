@@ -56,11 +56,16 @@ services:
       - "9443:9443"
     networks:
       - authentik
+      - traefik
     depends_on:
       authentik-postgresql:
         condition: service_healthy
       authentik-redis:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.authentik.rule=Host(`auth.localhost`)
+      - traefik.http.services.authentik.loadbalancer.server.port=9000
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --spider http://localhost:9000/-/health/ready/ || exit 1"]
       interval: 10s
@@ -126,3 +131,6 @@ volumes:
 networks:
   authentik:
     driver: bridge
+  # Empty here on purpose — real definition lives in services/traefik/docker-compose.yml (see
+  # that file's own comment on this pattern, mirroring services/vault's "adminer" reference).
+  traefik:

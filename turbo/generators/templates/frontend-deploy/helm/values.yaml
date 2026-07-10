@@ -26,3 +26,12 @@ service:
   # itself doesn't collide (see turbo/generators/helpers.ts). Kubernetes' valid NodePort range is
   # 30000-32767.
   nodePort: {{ nodePort }}
+
+ingress:
+  # Routed through the cluster's shared Traefik (services/traefik/helm) in addition to the
+  # NodePort above, not instead of it — same "additive, not a replacement" rule
+  # services/traefik/CLAUDE.md documents for the docker-compose side. Defaults to the project
+  # name; override in this app's own values.yaml if its public hostname should read differently
+  # (e.g. apps/web1 overrides this to "portal.localhost" to match its docker-compose route).
+  host: {{ name }}.localhost
+
