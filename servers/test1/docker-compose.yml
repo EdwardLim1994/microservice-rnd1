@@ -71,6 +71,11 @@ services:
       POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: test1
+    # wal_level=logical is required for Debezium's Postgres connector (services/debezium) to read
+    # the write-ahead log via a replication slot — the postgres:15.3-alpine image defaults to
+    # "replica", which is enough for physical replication/backups but not logical decoding. Only
+    # takes effect from container start (a running container with this unset needs a restart).
+    command: ["postgres", "-c", "wal_level=logical"]
     ports:
       - "5101:5432"
     networks:

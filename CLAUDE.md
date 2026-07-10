@@ -15,9 +15,10 @@ package (`packages/api`), backed by Docker Compose infra services.
   into `packages/api`, wrapped by each server's `src/scripts/generate_api.sh.ts`). See
   `packages/script/CLAUDE.md`.
 - `servers/<name>/` — one server per microservice, e.g. `demo1` (gRPC + GraphQL + Kafka producer,
-  has a Postgres DB) and `demo2` (gRPC + GraphQL + Kafka consumer, GraphQL federation subgraph
-  extending `demo1`'s type, no DB). `servers/demo1/CLAUDE.md`'s Layout section documents the
-  standard shape a new server should follow.
+  has a Postgres DB), `demo2` (gRPC + GraphQL + Kafka consumer, GraphQL federation subgraph
+  extending `demo1`'s type, no DB), and `auth` (GraphQL-only, no DB — `signIn`/`signUp`/`signOut`
+  mutations backed by `services/authentik/`, see `servers/auth/CLAUDE.md`). `servers/demo1/
+  CLAUDE.md`'s Layout section documents the standard shape a new server should follow.
 - `services/` — Docker Compose infra: `kafka` (broker + schema registry + UI), `apollo` (Apollo
   Router + supergraph composition script), `adminer` (DB admin UI), `redis` (password-protected
   Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` — see
@@ -26,10 +27,14 @@ package (`packages/api`), backed by Docker Compose infra services.
   `server`'s `MeilisearchPlugin` — see `packages/server/CLAUDE.md`'s Plugins section), `vault`
   (HashiCorp Vault, dev-mode single instance — issues short-lived per-server Postgres credentials
   via its database secrets engine + AppRole, consumed via `server`'s `VaultPgAdapter`; see
-  `packages/server/CLAUDE.md`'s Database section and `services/vault/CLAUDE.md`). Each has its
-  own `CLAUDE.md`. `kafka`/`redis`/`apollo`/`meilisearch`/`vault` (not `adminer`) also each have a
-  `helm/` + `terraform/` for an independent Kubernetes deployment — see
-  `services/terraform/CLAUDE.md`.
+  `packages/server/CLAUDE.md`'s Database section and `services/vault/CLAUDE.md`), `debezium`
+  (Kafka Connect worker running Debezium's Postgres connector — per-server Change Data Capture
+  into Kafka, provisioned via an Ansible playbook the same shape as `vault`'s; see
+  `services/debezium/CLAUDE.md`), `authentik` (server + worker, dedicated Postgres + Redis —
+  standalone for now, no integration into `server` yet; see `services/authentik/CLAUDE.md`). Each
+  has its own `CLAUDE.md`. `kafka`/`redis`/`apollo`/`meilisearch`/`vault`/`debezium`/`authentik`
+  (not `adminer`) also each have a `helm/` + `terraform/` for an independent Kubernetes deployment
+  — see `services/terraform/CLAUDE.md`.
 - `generators/*`, `apps/*` — declared in `package.json`'s `workspaces` for future use; neither
   directory exists yet.
 - `terraform/` — root Kubernetes deployment config, aggregating every app (`servers/**`,

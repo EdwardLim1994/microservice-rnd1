@@ -1,0 +1,128 @@
+services:
+  authentik-postgresql:
+    image: postgres:16-alpine
+    container_name: authentik-postgresql
+    environment:
+      POSTGRES_USER: ${AUTHENTIK_PG_USER:-authentik}
+      POSTGRES_PASSWORD: ${AUTHENTIK_PG_PASSWORD:-authentikpassword}
+      POSTGRES_DB: ${AUTHENTIK_PG_DB:-authentik}
+    volumes:
+      - authentik-postgresql-data:/var/lib/postgresql/data
+    networks:
+      - authentik
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -d ${AUTHENTIK_PG_DB:-authentik} -U ${AUTHENTIK_PG_USER:-authentik}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  authentik-redis:
+    image: redis:alpine
+    container_name: authentik-redis
+    command: --save 60 1 --loglevel warning
+    volumes:
+      - authentik-redis-data:/data
+    networks:
+      - authentik
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5.4}
+    container_name: authentik-server
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-changeme-generate-a-real-secret-key}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASSWORD:-authentikpassword}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@localhost}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-adminpassword}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:-}
+    volumes:
+      - authentik-media:/media
+      - authentik-certs:/certs
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    networks:
+      - authentik
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://localhost:9000/-/health/ready/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5.4}
+    container_name: authentik-worker
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-changeme-generate-a-real-secret-key}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASSWORD:-authentikpassword}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@localhost}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-adminpassword}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:-}
+    volumes:
+      - authentik-media:/media
+      - authentik-certs:/certs
+    networks:
+      - authentik
+    depends_on:
+      authentik-postgresql:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  # One-off tool container (ansible-core baked in at build time) — NOT a long-running service, so
+  # it's gated behind the "tools" Compose profile, same pattern as services/vault/docker-compose.yml's
+  # "ansible" service. Named "authentik-ansible" rather than "ansible" specifically to avoid
+  # colliding with services/vault/docker-compose.yml's own same-named service once both are pulled
+  # into one Compose project by the root docker-compose.yml's `include:` (Compose service names
+  # must be unique across the whole merged project). Invoked via `docker compose run --rm
+  # authentik-ansible ansible-playbook ...` (see servers/auth's own `auth:provision` package.json
+  # script and services/authentik/ansible/provision.yml).
+  authentik-ansible:
+    build: ./ansible
+    profiles:
+      - tools
+    # Passed through so servers/auth/ansible/vars.yml's lookup('env', 'AUTHENTIK_BOOTSTRAP_TOKEN')
+    # can read it from inside this container — unlike Vault's dev-mode root token (a fixed,
+    # well-known default hardcoded directly in each server's ansible/vars.yml), this is a real
+    # per-deployment secret, so it's never written into a committed vars.yml.
+    environment:
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:-}
+    volumes:
+      - ../..:/workspace
+    working_dir: /workspace
+    networks:
+      - authentik
+
+volumes:
+  authentik-postgresql-data:
+  authentik-redis-data:
+  authentik-media:
+  authentik-certs:
+
+networks:
+  authentik:
+    driver: bridge

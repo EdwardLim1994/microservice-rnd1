@@ -1,0 +1,4 @@
+---
+server_name: auth
+authentik_url: http://authentik-server:9000
+authentik_bootstrap_token: "{{ lookup('env', 'AUTHENTIK_BOOTSTRAP_TOKEN') }}"

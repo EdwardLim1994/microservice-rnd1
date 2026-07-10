@@ -19,3 +19,12 @@ db_admin_url: postgresql://myuser:mypassword@localhost:5101/test1
 # Dev-mode root token (services/vault/.env.sample's VAULT_DEV_ROOT_TOKEN_ID) — override here if
 # you changed it from the default.
 vault_token: root
+
+# Reached from inside the "debezium-ansible" runner container (services/debezium/docker-compose.yml),
+# which shares the "kafka" Docker network — NOT localhost:8083/localhost:8081 (only reachable from
+# the host, not from another container). Match services/debezium/ansible/roles/
+# provision-server-cdc/defaults/main.yml's own defaults; listed explicitly here for the same
+# discoverability reason vault_addr is, above.
+kafka_connect_addr: http://kafka-connect:8083
+schema_registry_addr: http://schema-registry:8081
+cdc_tables: ["public.Test1"]

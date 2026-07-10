@@ -40,7 +40,22 @@ module "vault" {
 module "monitoring" {
   source = "../monitoring/terraform/module"
 
-  namespace               = kubernetes_namespace.infra.metadata[0].name
-  grafana_admin_user      = var.grafana_admin_user
-  grafana_admin_password  = var.grafana_admin_password
+  namespace              = kubernetes_namespace.infra.metadata[0].name
+  grafana_admin_user     = var.grafana_admin_user
+  grafana_admin_password = var.grafana_admin_password
+}
+
+module "debezium" {
+  source = "../debezium/terraform/module"
+
+  namespace = kubernetes_namespace.infra.metadata[0].name
+}
+
+module "authentik" {
+  source = "../authentik/terraform/module"
+
+  namespace           = kubernetes_namespace.infra.metadata[0].name
+  secret_key          = var.authentik_secret_key
+  postgresql_password = var.authentik_postgresql_password
+  bootstrap_password  = var.authentik_bootstrap_password
 }

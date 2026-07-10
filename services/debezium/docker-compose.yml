@@ -1,0 +1,81 @@
+services:
+  kafka-connect:
+    build:
+      context: ./kafka-connect
+    container_name: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_REST_PORT: "8083"
+      CONNECT_GROUP_ID: kafka-connect-cluster
+      # Single broker (services/kafka/docker-compose.yml), so replication factor 1 for all three
+      # internal topics — same reasoning as that file's KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR.
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_TOPIC: _connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      # Matches services/kafka's existing Avro/schema-registry convention (see
+      # SchemaRegistryKafkaSerializer) — CDC topics get the same Avro-encoded, schema-registered
+      # treatment as topics a server's own KafkaDriver produces to.
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_PLUGIN_PATH: /usr/share/confluent-hub-components
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+    healthcheck:
+      # Checks the REST API actually answers (not just that the port is open) — same reasoning as
+      # kafka/schema-registry's own healthchecks in services/kafka/docker-compose.yml.
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks:
+      - kafka
+      # Debezium's Postgres connector runs inside this container and connects directly to a
+      # server's own Postgres by hostname (e.g. "test1-db") — same reason services/vault's
+      # container joins "adminer" for its own database/config connection (see
+      # services/vault/docker-compose.yml's own comment on this).
+      - adminer
+
+  # One-off tool container (ansible-core + community.postgresql, baked in at build time via
+  # ansible/Dockerfile) — NOT a long-running service, so it's gated behind the "tools" Compose
+  # profile, same pattern as services/vault/docker-compose.yml's "ansible" service. Invoked via
+  # `docker compose run --rm debezium-ansible ansible-playbook ...` (see each server's own
+  # `cdc:provision` package.json script and services/debezium/ansible/provision.yml). Named
+  # "debezium-ansible" rather than "ansible" specifically to avoid colliding with
+  # services/vault/docker-compose.yml's own same-named service once both are pulled into one
+  # Compose project by the root docker-compose.yml's `include:`.
+  debezium-ansible:
+    build:
+      context: ./ansible
+    profiles:
+      - tools
+    volumes:
+      - ../..:/workspace
+    working_dir: /workspace
+    networks:
+      - kafka
+      # Needed since provision-server-cdc's tasks (services/debezium/ansible/roles/
+      # provision-server-cdc/tasks/main.yml) query/reconcile a server's Postgres publication
+      # directly (community.postgresql.postgresql_query) — not just Kafka Connect's REST API
+      # anymore. Same reason kafka-connect itself joins "adminer", above.
+      - adminer
+
+networks:
+  kafka:
+  # Empty here on purpose — the "real" definition (driver: bridge) lives in
+  # services/kafka/docker-compose.yml; Compose merges same-named top-level networks across every
+  # file pulled in by the root docker-compose.yml's `include:`, same convention
+  # servers/test1/docker-compose.yml follows for this same network.
+  adminer:

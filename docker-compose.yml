@@ -1,6 +1,8 @@
 include:
   - ./services/adminer/docker-compose.yml
   - ./services/apollo/docker-compose.yml
+  - ./services/authentik/docker-compose.yml
+  - ./services/debezium/docker-compose.yml
   - ./services/kafka/docker-compose.yml
   - ./services/meilisearch/docker-compose.yml
   - ./services/monitoring/docker-compose.yml
@@ -10,3 +12,4 @@ include:
   - ./servers/test2/docker-compose.yml
   - ./apps/web1/docker-compose.yml
   - ./frontends/mfe1/docker-compose.yml
+  - ./servers/auth/docker-compose.yml

@@ -1,0 +1,27 @@
+{
+	"name": "auth",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@graphql-codegen/add": "^7.0.1",
+		"@graphql-codegen/cli": "^7.1.2",
+		"@graphql-codegen/schema-ast": "^6.0.1",
+		"@graphql-codegen/typescript": "^6.0.2",
+		"@graphql-codegen/typescript-resolvers": "^6.0.2"
+	},
+	"dependencies": {
+		"server": "workspace:*",
+		"config": "workspace:*",
+		"graphql": "^16.14.2",
+		"api": "workspace:*",
+		"script": "workspace:*"
+	},
+	"scripts": {
+		"dev": "bun run index.ts --watch --verbose",
+		"k8s:build": "cd ../.. && docker build -f servers/auth/Dockerfile -t auth:local .",
+		"gen": "bun ./src/scripts/generate_api.sh.ts",
+		"auth:provision": "cd ../.. && docker compose run --rm authentik-ansible ansible-playbook services/authentik/ansible/provision.yml -e @servers/auth/ansible/vars.yml"
+	}
+}

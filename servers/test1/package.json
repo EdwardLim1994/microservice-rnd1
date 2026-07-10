@@ -34,6 +34,7 @@
 		"k8s:build": "cd ../.. && docker build -f servers/test1/Dockerfile -t test1:local . && docker build -f servers/test1/Dockerfile --target migrate -t test1-migrate:local .",
 		"gen": "bun ./src/scripts/generate_api.sh.ts",
 		"vault:provision": "cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @servers/test1/ansible/vars.yml",
+		"cdc:provision": "cd ../.. && docker compose run --rm debezium-ansible ansible-playbook services/debezium/ansible/provision.yml -e @servers/test1/ansible/vars.yml",
 		"postinstall": "prisma generate"
 	}
 }

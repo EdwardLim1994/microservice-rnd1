@@ -1,0 +1,28 @@
+services:
+  auth:
+    build:
+      context: ../..
+      dockerfile: servers/auth/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-x64}
+    container_name: auth_server
+    env_file:
+      - .env
+    # .env's AUTHENTIK_URL is localhost:9000 (host-side `bun dev` convention, same as e.g.
+    # servers/test1's DB_HOST) — overridden here to the Docker-network hostname for the
+    # containerized case, same pattern as DatabaseGenerator's wireDatabaseDockerCompose action.
+    environment:
+      AUTHENTIK_URL: http://authentik-server:9000
+    restart: unless-stopped
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    networks:
+      - authentik
+
+# Empty on purpose — the "real" definition (driver: bridge) lives in
+# services/authentik/docker-compose.yml; Compose merges same-named top-level networks across
+# every file pulled in by the root docker-compose.yml's `include:`, same convention
+# servers/test1/docker-compose.yml follows for the "adminer"/"vault" networks.
+networks:
+  authentik:

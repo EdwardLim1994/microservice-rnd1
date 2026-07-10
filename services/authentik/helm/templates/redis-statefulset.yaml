@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: authentik-redis
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "authentik.redis.labels" . | nindent 4 }}
+spec:
+  serviceName: authentik-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "authentik.redis.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "authentik.redis.labels" . | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: redis
+          image: "{{ .Values.redisImage }}"
+          command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli ping | grep -q PONG"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "redis-cli ping | grep -q PONG"]
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.redisSize }}

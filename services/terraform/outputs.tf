@@ -25,3 +25,7 @@ output "vault_release_status" {
 output "monitoring_release_status" {
   value = module.monitoring.release_status
 }
+
+output "authentik_release_status" {
+  value = module.authentik.release_status
+}

@@ -17,3 +17,8 @@ subgraphs:
       # routing_url: http://host.docker.internal:4002
       schema:
          file: ../../../../servers/test2/src/schemas/graphql/test2.graphql
+
+   auth:
+      routing_url: http://auth:4003
+      schema:
+         file: ../../../../servers/auth/src/schemas/graphql/auth.graphql

@@ -1,0 +1,18 @@
+---
+# Provisions Authentik's own internal objects (an OAuth2 Provider with the password grant enabled,
+# an Application, a service-account user + API token) for one consuming server. Unlike Vault dev
+# mode (services/vault/ansible/provision.yml), Authentik's Postgres is persistent — this only needs
+# re-running when that consuming server's own credentials are lost/rotated, not on every restart.
+# Run via that server's own `bun run auth:provision` (see servers/auth/package.json), which runs
+# this inside the "authentik-ansible" one-off runner container (services/authentik/docker-compose.yml
+# — ansible-core baked in at build time, no local Python install needed) and passes that server's
+# own ansible/vars.yml as extra-vars:
+#
+#   docker compose run --rm authentik-ansible ansible-playbook services/authentik/ansible/provision.yml \
+#     -e @servers/auth/ansible/vars.yml
+- name: Provision Authentik for a server's OAuth2 client + admin API token
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - provision-authentik

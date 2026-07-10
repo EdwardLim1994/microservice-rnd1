@@ -393,14 +393,14 @@ ServerApp.init([...])
 ```ts
 // AuthInterceptor's entire implementation, once BaseInterceptor owns the plumbing:
 export class AuthInterceptor extends BaseInterceptor {
-  protected validateToken(token?: string): boolean {
+  protected validateToken(token?: string): boolean | Promise<boolean> {
     if (!token) return false;
     const bearerToken = token.startsWith('Bearer ') ? token.slice(7) : token;
     return bearerToken === process.env.AUTH_TOKEN;
   }
 
-  protected intercept(request: InterceptorRequest): void {
-    if (!this.validateToken(request.getHeader('authorization'))) {
+  protected async intercept(request: InterceptorRequest): Promise<void> {
+    if (!(await this.validateToken(request.getHeader('authorization')))) {
       throw new InterceptorError('Unauthenticated');
     }
   }
@@ -413,13 +413,27 @@ export class AuthInterceptor extends BaseInterceptor {
   learn. `ServerApp.interceptors()` only ever takes bare constructors
   (`Constructor<BaseInterceptor>[]`), never pre-built instances, so constructor injection wouldn't
   have been reachable through the framework anyway (same reasoning that removed the earlier unused
-  `container` param).
-- **No real auth service exists in this monorepo yet.** `validateToken()`'s default just compares
-  the incoming token against a static `AUTH_TOKEN` env var (stripping an optional `Bearer ` prefix)
-  — a placeholder, not real auth. Swap it out by subclassing: `class RealAuthInterceptor extends
-  AuthInterceptor { protected async validateToken(token) { return callRealAuthService(token); } }`
-  — see `CustomAuthInterceptor` in `AuthInterceptor.test.ts` for the pattern. Not yet wired into any
-  server's `.interceptors([...])` — servers opt in once there's a real validator to subclass with.
+  `container` param). Interceptors are still constructed as `new I(container)` (see `ServerApp.run()`)
+  even though `AuthInterceptor` itself ignores that argument — a subclass needing real setup (like
+  `AuthentikAuthInterceptor` below) takes it as an unused first param purely to occupy that position.
+- `validateToken()`'s return type is `boolean | Promise<boolean>`, not just `boolean` — specifically
+  so a subclass validating against a real network call can be `async`. `AuthInterceptor`'s own
+  default just compares the incoming token against a static `AUTH_TOKEN` env var (stripping an
+  optional `Bearer ` prefix) — a placeholder. `AuthentikAuthInterceptor`
+  (`packages/server/src/interceptor/AuthentikAuthInterceptor.ts`) is the real validator this
+  placeholder pointed at: verifies a Bearer token's signature against `servers/auth`'s
+  Authentik-issued JWKS (`jose`'s `createRemoteJWKSet`/`jwtVerify`), checking `iss` (derived from
+  `AUTHENTIK_URL` + `AUTHENTIK_APPLICATION_SLUG`, default `auth`) and optionally `aud` (only if
+  `AUTHENTIK_JWT_AUDIENCE` is set — unset by default, since this repo's provisioning issues tokens
+  from a single OAuth2 client and every consumer would otherwise need to know that client_id just to
+  check `aud`). No shared secret to distribute: `services/authentik/ansible`'s provisioning role sets
+  the OAuth2 Provider's `signing_key` to Authentik's own default self-signed `CertificateKeyPair`
+  (RS256), so any server can fetch the public JWKS and verify independently — see
+  `servers/auth/CLAUDE.md` for why this replaced the HS256 default (which would've required every
+  consumer to hold `servers/auth`'s OAuth2 client_secret). Not yet wired into any server's
+  `.interceptors([...])` by default — a server opts in explicitly, same as `AuthInterceptor` itself.
+  See `CustomAuthInterceptor` in `AuthInterceptor.test.ts` for the general subclassing pattern this
+  follows.
 - **`apply(server)` (concrete on `BaseInterceptor`, not overridden by subclasses) duck-types the
   raw server it's given** via `protected isGrpcServer(server)`/`isApolloServer(server)` (same
   technique as `ApolloDriver`'s `isGraphqlRouter`/`KafkaDriver`'s `isKafkaConsumerRouter`), then

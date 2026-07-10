@@ -1,0 +1,28 @@
+namespace: infra
+
+image: ghcr.io/goauthentik/server:2026.5.4
+postgresImage: postgres:16-alpine
+redisImage: redis:alpine
+
+# Matches services/authentik/docker-compose.yml's AUTHENTIK_SECRET_KEY default.
+secretKey: changeme-generate-a-real-secret-key
+
+postgresql:
+  user: authentik
+  password: authentikpassword
+  db: authentik
+
+bootstrap:
+  email: admin@localhost
+  password: adminpassword
+  # Mints a ready-made akadmin API token at boot (no login step needed) — empty by default;
+  # generate via `openssl rand -hex 32` if in-cluster provisioning of Authentik's internal objects
+  # (OAuth2 Provider/Application/service account) is ever automated for k8s. Not consumed by
+  # anything in this chart today — see services/authentik/CLAUDE.md's known-limitations section.
+  token: ""
+
+persistence:
+  postgresqlSize: 1Gi
+  redisSize: 1Gi
+  mediaSize: 1Gi
+  certsSize: 1Gi
