@@ -1,0 +1,34 @@
+---
+title: Documentation
+description: Business logic, API references, architecture, and data flow documentation
+template: splash
+hero:
+  tagline: Everything you need to understand how the system works
+  actions:
+    - text: Business Logic
+      link: /business-logic/
+      icon: open-book
+    - text: API Reference
+      link: /api/
+      icon: seti:graphql
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components'
+
+<CardGrid>
+  <Card title="Business Logic" icon="open-book">
+    Understand what the system does and why — domain rules, user flows, and feature behaviour.
+  </Card>
+  <Card title="API Reference" icon="seti:graphql">
+    GraphQL mutations, queries, and gRPC service contracts per subgraph.
+  </Card>
+  <Card title="Architecture" icon="puzzle">
+    How the system is structured — services, subgraphs, and component relationships.
+  </Card>
+  <Card title="Data Flows" icon="right-arrow">
+    End-to-end data lifecycle — how data moves from client through Apollo Router to gRPC services.
+  </Card>
+  <Card title="SDLC" icon="setting">
+    How this codebase is developed — branching strategy, roles, quality gates, and release process.
+  </Card>
+</CardGrid>

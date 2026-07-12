@@ -43,8 +43,10 @@ If any prerequisite fails — post a `/blocked` comment on the user story issue 
 ```
 1. Read the user story issue (gh issue view [number])
 2. Read all feature sub-issues linked in the Sub-Issues checklist
-3. Read .claude/requirements/[release-name].md for full context
-4. For frontend/fullstack features — fetch the Claude Design project URL from the sub-issue
+3. Read .openspec/requirements/release/[version]/requirements.yaml for full context
+   - For hotfix sessions: read .openspec/requirements/hotfix/[version]/requirements.yaml
+4. For features with graphqlChanges: true — read the relevant [domain]-subgraph.api.graphql files
+5. For frontend/fullstack features — fetch the Claude Design project URL from claudeDesignURL in the spec
 ```
 
 ---

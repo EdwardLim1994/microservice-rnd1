@@ -1,0 +1,139 @@
+---
+title: SDLC Overview
+description: How this codebase is developed — roles, branching, quality gates, and release process
+---
+
+import { Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components'
+
+## Overview
+
+This project follows a structured SDLC managed by Claude Code with four defined roles.
+All requirements are aligned in Claude.ai before any code is written.
+
+## Two-Phase Workflow
+
+**Phase 1 — Requirements alignment (Claude.ai chat)**
+Developer discusses the release scope with Claude. Output is a `requirements.yaml`
+and `[domain]-subgraph.api.graphql` per affected subgraph, stored in `.openspec/`.
+
+**Phase 2 — Execution (Claude Code)**
+Claude Code reads the OpenSpec files and this SOP, then executes autonomously
+across four roles.
+
+## Roles
+
+<CardGrid>
+  <Card title="/pm — Project Management" icon="list-format">
+    Generates OpenSpec files, creates GitHub issues, labels, milestones, and branches.
+    Manages bugfix and hotfix flows.
+  </Card>
+  <Card title="/qa — QA" icon="approve-check">
+    Writes integration tests (per feature) and e2e tests (per user story) before
+    development begins. Reviews code after Dev opens a PR.
+  </Card>
+  <Card title="/dev — Development" icon="seti:typescript">
+    Implements features, updates GraphQL subgraph SDLs, passes quality gates,
+    writes docs, and opens PRs.
+  </Card>
+  <Card title="/devops — DevOps" icon="setting">
+    Configures GitHub Actions, manages Terraform and Helm, runs Rover supergraph
+    compose, and deploys to environments.
+  </Card>
+</CardGrid>
+
+## Branch Strategy
+
+```
+main
+└── release/[version]                          ← Developer creates
+    └── us/[issue-number]-[title]              ← /pm creates
+        └── feat/[issue-number]-[title]        ← /pm creates
+```
+
+| Branch type | Created from | Merged into | Deleted after |
+|---|---|---|---|
+| `release/` | `main` | `main` | Never — kept as release tag |
+| `us/` | `release/` | `release/` | `us/` PR merged |
+| `feat/` | `us/` | `us/` | `feat/` PR merged |
+| `bugfix/` (release) | `us/` | `us/` | `us/` PR merged into `release/` |
+| `hotfix/` | `main` | `main` | Hotfix PR merged |
+| `bugfix/` (hotfix) | `hotfix/` | `hotfix/` | Hotfix PR merged |
+
+## Release Lifecycle
+
+<Steps>
+1. Developer creates release branch from `main`
+
+2. Requirements aligned in Claude.ai → OpenSpec files committed to release branch
+
+3. `/pm` creates GitHub issues, labels, milestone, and branches
+
+4. `/qa` writes integration tests (feature branches) and e2e tests (user story branch)
+
+5. `/dev` implements features, updates GraphQL SDL, runs quality gates, writes docs
+
+6. Developer reviews and merges each feature PR
+
+7. Developer instructs `/dev` to open user story PR → e2e runs on PR creation
+
+8. Developer reviews and merges user story PR
+
+9. `/devops` runs Rover compose, applies Terraform, updates Helm, deploys
+
+10. Developer signs off UAT and merges release branch to `main`
+</Steps>
+
+## Quality Gates
+
+Every feature PR must pass all three before opening:
+
+1. **Integration tests** — GitHub Actions on `feat/**` branches
+2. **SonarQube Cloud** — Quality Gate must be `PASSED`
+3. **Self code review** — Claude Code checklist before opening PR
+
+## e2e Testing
+
+e2e tests live in `./e2e/` — a dedicated Bun project with:
+- **Vitest** for API-level tests hitting the cluster URL directly
+- **Cypress** for browser-level tests
+
+e2e is triggered when a user story PR is opened (us → release). GitHub Actions spins
+up a local `kind` Kubernetes cluster, deploys the application via Helm, and runs
+both test suites against it.
+
+## Hotfix Process
+
+Production bugs trigger a new SDLC cycle:
+
+<Steps>
+1. Developer tells Claude Code to start a hotfix with current version and problem description
+
+2. `/pm` generates `.openspec/requirements/hotfix/[new-version]/` files
+
+3. `/pm` creates hotfix branch from `main` and bugfix branches per sub-issue
+
+4. Full QA and DevOps flow applies — same quality gates
+
+5. Developer merges hotfix PR to `main` and bumps patch version manually
+</Steps>
+
+<Aside type="note">
+  Version bumps (e.g. `1.0.0` → `1.0.1`) are always performed by the developer
+  on merge to `main`. Claude Code never bumps versions autonomously.
+</Aside>
+
+## Documentation Ownership
+
+| Doc section | Written by | When |
+|---|---|---|
+| Business logic | `/pm` | After issues are created |
+| API reference | `/dev` | After each endpoint is implemented |
+| Architecture | `/dev` | After user story PR is opened |
+| Data flows | `/dev` | After user story PR is opened |
+| SDLC | `/pm` | Once per project setup |
+
+## Doc Versioning
+
+Docs are versioned to match releases. RC pages use `draft: true` in frontmatter
+and are hidden in production builds. When a release is promoted to stable, `/dev`
+removes `draft: true` from that version's pages.

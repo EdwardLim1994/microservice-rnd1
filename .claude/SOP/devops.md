@@ -11,6 +11,7 @@ Provision and update infrastructure using Terraform and Helm. Configure GitHub A
 [ ] GitHub CLI is authenticated (gh auth status)
 [ ] Cloud provider credentials are available in environment
 [ ] SONAR_TOKEN is available in environment (for GitHub Actions setup)
+[ ] Rover CLI is available (rover --version) — for supergraph compose verification
 ```
 
 If any prerequisite fails — post a `/blocked` comment on the release milestone and stop.
@@ -206,7 +207,31 @@ git commit -m "chore(ci): add github actions workflows for integration tests, e2
 git push origin release/[release-name]
 ```
 
-### Step 4 — Handoff to PM
+### Step 4 — Verify Rover CLI
+```bash
+rover --version
+
+# If not installed:
+curl -sSL https://rover.apollo.dev/nix/latest | sh
+```
+
+Confirm `./supergraph.yaml` exists in the repo root. If not, create it:
+```yaml
+# supergraph.yaml
+federation_version: =2.0.0
+subgraphs:
+  auth-subgraph:
+    routing_url: http://auth-subgraph:4001/graphql
+    schema:
+      file: ./servers/auth-subgraph/src/schema/schema.graphql
+  order-subgraph:
+    routing_url: http://order-subgraph:4002/graphql
+    schema:
+      file: ./servers/order-subgraph/src/schema/schema.graphql
+  # add further subgraphs as the monorepo grows
+```
+
+### Step 5 — Handoff to PM
 Post comment on release milestone:
 ```
 /handoff pm
@@ -215,6 +240,8 @@ GitHub Actions workflows created/verified:
 - e2e-tests.yml ✅
 - sonarqube.yml ✅
 - SONAR_TOKEN secret: ✅ confirmed
+- Rover CLI: ✅ installed
+- supergraph.yaml: ✅ verified
 Status: CI/CD pipeline ready. Project Management can begin.
 ```
 
@@ -230,6 +257,29 @@ Status: CI/CD pipeline ready. Project Management can begin.
    - New environment variables or secrets
    - Scaling or resource changes
    - New dependencies (databases, queues, storage)
+```
+
+### Step 1b — Verify Supergraph Compose (if any feature had graphqlChanges: true)
+
+Before applying infrastructure changes, verify the updated subgraph SDLs compose correctly:
+
+```bash
+# Check if any release features involved GraphQL changes
+cat .openspec/requirements/release/[version]/requirements.yaml | grep "graphqlChanges: true"
+
+# If any graphqlChanges: true found — run Rover compose
+rover supergraph compose --config ./supergraph.yaml
+
+# If compose fails — post /blocked on the release milestone
+# Do not proceed with deployment until compose passes
+```
+
+If compose passes, update the supergraph schema in the Apollo Router config:
+```bash
+rover supergraph compose --config ./supergraph.yaml > ./apollo-router/supergraph.graphql
+git add ./apollo-router/supergraph.graphql
+git commit -m "chore(router): update supergraph schema for [version]"
+git push origin release/[version]
 ```
 
 ### Step 2 — Terraform
@@ -312,5 +362,6 @@ Post a `/blocked` comment on the release milestone and stop if:
 - Terraform apply fails
 - Helm upgrade fails and rollback is required
 - Health check fails after deployment
+- Rover supergraph compose fails — fix subgraph SDL before deployment
 - GitHub repository secrets are not configured
 - `kubectl` cannot connect to the cluster

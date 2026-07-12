@@ -68,7 +68,7 @@ Each role must post the exact comment below when handing off. This allows the ne
 /handoff qa
 User story branch: us/[number]-[title]
 Feature branches: feat/[number]-[title], feat/[number]-[title]
-Requirements: .claude/requirements/[release-name].md
+OpenSpec: .openspec/requirements/release/[version]/requirements.yaml
 Status: Issues and branches created. Ready for test authoring.
 ```
 
@@ -119,6 +119,59 @@ Helm: updated ✅
 Environment: [staging | production]
 Status: Infrastructure ready. UAT can proceed.
 ```
+
+---
+
+## Bugfix Handoff Comments
+
+### PM → Dev (CI failure on feature branch — Scenario A)
+```
+/handoff dev
+Trigger: CI failure on feat/[number]-[title]
+Failed: [integration tests | SonarQube | both]
+Actions run: [link]
+Status: Fix directly on feat/[number]-[title]. Re-push to re-trigger CI. No new branch needed.
+```
+
+### PM → Dev (CI failure on user story branch — Scenario B)
+```
+/handoff dev
+Bugfix branch: bugfix/[us-issue-number]-[short-description]
+Bugfix issue: #[bugfix-issue-number]
+Parent: us/[us-issue-number]-[short-title]
+Failed checks: [list]
+Actions run: [link]
+Status: Fix on bugfix branch. Same quality gates apply. Open PR back into us/[us-issue-number]-[short-title] when passing.
+```
+
+---
+
+## Hotfix Handoff Comments
+
+### PM → QA (hotfix setup complete)
+```
+/handoff qa
+Mode: HOTFIX
+Hotfix branch: hotfix/[new-version]-[short-description]
+Bugfix branches: bugfix/[number]-[desc], bugfix/[number]-[desc]
+Milestone: hotfix/[new-version]
+Labels assigned: ✅
+Branch links: ✅
+Status: Treat bugfix branches as feature branches and hotfix branch as user story branch. Full QA flow applies.
+```
+
+### Dev → Developer (hotfix PR ready)
+```
+/handoff merge
+Mode: HOTFIX
+PR: #[pr-number]
+Branch: hotfix/[new-version]-[desc] → main
+e2e: triggered on PR creation (kind cluster)
+Version bump: [X.Y.Z] → [X.Y.Z+1] — please bump on merge
+Status: Ready for your review. Merge and bump version when e2e passes.
+```
+
+---
 
 ---
 

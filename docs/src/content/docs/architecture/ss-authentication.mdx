@@ -1,0 +1,55 @@
+---
+title: SSO Authentication
+description: How enterprise users authenticate using their company SSO provider
+version: 1.0.0-rc1
+draft: true
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+## Overview
+
+Enterprise users can log in using their company's SSO (Single Sign-On) provider
+instead of maintaining a separate password. The system supports any OAuth 2.0
+compliant SSO provider.
+
+## User Flow
+
+<Steps>
+1. User arrives at the login page and clicks **Login with SSO**
+
+2. System redirects the user to their SSO provider's authentication page
+
+3. User authenticates with their company credentials
+
+4. SSO provider redirects back with an OAuth authorization code
+
+5. System exchanges the code for an internal JWT session token
+
+6. User is redirected to the dashboard with an active session
+</Steps>
+
+## Acceptance Criteria
+
+- Users can initiate SSO login from the login page
+- Successful SSO login redirects the user to the dashboard
+- Failed SSO login shows a meaningful error message with a retry option
+- CSRF protection is enforced via state token validation
+
+## Error Handling
+
+| Scenario | User-facing message |
+|---|---|
+| SSO provider unavailable | "Unable to reach your SSO provider. Please try again." |
+| Authorization code expired | "Your login session expired. Please try again." |
+| CSRF state mismatch | "A security error occurred. Please start the login process again." |
+
+<Aside type="caution">
+  CSRF state token validation is mandatory and cannot be bypassed.
+  Any callback with a missing or mismatched state param must be rejected.
+</Aside>
+
+## Related
+
+- [auth-subgraph API](/api/auth-subgraph/) — GraphQL mutations and gRPC contracts
+- [Authentication Data Flow](/data-flows/authentication/) — end-to-end request lifecycle

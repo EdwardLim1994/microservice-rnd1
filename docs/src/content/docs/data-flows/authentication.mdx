@@ -1,0 +1,78 @@
+---
+title: Authentication Data Flow
+description: End-to-end data flow for SSO login from client through Apollo Router to gRPC
+version: 1.0.0-rc1
+draft: true
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+## Overview
+
+This page describes how authentication data moves through the system from the
+client's initial SSO login request to the issued session token.
+
+## Flow Diagram
+
+```
+Client (Browser)
+  │
+  │  POST /graphql  { mutation: completeSSOLogin(code, state) }
+  ▼
+Apollo Router
+  │  Resolves mutation to auth-subgraph
+  │  Validates JWT on inbound request (if authenticated route)
+  ▼
+auth-subgraph (GraphQL)
+  │  Validates CSRF state token
+  │  Calls internal gRPC service
+  ▼
+AuthService (gRPC — internal only)
+  │  ExchangeToken(code, providerId)
+  │  Calls SSO provider token endpoint
+  ▼
+SSO Provider (external)
+  │  Returns OAuth access token and user profile
+  ▼
+AuthService
+  │  Issues signed JWT + refresh token
+  │  Returns ExchangeTokenResponse
+  ▼
+auth-subgraph
+  │  Maps response to AuthSession GraphQL type
+  │  Returns to Apollo Router
+  ▼
+Apollo Router
+  │  Returns composed response to client
+  ▼
+Client
+  Stores JWT in httpOnly cookie
+  Redirects to dashboard
+```
+
+## Key Data Transformations
+
+| Stage | Input | Output |
+|---|---|---|
+| Client → Apollo Router | OAuth code + state | GraphQL mutation |
+| Apollo Router → auth-subgraph | GraphQL mutation | Subgraph resolver call |
+| auth-subgraph → AuthService | Resolver args | gRPC `ExchangeTokenRequest` |
+| AuthService → SSO Provider | OAuth code | OAuth access token + profile |
+| AuthService → auth-subgraph | `ExchangeTokenResponse` | `AuthSession` GraphQL type |
+
+## Security Notes
+
+<Aside type="caution">
+  The OAuth `code` is single-use and expires within 60 seconds of issuance.
+  The system must exchange it immediately on callback receipt.
+</Aside>
+
+<Aside type="note">
+  The JWT is stored in an `httpOnly`, `Secure`, `SameSite=Strict` cookie.
+  It is never exposed to JavaScript.
+</Aside>
+
+## Related
+
+- [SSO Authentication — Business Logic](/business-logic/sso-authentication/)
+- [auth-subgraph API](/api/auth-subgraph/)

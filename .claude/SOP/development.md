@@ -22,11 +22,16 @@ If any prerequisite fails — post a `/blocked` comment on the feature sub-issue
 ```
 1. Read the feature sub-issue (gh issue view [number])
 2. Read the parent user story issue for full context
-3. Read .claude/requirements/[release-name].md for the original spec
-4. For frontend/fullstack features:
-   - Fetch the Claude Design project from the URL in the sub-issue
-   - Load component tree, design tokens, and layout hierarchy from the project
-5. Read existing integration tests to understand what must pass
+3. Read .openspec/requirements/release/[version]/requirements.yaml
+   - Locate the feature by FEAT-[n] id
+   - For hotfix sessions: read .openspec/requirements/hotfix/[version]/requirements.yaml
+4. If graphqlChanges: true in the feature spec:
+   - Read each [domain]-subgraph.api.graphql listed in affectedSubgraphs
+   - Identify which subgraph owns the entity and which holds stubs
+5. For frontend/fullstack features:
+   - Fetch the Claude Design project from claudeDesignURL in the spec
+   - Load component tree, design tokens, and layout hierarchy
+6. Read existing integration tests to understand what must pass
 ```
 
 ---
@@ -51,6 +56,18 @@ git pull origin feat/[number]-[title]
 - Handle all edge cases listed in the sub-issue
 - Return consistent error shapes for all failure paths
 - Do not introduce new dependencies without flagging to the developer
+
+**GraphQL schema changes (if graphqlChanges: true)**
+- Read the SDL from `.openspec/requirements/release/[version]/[domain]-subgraph.api.graphql`
+- Implement the schema changes in `./servers/[domain]-subgraph/src/schema/`
+- For the owning subgraph: add the full type with `@key` directive
+- For referencing subgraphs: add the stub type with `@key` and `@external` on used fields
+- After implementing all affected subgraphs, run Rover CLI compose to verify federation:
+  ```bash
+  rover supergraph compose --config ./supergraph.yaml
+  ```
+- If Rover compose fails — fix the SDL before proceeding to other implementation work
+- Never modify the `.openspec` SDL files — they are the spec, not the implementation
 
 **Frontend / Fullstack features**
 - Load the Claude Design project from the URL in the sub-issue before writing any code
@@ -251,6 +268,59 @@ Status: Ready for your review. Merge once e2e passes.
 
 ---
 
+## Phase 7 — Write Documentation
+
+After opening the feature PR (Phase 4), write or update the relevant docs pages in `./docs/src/content/docs/`.
+
+### Doc responsibilities per feature type
+
+**Backend features**
+- `./docs/src/content/docs/api/[domain]-subgraph.mdx` — document the gRPC method and any GraphQL mutations/queries it backs
+- `./docs/src/content/docs/data-flows/[flow-name].mdx` — update if data flow changed
+
+**Frontend / Fullstack features**
+- `./docs/src/content/docs/business-logic/[feature-domain].mdx` — document user-facing behaviour
+- `./docs/src/content/docs/architecture/[component].mdx` — update if component structure changed
+
+### Doc page format (MDX)
+
+```mdx
+---
+title: [Page title]
+description: [One sentence description]
+version: [release version e.g. 1.0.0-rc1]
+draft: true    # RC pages — removed when version is promoted to stable
+---
+
+import { Aside, Code } from '@astrojs/starlight/components'
+
+## Overview
+[What this API / feature / flow does]
+
+## [Section]
+[Content]
+
+<Aside type="note">
+[Any important caveat or note]
+</Aside>
+```
+
+### RC vs stable pages
+- All docs written during development use `draft: true` in frontmatter
+- When the release branch merges to main, `/dev` removes `draft: true` from the promoted version's pages
+- RC pages (e.g. `1.0.0-rc1`) remain in the repo but stay `draft: true` permanently once the stable version is released
+
+### Commit docs
+```bash
+git add ./docs/
+git commit -m "docs([scope]): add documentation for [feature title]"
+git push origin feat/[number]-[title]
+```
+
+Docs are committed to the feature branch and travel with the feature PR.
+
+---
+
 ## Stopping Conditions
 
 Post a `/blocked` comment and stop if:
@@ -261,3 +331,4 @@ Post a `/blocked` comment and stop if:
 - SonarQube Quality Gate fails after 3 fix cycles
 - A merge conflict on the feature branch cannot be resolved automatically
 - Developer has not yet instructed Dev to open the user story PR — do not proceed autonomously
+- Rover CLI compose fails after SDL implementation — fix before opening PR
