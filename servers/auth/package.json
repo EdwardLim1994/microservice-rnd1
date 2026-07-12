@@ -9,7 +9,8 @@
 		"@graphql-codegen/cli": "^7.1.2",
 		"@graphql-codegen/schema-ast": "^6.0.1",
 		"@graphql-codegen/typescript": "^6.0.2",
-		"@graphql-codegen/typescript-resolvers": "^6.0.2"
+		"@graphql-codegen/typescript-resolvers": "^6.0.2",
+		"@rstest/core": "^0.10.6"
 	},
 	"dependencies": {
 		"server": "workspace:*",
@@ -22,6 +23,7 @@
 		"dev": "bun run index.ts --watch --verbose",
 		"k8s:build": "cd ../.. && docker build -f servers/auth/Dockerfile -t auth:local .",
 		"gen": "bun ./src/scripts/generate_api.sh.ts",
+		"test": "rstest",
 		"auth:provision": "cd ../.. && docker compose run --rm authentik-ansible ansible-playbook services/authentik/ansible/provision.yml -e @servers/auth/ansible/vars.yml"
 	}
 }
