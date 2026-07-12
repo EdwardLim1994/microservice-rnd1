@@ -5,13 +5,19 @@
   "phase": "dev",
   "currentFeature": null,
   "completedFeatures": [],
-  "pendingFeatures": [17, 18, 19, 20, 22, 23, 25, 26],
+  "pendingFeatures": [22, 23, 25, 26],
   "userStoryIssues": [16, 21, 24],
   "featureIssues": [17, 18, 19, 20, 22, 23, 25, 26],
-  "openPRs": [],
-  "pauseReason": "QA phase complete. Integration tests written on all 8 feature branches, e2e tests written on all 3 user-story branches. /dev has not started implementing any feature yet — type /run continue to begin the feature loop starting with FEAT-01 (#17).",
+  "openPRs": [
+    { "pr": 27, "feature": 17, "title": "Auth Register Mutation", "base": "us/16-user-registration" },
+    { "pr": 28, "feature": 19, "title": "Authentik Terraform and Helm Configuration", "base": "us/16-user-registration" },
+    { "pr": 29, "feature": 18, "title": "Apollo Router Subgraph Wiring", "base": "us/16-user-registration" },
+    { "pr": 31, "feature": 20, "title": "Register UI", "base": "us/16-user-registration" },
+    { "pr": 30, "feature": null, "title": "fix(ci): bun install postinstall ordering + DATABASE_URL", "base": "release/integration-testing" }
+  ],
+  "pauseReason": "All 4 of US-01's feature PRs are open (#27, #28, #29, #31), all with passing SonarQube Quality Gates. A separate pre-existing repo-wide CI bug (bun install --frozen-lockfile always failing on servers/test1's postinstall, present since this repo's first-ever CI run) was found and fixed in PR #30, targeting release/integration-testing directly. Waiting on developer review/merge of all 5 PRs before continuing to US-02/US-03's features (22, 23, 25, 26).",
   "startedAt": "2026-07-12T09:15:00Z",
-  "updatedAt": "2026-07-12T09:58:00Z",
+  "updatedAt": "2026-07-12T12:05:00Z",
   "notes": {
     "priorAbandonedRun": "PR #15 (us/4-user-registration) was closed with a failed SonarQube gate; its branches (feat/5,6,7,8, us/4) and the empty US-02/US-03 scaffolding branches (feat/10,11,13,14, us/9,12) were deleted and issues #4-#14 (already deleted on GitHub before this run started) are not reused. This run restarted PM from scratch with new issue numbers 16-26.",
     "specCorrection": "requirements.yaml originally specified scaffolding a new servers/auth-subgraph; corrected to target the existing servers/auth service (commit eeb302d) since that's what real Authentik integration work already depends on.",
