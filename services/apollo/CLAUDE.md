@@ -34,14 +34,15 @@ which the router container mounts read-only (see `docker-compose.yml`'s `volumes
 
 `services/apollo/helm/files/supergraph.graphql` (mounted by the `infra`-namespace Router
 deployment — see `services/terraform/CLAUDE.md`) is a **copy** of `dist/supergraph.graphql` with
-`demo1`'s `join__graph` URL manually changed to the in-cluster Service FQDN
-(`http://demo1.demo1.svc.cluster.local:4001`) instead of the docker-compose hostname. Running
+each in-cluster subgraph's `join__graph` URL manually changed to its Service FQDN (e.g.
+`http://auth.auth.svc.cluster.local:4003`) instead of the docker-compose hostname. Running
 `bun run supergraph` again will overwrite `dist/supergraph.graphql` with docker-compose URLs and
-does **not** touch the helm copy automatically — re-copy and re-patch the `DEMO1` line by hand
-after any real schema change, then `helm upgrade apollo-router ./helm -n infra &&
+does **not** touch the helm copy automatically — re-copy and re-patch every `join__graph` line by
+hand after any real schema change, then `helm upgrade apollo-router ./helm -n infra &&
 kubectl rollout restart deployment apollo-router -n infra` (ConfigMap volume mounts don't
 hot-reload, and Terraform's `helm_release` won't see the file diff at all — see
-`services/terraform/CLAUDE.md`). `demo2` isn't deployed to k8s, so its URL is left unpatched.
+`services/terraform/CLAUDE.md`). `test1`/`test2`/`auth` are all patched in today; `demo2` isn't
+deployed to k8s, so a subgraph with no in-cluster Service yet should stay unpatched the same way.
 
 ## Dependencies
 
