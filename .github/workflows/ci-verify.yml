@@ -37,7 +37,13 @@ jobs:
       - run: bun run build --filter=script
 
       - name: Run deferred postinstall scripts (skipped above via --ignore-scripts)
-        run: cd servers/test1 && bun run postinstall
+        # DATABASE_URL: `prisma generate` (unlike `migrate`/`db push`) never actually connects —
+        # it only reads the schema file — but Prisma 7's config loader (createPrismaConfig's
+        # `env(databaseUrlEnv)`) validates the env var is resolvable at all regardless of which
+        # command is running, and throws PrismaConfigEnvError if it's unset. CI has never set
+        # this (no live Postgres here), so any syntactically-valid connection string satisfies
+        # it — verified locally: `prisma generate` succeeds against an unreachable host.
+        run: cd servers/test1 && DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" bun run postinstall
 
       - name: Lint + format + test (affected packages only)
         run: |
