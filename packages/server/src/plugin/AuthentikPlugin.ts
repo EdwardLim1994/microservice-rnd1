@@ -30,7 +30,9 @@ class CookieJar {
   }
 
   header(): string {
-    return [...this.cookies.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+    return [...this.cookies.entries()]
+      .map(([name, value]) => `${name}=${value}`)
+      .join('; ');
   }
 }
 
@@ -41,12 +43,6 @@ export interface AuthentikTokenResponse {
   token_type: string;
   expires_in: number;
   scope: string;
-}
-
-export interface AuthentikCreatedUser {
-  pk: number;
-  username: string;
-  email: string;
 }
 
 // Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
@@ -79,7 +75,7 @@ async function parseBody(response: Response): Promise<unknown> {
 
 // Plain fetch-based thin client — same convention as VaultPgAdapter's vaultFetch, not a generated
 // SDK. Three integration points: Flow Executor + Authorization Code sign-in, RFC 7009 revoke, and
-// Admin API user creation (see services/authentik/CLAUDE.md and servers/auth/CLAUDE.md for why
+// Flow Executor enrollment (see services/authentik/CLAUDE.md and servers/auth/CLAUDE.md for why
 // these three specifically, and why signIn() isn't a plain OAuth2 "password" grant).
 export class AuthentikClient {
   private readonly baseUrl: string;
@@ -90,7 +86,8 @@ export class AuthentikClient {
   constructor(config: AuthentikClientConfig = {}) {
     const baseUrl = config.baseUrl ?? process.env.AUTHENTIK_URL;
     const clientId = config.clientId ?? process.env.AUTHENTIK_OAUTH_CLIENT_ID;
-    const clientSecret = config.clientSecret ?? process.env.AUTHENTIK_OAUTH_CLIENT_SECRET;
+    const clientSecret =
+      config.clientSecret ?? process.env.AUTHENTIK_OAUTH_CLIENT_SECRET;
     const apiToken = config.apiToken ?? process.env.AUTHENTIK_API_TOKEN;
 
     if (!baseUrl || !clientId || !clientSecret || !apiToken) {
@@ -123,7 +120,10 @@ export class AuthentikClient {
   // drives the same path a browser would: the Flow Executor API validates the real password via
   // the authentication flow's stages, then a normal Authorization Code exchange mints real tokens
   // once the resulting session is authenticated. See servers/auth/CLAUDE.md for the full story.
-  async signIn(username: string, password: string): Promise<AuthentikTokenResponse> {
+  async signIn(
+    username: string,
+    password: string,
+  ): Promise<AuthentikTokenResponse> {
     const cookies = await this.runAuthenticationFlow(username, password);
     return this.exchangeAuthorizationCode(cookies);
   }
@@ -153,7 +153,10 @@ export class AuthentikClient {
   // Drives default-authentication-flow's stages (identification -> password -> an authenticated
   // session) via the Flow Executor API, returning the resulting session cookies. The flow's stage
   // order/shape was confirmed empirically against the running instance, not just from docs.
-  private async runAuthenticationFlow(username: string, password: string): Promise<CookieJar> {
+  private async runAuthenticationFlow(
+    username: string,
+    password: string,
+  ): Promise<CookieJar> {
     const cookies = new CookieJar();
     const flowUrl = `${this.baseUrl}/api/v3/flows/executor/default-authentication-flow/?query=`;
 
@@ -162,7 +165,12 @@ export class AuthentikClient {
       throw new AuthentikApiError(400, challenge);
     }
 
-    challenge = await this.flowStep('POST', flowUrl, { uid_field: username }, cookies);
+    challenge = await this.flowStep(
+      'POST',
+      flowUrl,
+      { uid_field: username },
+      cookies,
+    );
     if (challenge.component !== 'ak-stage-password') {
       // Unknown username, or the flow isn't shaped the way this client expects.
       throw new AuthentikApiError(400, challenge);
@@ -195,7 +203,9 @@ export class AuthentikClient {
   // this replaced. redirect: 'manual' is required so fetch returns the 302 itself (with a readable
   // Location header, since this runs server-side with no browser CORS opacity) instead of
   // following it to a redirect_uri that was never meant to be reachable.
-  private async exchangeAuthorizationCode(cookies: CookieJar): Promise<AuthentikTokenResponse> {
+  private async exchangeAuthorizationCode(
+    cookies: CookieJar,
+  ): Promise<AuthentikTokenResponse> {
     const authorizeUrl = new URL(`${this.baseUrl}/application/o/authorize/`);
     authorizeUrl.searchParams.set('client_id', this.clientId);
     authorizeUrl.searchParams.set('response_type', 'code');
@@ -204,7 +214,10 @@ export class AuthentikClient {
     // signOut() revokes that token; see the Ansible provisioning role's own scope-mappings note
     // for why this must also be bound to the Provider as a property mapping, not just requested
     // here (an unmapped scope is silently dropped, not granted).
-    authorizeUrl.searchParams.set('scope', 'openid profile email offline_access');
+    authorizeUrl.searchParams.set(
+      'scope',
+      'openid profile email offline_access',
+    );
     authorizeUrl.searchParams.set('state', crypto.randomUUID());
 
     const authorizeResponse = await fetch(authorizeUrl, {
@@ -213,11 +226,17 @@ export class AuthentikClient {
     });
     const location = authorizeResponse.headers.get('location');
     if (authorizeResponse.status !== 302 || !location) {
-      throw new AuthentikApiError(authorizeResponse.status, await parseBody(authorizeResponse));
+      throw new AuthentikApiError(
+        authorizeResponse.status,
+        await parseBody(authorizeResponse),
+      );
     }
     const code = new URL(location, this.baseUrl).searchParams.get('code');
     if (!code) {
-      throw new AuthentikApiError(400, { error: 'no authorization code in redirect', location });
+      throw new AuthentikApiError(400, {
+        error: 'no authorization code in redirect',
+        location,
+      });
     }
 
     const tokenResponse = await fetch(`${this.baseUrl}/application/o/token/`, {
@@ -232,7 +251,10 @@ export class AuthentikClient {
       }),
     });
     if (!tokenResponse.ok) {
-      throw new AuthentikApiError(tokenResponse.status, await parseBody(tokenResponse));
+      throw new AuthentikApiError(
+        tokenResponse.status,
+        await parseBody(tokenResponse),
+      );
     }
     return (await tokenResponse.json()) as AuthentikTokenResponse;
   }
@@ -240,7 +262,10 @@ export class AuthentikClient {
   // RFC 7009 token revocation. Per spec, this endpoint returns 200 for an already-invalid token
   // too — there's no way (nor need) to distinguish "was live" from "was already dead" here, only
   // a genuine transport/5xx failure is treated as an error.
-  async revokeToken(token: string, tokenTypeHint?: 'access_token' | 'refresh_token'): Promise<void> {
+  async revokeToken(
+    token: string,
+    tokenTypeHint?: 'access_token' | 'refresh_token',
+  ): Promise<void> {
     const response = await fetch(`${this.baseUrl}/application/o/revoke/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -256,56 +281,72 @@ export class AuthentikClient {
     }
   }
 
-  // Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
-  // verification, captcha); see servers/auth/CLAUDE.md's known-limitations section. Two calls: the
-  // user itself, then its initial password (set_password is a separate endpoint in Authentik's
-  // Admin API, not a create-time field).
-  async createUser(input: {
-    username: string;
-    email: string;
-    name?: string;
-    password: string;
-  }): Promise<AuthentikCreatedUser> {
-    const createResponse = await fetch(`${this.baseUrl}/api/v3/core/users/`, {
+  // Drives a real Authentik enrollment flow (Flow Executor API) instead of the Admin API bypass
+  // the old createUser() used — see servers/auth/CLAUDE.md's enrollment-flow section. The flow
+  // (provisioned by services/authentik/ansible, slug auth-enrollment-flow) is a single
+  // ak-stage-prompt stage collecting `username`/`password`, followed by a UserWriteStage — the
+  // submitted email is written as the account's Authentik *username* (not a separate `email`
+  // attribute), so identification-by-email in the authentication flow later just works without
+  // any extra field. Confirmed empirically against a running 2026.5.4 instance (see that role's
+  // own comments for the exact stage shape and the three challenge outcomes this branches on).
+  async enroll(email: string, password: string): Promise<void> {
+    const cookies = new CookieJar();
+    const flowUrl = `${this.baseUrl}/api/v3/flows/executor/auth-enrollment-flow/?query=`;
+
+    let challenge = await this.flowStep('GET', flowUrl, undefined, cookies);
+    if (challenge.component !== 'ak-stage-prompt') {
+      throw new AuthentikApiError(400, challenge);
+    }
+
+    // Unlike runAuthenticationFlow's identification/password stages, this prompt stage's DRF
+    // serializer requires `component` in the body to accept the submission — confirmed
+    // empirically (omitting it silently fails to advance the flow). Submitted directly via fetch
+    // rather than flowStep(): the write can complete inside this very POST while the response
+    // itself still comes back as a bare redirect (no JSON body) rather than the completion
+    // challenge — confirmed empirically, inconsistently, across otherwise-identical requests — so
+    // a non-ok/non-JSON response here isn't treated as failure, just as "check the next GET".
+    const postResponse = await fetch(flowUrl, {
       method: 'POST',
       headers: {
+        Accept: 'application/json',
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiToken}`,
+        Cookie: cookies.header(),
       },
       body: JSON.stringify({
-        username: input.username,
-        email: input.email,
-        name: input.name ?? input.username,
-        is_active: true,
+        component: 'ak-stage-prompt',
+        username: email,
+        password,
       }),
     });
-    if (!createResponse.ok) {
-      throw new AuthentikApiError(createResponse.status, await parseBody(createResponse));
-    }
-    const user = (await createResponse.json()) as AuthentikCreatedUser;
+    cookies.absorb(postResponse);
+    challenge = postResponse.ok
+      ? ((await postResponse.json()) as FlowExecutorChallenge)
+      : await this.flowStep('GET', flowUrl, undefined, cookies);
 
-    const setPasswordResponse = await fetch(
-      `${this.baseUrl}/api/v3/core/users/${user.pk}/set_password/`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiToken}`,
-        },
-        body: JSON.stringify({ password: input.password }),
-      },
+    // Same "only resolves on a fresh GET" quirk as runAuthenticationFlow's bounded retry loop,
+    // here covering the case where even the follow-up GET above still hasn't caught up yet.
+    for (let i = 0; i < 3 && !this.isEnrollmentOutcome(challenge); i++) {
+      challenge = await this.flowStep('GET', flowUrl, undefined, cookies);
+    }
+
+    if (challenge.component === 'xak-flow-redirect') {
+      return;
+    }
+    // Either `ak-stage-access-denied` (UserWriteStage hit a duplicate-username IntegrityError —
+    // this flow's only realistic write failure, since the prompt stage's own `type: email`
+    // validation already rejects a malformed address) or a re-rendered `ak-stage-prompt` with
+    // `response_errors` (the bound password policy rejected the password) — both left as the raw
+    // challenge body for RegisterUseCase to branch on by `component`/`response_errors`.
+    throw new AuthentikApiError(422, challenge);
+  }
+
+  private isEnrollmentOutcome(challenge: FlowExecutorChallenge): boolean {
+    return (
+      challenge.component === 'xak-flow-redirect' ||
+      challenge.component === 'ak-stage-access-denied' ||
+      (challenge.component === 'ak-stage-prompt' &&
+        'response_errors' in challenge)
     );
-    if (!setPasswordResponse.ok) {
-      // The user now exists but has no usable password — no compensating rollback (DELETE
-      // /api/v3/core/users/{pk}/) in v1, see servers/auth/CLAUDE.md's known-limitations section.
-      // Logged loudly here since a silent partial failure would be far worse than a noisy one.
-      console.error(
-        `AuthentikClient.createUser: user ${user.pk} (${user.username}) was created but set_password failed with ${setPasswordResponse.status} — the account exists with no usable password`,
-      );
-      throw new AuthentikApiError(setPasswordResponse.status, await parseBody(setPasswordResponse));
-    }
-
-    return user;
   }
 }
 
@@ -316,7 +357,8 @@ export class AuthentikPlugin extends BasePlugin {
   // RedisPlugin/MeilisearchPlugin
   constructor(
     private readonly container: AwilixContainer,
-    private readonly createClient: () => AuthentikClient = () => new AuthentikClient(),
+    private readonly createClient: () => AuthentikClient = () =>
+      new AuthentikClient(),
   ) {
     super();
   }

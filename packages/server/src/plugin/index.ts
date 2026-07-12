@@ -2,7 +2,6 @@ export {
   AuthentikApiError,
   AuthentikClient,
   type AuthentikClientConfig,
-  type AuthentikCreatedUser,
   AuthentikPlugin,
   type AuthentikTokenResponse,
 } from './AuthentikPlugin';

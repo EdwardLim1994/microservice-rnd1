@@ -11,20 +11,12 @@ type AuthTokens {
 }
 
 type Mutation {
+  register(email: String!, password: String!): RegisterResult!
   signIn(password: String!, username: String!): AuthTokens!
   signOut(refreshToken: String!): Boolean!
-  signUp(input: SignUpInput!): SignUpResult!
 }
 
-input SignUpInput {
-  email: String!
-  name: String
-  password: String!
-  username: String!
-}
-
-type SignUpResult {
-  email: String!
-  id: ID!
-  username: String!
+type RegisterResult {
+  message: String!
+  success: Boolean!
 }

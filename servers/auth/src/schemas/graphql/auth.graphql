@@ -8,21 +8,13 @@ type AuthTokens {
   expiresIn: Int!
 }
 
-type SignUpResult {
-  id: ID!
-  username: String!
-  email: String!
-}
-
-input SignUpInput {
-  username: String!
-  email: String!
-  password: String!
-  name: String
+type RegisterResult {
+  success: Boolean!
+  message: String!
 }
 
 type Mutation {
+  register(email: String!, password: String!): RegisterResult!
   signIn(username: String!, password: String!): AuthTokens!
-  signUp(input: SignUpInput!): SignUpResult!
   signOut(refreshToken: String!): Boolean!
 }
