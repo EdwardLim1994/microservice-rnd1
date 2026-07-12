@@ -11,3 +11,15 @@ api_token_identifier: "{{ server_name }}-api-token"
 # the 302's Location header instead of following it. Must match AuthentikClient's own
 # AUTHENTIK_REDIRECT_URI constant exactly (strict matching_mode on the Provider side).
 oauth2_redirect_uri: "http://{{ server_name }}/callback"
+
+# Real self-service enrollment flow backing RegisterUseCase — see AuthentikClient.enroll()'s own
+# comment for the exact stage shape this provisions (single prompt stage collecting
+# username(=email)/password, then a UserWriteStage). Slug must match what AuthentikClient.enroll()
+# hardcodes (services/authentik/CLAUDE.md documents this as the one enrollment flow this repo
+# provisions today — a second consumer would get its own {{ server_name }}-prefixed set).
+enrollment_flow_slug: "{{ server_name }}-enrollment-flow"
+enrollment_flow_name: "{{ server_name }} Enrollment Flow"
+enrollment_prompt_stage_name: "{{ server_name }}-enrollment-prompt"
+enrollment_write_stage_name: "{{ server_name }}-enrollment-write"
+enrollment_field_email_name: "{{ server_name }}-enrollment-field-email"
+enrollment_field_password_name: "{{ server_name }}-enrollment-field-password"

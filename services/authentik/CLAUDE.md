@@ -30,6 +30,36 @@ invoked per-consumer via that server's own package.json script — see `servers/
   committed `vars.yml` the way Vault's fixed `root` token is, since this one is a real
   per-deployment secret.
 
+### Self-service enrollment flow (`register`)
+
+The same role also provisions a real enrollment flow — slug `{{ server_name }}-enrollment-flow`
+(`auth-enrollment-flow` for `servers/auth`) — backing `register`'s signup path, replacing the
+Admin-API-bypass `createUser()` this repo started with. A single `ak-stage-prompt` stage collects
+two fields (`username` — labeled "Email" in the UI, `type: email` for real format validation, but
+written as Authentik's actual `username` field, not a separate `email` attribute — and
+`password`), bound to Authentik's own built-in `default-password-change-password-policy` (min
+length 8 + zxcvbn strength check) for validation, followed by a `UserWriteStage`
+(`user_creation_mode: always_create`). Reusing `username` for the submitted email means
+identification-by-email in the authentication flow (`AuthentikClient.signIn()`) needs no extra
+plumbing, and a duplicate-email registration surfaces for free as a `username` uniqueness
+`IntegrityError`.
+
+Confirmed empirically against a running 2026.5.4 instance (`GET`/`POST` against
+`/api/v3/flows/executor/{{ enrollment_flow_slug }}/`) — three outcomes, all consumed by
+`AuthentikClient.enroll()` (`packages/server/src/plugin/AuthentikPlugin.ts`):
+- **Success**: eventually resolves to `{"component": "xak-flow-redirect", "to": "/"}`. The
+  prompt-stage `POST` itself is unreliable about returning this directly — it sometimes comes back
+  as a bare 3xx redirect with no JSON body even though the write already committed server-side —
+  so `enroll()` always confirms via a follow-up `GET` on the same session rather than trusting the
+  `POST` response alone.
+- **Duplicate email**: `{"component": "ak-stage-access-denied", "error_message": "Failed to
+  update user. Please try again later.", "pending_user": "<email>"}` — generic wording, but this
+  flow's only realistic write failure (the prompt stage's own `type: email` validation already
+  rejects a malformed address before the write stage even runs).
+- **Password policy failure**: a re-rendered `ak-stage-prompt` challenge with
+  `response_errors.non_field_errors[0].string` set to the bound policy's own `error_message`
+  (e.g. "Password needs to be 8 characters or longer.").
+
 Idempotency is achieved by looking up every object before creating it (by name/slug/username), and
 by managing the API token as an ordinary `Token` resource with a fixed `identifier` rather than
 via Authentik's `/api/v3/core/users/service_account/` convenience endpoint (which mints a new

@@ -331,3 +331,238 @@
     regexp: "^AUTHENTIK_API_TOKEN="
     line: "AUTHENTIK_API_TOKEN={{ resolved_api_token }}"
   when: dotenv_stat.stat.exists
+
+# --- Self-service enrollment flow (backs RegisterUseCase's real signup, replacing the old
+# Admin-API createUser() bypass) ---------------------------------------------------------------
+#
+# A single ak-stage-prompt stage collecting `username`/`password`, then a UserWriteStage. The
+# submitted email is deliberately written as the account's Authentik *username* (no separate
+# `email` field) — Authentik's User model requires a unique, non-blank username, and reusing it as
+# the email means identification-by-email in the authentication flow (AuthentikClient.signIn())
+# just works with no extra plumbing, and a duplicate-email registration surfaces for free as a
+# username uniqueness IntegrityError. See AuthentikClient.enroll()'s own comment for the exact
+# three challenge shapes this flow can return, confirmed empirically against a running
+# 2026.5.4 instance (GET/POST against /api/v3/flows/executor/{{ enrollment_flow_slug }}/).
+
+- name: Look up the enrollment email prompt field by name
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/prompts/?name={{ enrollment_field_email_name }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: enrollment_field_email_lookup
+
+# field_key is `username`, not `email` — see this block's header comment for why. `type: email`
+# still gives real client- and server-side email-format validation on submission.
+- name: Create the enrollment email prompt field, if it doesn't already exist
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/prompts/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      name: "{{ enrollment_field_email_name }}"
+      field_key: username
+      label: Email
+      type: email
+      required: true
+      placeholder: "you@example.com"
+      placeholder_expression: false
+      order: 0
+    status_code: 201
+  register: enrollment_field_email_create
+  when: enrollment_field_email_lookup.json.pagination.count == 0
+
+- name: Set fact for the resolved enrollment email prompt field pk
+  ansible.builtin.set_fact:
+    resolved_enrollment_field_email: >-
+      {{ (enrollment_field_email_create.json | default(enrollment_field_email_lookup.json.results[0])).pk }}
+
+- name: Look up the enrollment password prompt field by name
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/prompts/?name={{ enrollment_field_password_name }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: enrollment_field_password_lookup
+
+- name: Create the enrollment password prompt field, if it doesn't already exist
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/prompts/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      name: "{{ enrollment_field_password_name }}"
+      field_key: password
+      label: Password
+      type: password
+      required: true
+      placeholder: Password
+      placeholder_expression: false
+      order: 1
+    status_code: 201
+  register: enrollment_field_password_create
+  when: enrollment_field_password_lookup.json.pagination.count == 0
+
+- name: Set fact for the resolved enrollment password prompt field pk
+  ansible.builtin.set_fact:
+    resolved_enrollment_field_password: >-
+      {{ (enrollment_field_password_create.json | default(enrollment_field_password_lookup.json.results[0])).pk }}
+
+# Reuses Authentik's own built-in default-password-change-password-policy (min length 8 +
+# zxcvbn strength check) rather than defining a second, parallel policy — see that policy's own
+# `error_message` for exactly what RegisterUseCase surfaces on a weak password.
+- name: Look up the default password policy
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/policies/password/?name=default-password-change-password-policy"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: password_policy_lookup
+
+- name: Set fact for the resolved password policy pk
+  ansible.builtin.set_fact:
+    resolved_password_policy: "{{ password_policy_lookup.json.results[0].pk }}"
+
+- name: Look up the enrollment prompt stage by name
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/stages/?name={{ enrollment_prompt_stage_name }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: enrollment_prompt_stage_lookup
+
+- name: Create the enrollment prompt stage, if it doesn't already exist
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/stages/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      name: "{{ enrollment_prompt_stage_name }}"
+      fields:
+        - "{{ resolved_enrollment_field_email }}"
+        - "{{ resolved_enrollment_field_password }}"
+      validation_policies:
+        - "{{ resolved_password_policy }}"
+    status_code: 201
+  register: enrollment_prompt_stage_create
+  when: enrollment_prompt_stage_lookup.json.pagination.count == 0
+
+- name: Reconcile the enrollment prompt stage's fields/validation policy, if it already existed
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/prompt/stages/{{ enrollment_prompt_stage_lookup.json.results[0].pk }}/"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      fields:
+        - "{{ resolved_enrollment_field_email }}"
+        - "{{ resolved_enrollment_field_password }}"
+      validation_policies:
+        - "{{ resolved_password_policy }}"
+    status_code: 200
+  when: enrollment_prompt_stage_lookup.json.pagination.count > 0
+
+- name: Set fact for the resolved enrollment prompt stage pk
+  ansible.builtin.set_fact:
+    resolved_enrollment_prompt_stage: >-
+      {{ (enrollment_prompt_stage_create.json | default(enrollment_prompt_stage_lookup.json.results[0])).pk }}
+
+- name: Look up the enrollment user-write stage by name
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/user_write/?name={{ enrollment_write_stage_name }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: enrollment_write_stage_lookup
+
+- name: Create the enrollment user-write stage, if it doesn't already exist
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/stages/user_write/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      name: "{{ enrollment_write_stage_name }}"
+      user_creation_mode: always_create
+    status_code: 201
+  register: enrollment_write_stage_create
+  when: enrollment_write_stage_lookup.json.pagination.count == 0
+
+- name: Set fact for the resolved enrollment user-write stage pk
+  ansible.builtin.set_fact:
+    resolved_enrollment_write_stage: >-
+      {{ (enrollment_write_stage_create.json | default(enrollment_write_stage_lookup.json.results[0])).pk }}
+
+- name: Look up the enrollment flow by slug
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/flows/instances/?slug={{ enrollment_flow_slug }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: enrollment_flow_lookup
+
+- name: Create the enrollment flow, if it doesn't already exist
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/flows/instances/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      name: "{{ enrollment_flow_name }}"
+      slug: "{{ enrollment_flow_slug }}"
+      title: Create your account
+      designation: enrollment
+      authentication: require_unauthenticated
+    status_code: 201
+  register: enrollment_flow_create
+  when: enrollment_flow_lookup.json.pagination.count == 0
+
+- name: Set fact for the resolved enrollment flow pk
+  ansible.builtin.set_fact:
+    resolved_enrollment_flow: >-
+      {{ (enrollment_flow_create.json | default(enrollment_flow_lookup.json.results[0])).pk }}
+
+- name: Look up existing flow-stage bindings for the enrollment flow
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/flows/bindings/?target={{ resolved_enrollment_flow }}"
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    status_code: 200
+  register: enrollment_bindings_lookup
+
+- name: Bind the enrollment prompt stage to the flow (order 10), if not already bound
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/flows/bindings/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      target: "{{ resolved_enrollment_flow }}"
+      stage: "{{ resolved_enrollment_prompt_stage }}"
+      order: 10
+    status_code: 201
+  when: resolved_enrollment_prompt_stage not in (enrollment_bindings_lookup.json.results | map(attribute='stage') | list)
+
+- name: Bind the enrollment user-write stage to the flow (order 20), if not already bound
+  ansible.builtin.uri:
+    url: "{{ authentik_url }}/api/v3/flows/bindings/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ authentik_bootstrap_token }}"
+    body_format: json
+    body:
+      target: "{{ resolved_enrollment_flow }}"
+      stage: "{{ resolved_enrollment_write_stage }}"
+      order: 20
+    status_code: 201
+  when: resolved_enrollment_write_stage not in (enrollment_bindings_lookup.json.results | map(attribute='stage') | list)
