@@ -11,10 +11,13 @@
 // (`services/apollo/dist/supergraph.graphql` for docker-compose,
 // `services/apollo/helm/files/supergraph.graphql` for k8s) has never been (re)generated since —
 // its `join__Graph` enum only contains `TEST1`/`TEST2`, no `AUTH`. So the router has no idea the
-// `signUp`/`signIn`/`signOut` mutations (the actual GraphQL field names behind this issue's
+// `signIn`/`register`/`signOut` mutations (the actual GraphQL field names behind this issue's
 // business-language "register"/"login"/"logout" — see `servers/auth/src/schemas/graphql/
 // auth.graphql`) exist at all, and rejects them at the schema-validation layer before ever
 // reaching the auth subgraph.
+//
+// `signUp` originally covered "register" here — updated to `register` once FEAT-01 (#17) actually
+// replaced that mutation on the auth subgraph.
 
 import { $ } from 'bun';
 import { afterAll, describe, expect, test } from 'bun:test';
@@ -65,26 +68,21 @@ function isUnknownFieldError(body: GraphqlResponseBody, fieldName: string): bool
 }
 
 describe('[INT-FEAT02-01] auth mutations reachable via Apollo Router', () => {
-	// "register" in issue #18's business language == the `signUp` mutation on the auth subgraph.
-	test('register (signUp) reaches the auth subgraph', async () => {
+	test('register reaches the auth subgraph', async () => {
 		const { body } = await postGraphql(
-			`mutation SignUp($input: SignUpInput!) {
-				signUp(input: $input) {
-					id
-					username
-					email
+			`mutation Register($email: String!, $password: String!) {
+				register(email: $email, password: $password) {
+					success
+					message
 				}
 			}`,
 			{
-				input: {
-					username: 'qa-integration-test-user',
-					email: 'qa-integration-test-user@example.com',
-					password: 'Test-Password-123!',
-				},
+				email: 'qa-integration-test-user@example.com',
+				password: 'Test-Password-123!',
 			},
 		);
 
-		expect(isUnknownFieldError(body, 'signUp')).toBe(false);
+		expect(isUnknownFieldError(body, 'register')).toBe(false);
 		expect(hasDataOrStructuredError(body)).toBe(true);
 	});
 
