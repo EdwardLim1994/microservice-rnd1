@@ -25,6 +25,9 @@
 		"lint": {},
 		"check": {},
 		"test": {},
+		"e2e": {
+			"cache": false
+		},
 		"supergraph": {
 			"cache": false
 		}

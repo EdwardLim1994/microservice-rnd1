@@ -8,6 +8,7 @@ GitHub Actions pipeline implementing the branching/tagging strategy documented i
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci-verify.yml` | `pull_request` (any branch) | `turbo run check test` scoped to affected packages, fails on any `check`-driven working-tree diff, SonarCloud scan, Claude Code review comment. |
+| `e2e-tests.yml` | `push` to `us/**` | Stands up the full local stack from scratch (throwaway Authentik + auth server + Apollo Router, generated/provisioned in-job — nothing persists beyond the run) and runs `frontends/mfe1`'s Playwright suite (`bun run e2e`) against it. |
 | `cd-release.yml` | `push` to `release/**` | Cuts (`release:cut`) or bumps (`release:bump-rc`) `release-manifest.json` and every touched app's version, commits it back (`[skip ci]`), builds+pushes a DockerHub image per touched app at its rc version, `terraform apply`s the app-level root against the `uat` Terraform workspace. |
 | `cd-prod.yml` | `push` to `main` | If `release-manifest.json` is present (a release just merged), strips every app's `-rcN` suffix (`release:promote`), deletes the manifest, retags (no rebuild) each app's last rc image to its final version, `terraform apply`s the `prod` workspace. No-ops cleanly on any other main push. |
 | `cd-hotfix.yml` | `push` to `hotfix/**` | Identifies the single touched app (`release:touched-apps`), bumps its patch version (`release:hotfix`), builds+pushes its image, `terraform apply -target` for just that app against `prod`. Fails if zero or more than one app is touched. |
@@ -105,3 +106,8 @@ manually-applied, always-on shared root for now.
   are all still open decisions** — this pass scaffolded around placeholders for all three; fill
   in the actual values (secrets/vars above, `providers.tf` backend blocks) before relying on any
   CD workflow's terraform/docker steps.
+- **`e2e-tests.yml` was written and its steps individually verified against the real local stack
+  (Authentik provisioning, Apollo Router composition/routing) but never run end-to-end as one
+  workflow** — the sandbox this was built in has no working headless Chromium (missing
+  `libnspr4`/`libnss3`/`libasound2`, no root to install them), so `bun run e2e` itself was never
+  actually executed here. Watch its first real CI run closely.
