@@ -1,6 +1,6 @@
-# auth-subgraph.api.graphql
+# auth.api.graphql
 # OpenSpec SDL — release/integration-testing
-# Subgraph: auth-subgraph
+# Subgraph: auth (./servers/auth — existing service, no new scaffold)
 # This subgraph is fully self-contained. No other subgraph references these types.
 # All changes in this file are new additions for this release.
 

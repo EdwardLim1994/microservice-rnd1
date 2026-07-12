@@ -2,7 +2,7 @@ release: integration-testing
 date: "2026-07-12"
 releaseBranch: release/integration-testing
 affectedSubgraphs:
-  - auth-subgraph
+  - auth
 
 userStories:
   - id: US-01
@@ -15,6 +15,7 @@ userStories:
       - registration
       - backend
       - frontend
+      - e2e
     acceptanceCriteria:
       - A user can submit email and password and an account is created in authentik
       - Submitting a duplicate email returns a clear error message to the client
@@ -43,20 +44,25 @@ userStories:
         then: A validation error is shown and the mutation is not called
     features:
       - id: FEAT-01
-        title: Auth GraphQL Subgraph Scaffold
+        title: Auth Register Mutation
         type: backend
         description: >
-          Scaffold a new TypeScript microservice under ./servers using the repo's
-          existing service generator. This service is the auth subgraph and is the
-          single backend service for all auth mutations in this release. It must
-          follow the same structure and conventions as other services in ./servers.
-          The subgraph name must be auth-subgraph following the [domain]-subgraph
-          convention. Derive the generator command and scaffold pattern by reading
-          existing services in ./servers before proceeding.
-        component: ./servers/auth-subgraph
+          Add a register(email, password) GraphQL mutation to the existing
+          ./servers/auth service — do not scaffold a new service. servers/auth
+          already exposes signIn/signUp/signOut against authentik (see its
+          CLAUDE.md); replace its signUp mutation (which bypasses authentik's
+          enrollment flow via direct Admin API calls) with register, driving
+          authentik's real enrollment flow via the Flow Executor API instead, so
+          email verification, captcha, and password policy stages are honoured.
+          Follow the existing conventions in ./servers/auth and packages/server's
+          AuthentikPlugin/AuthentikClient pattern.
+        component: ./servers/auth
+        claudeDesignURL: null
+        uiInteractions: null
+        responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
-          - auth-subgraph
+          - auth
         input: >
           mutation register(email: String!, password: String!): RegisterPayload
         output: >
@@ -92,6 +98,9 @@ userStories:
           established pattern exactly. This feature covers wiring for all three auth
           mutations, not just register.
         component: Apollo Router supergraph config
+        claudeDesignURL: null
+        uiInteractions: null
+        responsiveBreakpoints: null
         graphqlChanges: false
         input: Auth subgraph URL and composed schema
         output: >
@@ -123,6 +132,9 @@ userStories:
           Ensure the client secret is stored in a Kubernetes secret or environment
           variable accessible to the auth subgraph.
         component: Terraform authentik provider resources; Helm values for authentik
+        claudeDesignURL: null
+        uiInteractions: null
+        responsiveBreakpoints: null
         graphqlChanges: false
         input: Existing Terraform and Helm files in the repo
         output: >
@@ -156,7 +168,7 @@ userStories:
           existing React project structure in the monorepo — read the frontend
           project before scaffolding to follow established conventions.
         component: RegisterPage React component; React Router route /register
-        claudeDesignURL: "[PENDING — Claude Design URL required before Claude Code begins]"
+        claudeDesignURL: null
         input: User-entered email and password; form submit action
         output: >
           Success message rendered on screen on success.
@@ -191,6 +203,7 @@ userStories:
       - login
       - backend
       - frontend
+      - e2e
     acceptanceCriteria:
       - A registered user can sign in with correct credentials and receive a full token set (access, refresh, and ID token)
       - An incorrect password returns a clear error message to the client
@@ -226,11 +239,15 @@ userStories:
           Expose a login GraphQL mutation on the auth subgraph. Accept email and
           password, authenticate against authentik using the configured OAuth2/OIDC
           client credentials and authentication flow, and return the full token set
-          on success. Implement on the same auth-subgraph service scaffolded in FEAT-01.
-        component: ./servers/auth-subgraph
+          on success. Implement on the same ./servers/auth service as FEAT-01,
+          replacing its existing signIn mutation.
+        component: ./servers/auth
+        claudeDesignURL: null
+        uiInteractions: null
+        responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
-          - auth-subgraph
+          - auth
         input: >
           mutation login(email: String!, password: String!): AuthPayload
         output: >
@@ -265,7 +282,7 @@ userStories:
           message. On failure, displays an error message. No styling requirements
           beyond basic HTML usability.
         component: LoginPage React component; React Router route /login
-        claudeDesignURL: "[PENDING — Claude Design URL required before Claude Code begins]"
+        claudeDesignURL: null
         input: User-entered email and password; form submit action
         output: >
           On success: full token set written to localStorage keys auth_access_token,
@@ -301,6 +318,7 @@ userStories:
       - logout
       - backend
       - frontend
+      - e2e
     acceptanceCriteria:
       - A signed-in user can sign out and their localStorage tokens are cleared
       - After sign out, the authentik session is fully invalidated server-side not just cleared locally
@@ -330,11 +348,15 @@ userStories:
           Expose a logout GraphQL mutation on the auth subgraph. Accept the access
           token, perform a full RP-initiated logout against authentik to invalidate
           the server-side session and revoke the token, and return success or error.
-          Implement on the same auth-subgraph service scaffolded in FEAT-01.
-        component: ./servers/auth-subgraph
+          Implement on the same ./servers/auth service as FEAT-01, replacing its
+          existing signOut mutation.
+        component: ./servers/auth
+        claudeDesignURL: null
+        uiInteractions: null
+        responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
-          - auth-subgraph
+          - auth
         input: >
           mutation logout(accessToken: String!): LogoutPayload
         output: >
@@ -369,7 +391,7 @@ userStories:
           of mutation success or failure), and displays a success or error message.
           No styling requirements beyond basic HTML usability.
         component: LogoutPage React component; React Router route /logout
-        claudeDesignURL: "[PENDING — Claude Design URL required before Claude Code begins]"
+        claudeDesignURL: null
         input: Sign-out button click; access token read from localStorage auth_access_token
         output: >
           On success: auth_access_token, auth_refresh_token, auth_id_token removed
