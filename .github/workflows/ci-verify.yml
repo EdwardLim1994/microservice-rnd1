@@ -59,16 +59,14 @@ jobs:
         # signal. See docs/ci-cd.md's Known gaps section.
         run: git diff --exit-code --stat
 
+      - name: Check SONAR_TOKEN secret is set
+        run: |
+          if [[ -z "${{ secrets.SONAR_TOKEN }}" ]]; then
+            echo "SONAR_TOKEN secret is not set. Please set it in the repository settings."
+            exit 1
+          fi
+
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4
+        uses: SonarSource/sonarqube-scan-action@v8 # v4
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Claude Code Review
-        uses: anthropics/claude-code-action@e3ba649a81aa8af3ddca750d3ddc35901f29de19 # v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          direct_prompt: |
-            Review this PR's diff for correctness bugs, security issues, and adherence to the
-            project's CLAUDE.md conventions. Post findings as a PR review comment.
