@@ -1,11 +1,14 @@
 
 # servers/auth
 
-GraphQL-only server (no gRPC, no Kafka, no Postgres of its own) exposing `signIn`/`signUp`/
+GraphQL-only server (no gRPC, no Kafka, no Postgres of its own) exposing `signIn`/`register`/
 `signOut` mutations, backed entirely by `services/authentik/` — a standalone Authentik deployment
 (see its own `CLAUDE.md`). This server holds no user data itself; it's a thin GraphQL façade over
 Authentik's own APIs, registered as an Apollo Federation subgraph like every other server (one
 Apollo Router endpoint for everything — see the root `CLAUDE.md`'s Layout section).
+
+`signIn`/`signOut` are mid-rename to `login`/`logout` (`.claude/requirements/v0.0.1-requirements.md`'s
+User Stories 2/3) — tracked separately, not yet done as of `register`'s own rebuild.
 
 ## The three mutations, and which Authentik API each one calls
 
@@ -17,13 +20,16 @@ Apollo Router endpoint for everything — see the root `CLAUDE.md`'s Layout sect
   authenticated. On a failure anywhere in that sequence, returns a `GraphQLError` with
   `extensions.code: 'INVALID_CREDENTIALS'` — never Authentik's raw error body, to avoid leaking IdP
   internals to the client.
-- **`signUp(input): SignUpResult!`** — direct Admin API user creation: `POST
-  /api/v3/core/users/` then `POST /api/v3/core/users/{pk}/set_password/`, authenticated with a
-  service-account API token (provisioned below). **Deliberately bypasses Authentik's own
-  enrollment-flow stages** (email verification, captcha, password policy) — a known v1 limitation,
-  not solved here. If `set_password` fails after the user was already created, that's logged loudly
-  server-side (the account exists with no usable password) — there's no compensating rollback
-  (`DELETE /api/v3/core/users/{pk}/`) in this version.
+- **`register(email, password): RegisterResult!`** — drives a real Authentik enrollment flow via
+  the Flow Executor API (`/api/v3/flows/executor/auth-enrollment-flow/`), not the Admin API — see
+  `services/authentik/CLAUDE.md`'s "Self-service enrollment flow" section for the exact stage
+  shape and the three challenge outcomes `AuthentikClient.enroll()` branches on. The submitted
+  email is written as the account's Authentik *username* (no separate `email` attribute), so
+  `signIn`/`login`'s identification-by-username also works as identification-by-email for free,
+  and a duplicate registration surfaces as a real uniqueness violation rather than a resolver-level
+  guess. Returns `{ success: true, message }` on success; a duplicate email or a password-policy
+  rejection each surface as a distinct `GraphQLError` (`DUPLICATE_EMAIL`/`PASSWORD_POLICY`) built
+  from Authentik's own challenge response, not a generic failure.
 - **`signOut(refreshToken): Boolean!`** — OAuth2 token revocation, `POST
   /application/o/revoke/` (RFC 7009). No session/cookie concept here — the GraphQL client is
   expected to hold the token pair `signIn` returned and pass the refresh token back explicitly.
@@ -101,9 +107,9 @@ duplicate-username error paths, all against a live local Authentik instance.
 
 ## Known v1 limitations
 
-- Sign-up bypasses Authentik's enrollment-flow stages (email verification, captcha, password
-  policy) entirely — a real self-service flow would drive Authentik's Flow Executor API's
-  enrollment flow instead of the Admin API directly. Not built in this version.
+- `register`'s enrollment flow validates password strength (Authentik's own
+  `default-password-change-password-policy`) but has no email-verification or captcha stage —
+  Authentik supports both as additional flow stages, just not provisioned in this version.
 - `signIn`'s Flow Executor driver only handles the exact default-authentication-flow stage shape
   confirmed empirically (identification → password → skippable MFA-validation → redirect). A
   flow customized to add a genuinely-required MFA stage, CAPTCHA, or consent prompt isn't
