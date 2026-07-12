@@ -1,0 +1,21 @@
+{
+  "mode": "release",
+  "version": "integration-testing",
+  "checkpoint": false,
+  "phase": "qa",
+  "currentFeature": null,
+  "completedFeatures": [],
+  "pendingFeatures": [17, 18, 19, 20, 22, 23, 25, 26],
+  "userStoryIssues": [16, 21, 24],
+  "featureIssues": [17, 18, 19, 20, 22, 23, 25, 26],
+  "openPRs": [],
+  "pauseReason": null,
+  "startedAt": "2026-07-12T09:15:00Z",
+  "updatedAt": "2026-07-12T09:23:00Z",
+  "notes": {
+    "priorAbandonedRun": "PR #15 (us/4-user-registration) was closed with a failed SonarQube gate; its branches (feat/5,6,7,8, us/4) and the empty US-02/US-03 scaffolding branches (feat/10,11,13,14, us/9,12) were deleted and issues #4-#14 (already deleted on GitHub before this run started) are not reused. This run restarted PM from scratch with new issue numbers 16-26.",
+    "specCorrection": "requirements.yaml originally specified scaffolding a new servers/auth-subgraph; corrected to target the existing servers/auth service (commit eeb302d) since that's what real Authentik integration work already depends on.",
+    "acceptedDeviation": "release/version 'integration-testing' is intentionally non-semver, matching the developer-created release/integration-testing branch name — not treated as a validation failure.",
+    "branchLinkGap": "GitHub's development-branch auto-link (REST /issues/{n}/branches and GraphQL createLinkedBranch) did not succeed for any of the 11 branches. Traceability instead relies on branch names embedding issue numbers and each issue body stating its exact branch name."
+  }
+}
