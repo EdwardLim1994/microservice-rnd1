@@ -1,0 +1,123 @@
+# auth-subgraph.api.graphql
+# OpenSpec SDL — release/integration-testing
+# Subgraph: auth-subgraph
+# This subgraph is fully self-contained. No other subgraph references these types.
+# All changes in this file are new additions for this release.
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key",
+    "@shareable",
+    "@external",
+    "@requires",
+    "@provides",
+    "@override",
+    "@inaccessible",
+    "@tag"
+  ])
+
+"""
+Payload returned by the register mutation.
+"""
+type RegisterPayload {
+  """
+  Whether the registration was successful.
+  """
+  success: Boolean!
+
+  """
+  A human-readable message describing the result.
+  On failure this will contain the error reason.
+  """
+  message: String!
+}
+
+"""
+Payload returned by the login mutation containing the full token set.
+"""
+type AuthPayload {
+  """
+  The OAuth2 access token issued by authentik.
+  Store in localStorage under the key auth_access_token.
+  """
+  accessToken: String!
+
+  """
+  The OAuth2 refresh token issued by authentik.
+  Store in localStorage under the key auth_refresh_token.
+  """
+  refreshToken: String!
+
+  """
+  The OIDC ID token issued by authentik.
+  Store in localStorage under the key auth_id_token.
+  """
+  idToken: String!
+}
+
+"""
+Payload returned by the logout mutation.
+"""
+type LogoutPayload {
+  """
+  Whether the logout and session invalidation were successful.
+  """
+  success: Boolean!
+
+  """
+  A human-readable message describing the result.
+  On failure this will contain the error reason.
+  """
+  message: String!
+}
+
+type Mutation {
+  """
+  Register a new user with email and password.
+  Creates an account in authentik via the configured enrollment flow.
+  Returns a success payload or a structured GraphQL error.
+  """
+  register(
+    """
+    The user's email address. Must be a valid email format and must not already exist in authentik.
+    """
+    email: String!
+
+    """
+    The user's password. Must meet authentik's configured password policy.
+    """
+    password: String!
+  ): RegisterPayload!
+
+  """
+  Authenticate an existing user with email and password.
+  Returns a full token set (access, refresh, ID) from authentik on success.
+  Returns a structured GraphQL error on failure.
+  Invalid credentials errors do not distinguish between wrong password and
+  non-existent email, to prevent user enumeration.
+  """
+  login(
+    """
+    The user's registered email address.
+    """
+    email: String!
+
+    """
+    The user's password.
+    """
+    password: String!
+  ): AuthPayload!
+
+  """
+  Sign out the current user by performing a full RP-initiated logout against authentik.
+  Invalidates the server-side session and revokes the provided access token.
+  The client must clear localStorage regardless of whether this mutation succeeds.
+  """
+  logout(
+    """
+    The access token currently stored in localStorage under auth_access_token.
+    Must not be empty.
+    """
+    accessToken: String!
+  ): LogoutPayload!
+}
