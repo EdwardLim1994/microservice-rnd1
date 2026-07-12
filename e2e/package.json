@@ -1,0 +1,19 @@
+{
+  "name": "e2e",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test:api": "vitest run",
+    "test:e2e": "cypress run",
+    "test:all": "bun run test:api && bun run test:e2e"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@vitest/coverage-v8": "^4.1.10",
+    "cypress": "^15.18.1",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
