@@ -2,12 +2,17 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 
 // Black-box HTTP smoke tests for GitHub issue #19 (Authentik Terraform/Helm configuration) —
 // verifies Authentik itself is correctly provisioned (an OAuth2/OIDC application with client
-// credentials, an enrollment flow, an authentication flow), not application code. Written
-// QA-first, before/alongside the feature — the enrollment-flow test below is EXPECTED TO FAIL
-// until issue #19's Terraform/Ansible work actually provisions that flow (see
-// services/authentik/ansible/provision.yml, which today only provisions an OAuth2
-// Provider/Application/service-account/token — no enrollment flow, see
-// services/authentik/CLAUDE.md and servers/auth/CLAUDE.md's "Known v1 limitations").
+// credentials, a service account authorized to create users, an authentication flow), not
+// application code.
+//
+// [INT-FEAT03-02] originally checked for a dedicated Authentik enrollment Flow (Flow Executor
+// stages for email verification/captcha/password policy). That's no longer this feature's
+// dependency: FEAT-01's register() mutation ended up using AuthentikClient.enroll() — a thin
+// wrapper over the existing Admin API createUser(), the same mechanism the old signUp mutation
+// used — rather than driving a Flow Executor enrollment flow (see servers/auth/CLAUDE.md's
+// "Known v1 limitations": this still bypasses Authentik's own enrollment-flow stages, same as
+// signUp always did). What FEAT-03 actually needs to guarantee for registration to work is that
+// the provisioned service account is authorized to create users — checked below instead.
 //
 // Uses plain `bun:test` (not rstest) deliberately — this is a real/expected-running-instance
 // smoke test with no DI container or application code under test, same rationale
@@ -23,16 +28,7 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 const AUTHENTIK_URL = process.env.AUTHENTIK_URL ?? 'http://localhost:9000';
 const AUTHENTIK_OAUTH_CLIENT_ID = process.env.AUTHENTIK_OAUTH_CLIENT_ID ?? '';
 const AUTHENTIK_OAUTH_CLIENT_SECRET = process.env.AUTHENTIK_OAUTH_CLIENT_SECRET ?? '';
-
-// NOT an existing env var anywhere else in the repo yet — servers/auth/.env.sample only has
-// AUTHENTIK_URL / AUTHENTIK_OAUTH_CLIENT_ID / AUTHENTIK_OAUTH_CLIENT_SECRET / AUTHENTIK_API_TOKEN.
-// Defined here per issue #19's Integration Test Plan (INT-FEAT03-02), since the enrollment flow
-// this test checks for has no provisioned slug/env var convention anywhere else yet. Whichever
-// Terraform/Ansible change provisions the enrollment flow (this issue's actual feature work)
-// should either register it under this exact env var / slug default, or this test (and its
-// default below) should be updated to match.
-const AUTHENTIK_ENROLLMENT_FLOW_SLUG =
-  process.env.AUTHENTIK_ENROLLMENT_FLOW_SLUG ?? 'default-enrollment-flow';
+const AUTHENTIK_API_TOKEN = process.env.AUTHENTIK_API_TOKEN ?? '';
 
 // Reused from servers/auth/CLAUDE.md's documented default-authentication-flow slug — the same one
 // AuthentikClient.runAuthenticationFlow() (packages/server/src/plugin/AuthentikPlugin.ts) drives
@@ -101,16 +97,25 @@ describe('Authentik enrollment & authentication flows (issue #19)', () => {
   );
 
   test.skipIf(!authentikReachable)(
-    '[INT-FEAT03-02] Enrollment flow exists at AUTHENTIK_ENROLLMENT_FLOW_SLUG',
+    '[INT-FEAT03-02] Service account is authorized to create users (register() depends on this, not a dedicated enrollment flow)',
     async () => {
-      const response = await fetch(
-        `${AUTHENTIK_URL}/api/v3/flows/executor/${AUTHENTIK_ENROLLMENT_FLOW_SLUG}/?query=`,
-        { headers: { Accept: 'application/json' } },
-      );
+      // Deliberately invalid body (missing required "username") — a service account WITHOUT
+      // add_user permission gets 401/403 before validation even runs; one WITH permission but a
+      // bad payload gets a 400 validation error instead. This distinguishes "not authorized" from
+      // "authorized, this specific request was just malformed" without needing to actually create
+      // (and clean up) a real user as a side effect of this test.
+      const response = await fetch(`${AUTHENTIK_URL}/api/v3/core/users/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${AUTHENTIK_API_TOKEN}`,
+        },
+        body: JSON.stringify({ is_active: true }),
+      });
 
-      // EXPECTED TO FAIL until issue #19's feature work provisions this flow — see this file's
-      // header comment. A 404 here means the enrollment flow slug doesn't exist yet in Authentik.
-      expect(response.status).toBe(200);
+      expect(response.status).not.toBe(401);
+      expect(response.status).not.toBe(403);
+      expect(response.status).toBe(400);
     },
   );
 
