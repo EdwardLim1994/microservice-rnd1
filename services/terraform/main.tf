@@ -58,6 +58,7 @@ module "authentik" {
   secret_key          = var.authentik_secret_key
   postgresql_password = var.authentik_postgresql_password
   bootstrap_password  = var.authentik_bootstrap_password
+  bootstrap_token     = var.authentik_bootstrap_token
 }
 
 # Deployed last of this file's modules only by convention (no ordering dependency on the others —
