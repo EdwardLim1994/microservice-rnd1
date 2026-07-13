@@ -25,4 +25,9 @@ resource "helm_release" "authentik" {
     name  = "bootstrap.password"
     value = var.bootstrap_password
   }
+
+  set {
+    name  = "bootstrap.token"
+    value = var.bootstrap_token
+  }
 }

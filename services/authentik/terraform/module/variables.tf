@@ -20,3 +20,10 @@ variable "bootstrap_password" {
   type        = string
   sensitive   = true
 }
+
+variable "bootstrap_token" {
+  description = "Mints a ready-made akadmin API token at boot — required for servers/auth/ansible's in-cluster provisioning (services/authentik/CLAUDE.md's 'No in-cluster (Helm) equivalent yet' note); empty by default, same as helm/values.yaml's own bootstrap.token default"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

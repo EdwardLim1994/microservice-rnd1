@@ -70,3 +70,10 @@ variable "authentik_bootstrap_password" {
   default     = "adminpassword"
   sensitive   = true
 }
+
+variable "authentik_bootstrap_token" {
+  description = "Mints a ready-made akadmin API token at boot — required for servers/auth/ansible's in-cluster provisioning; empty by default (generate via `openssl rand -hex 32` before running provisioning against this cluster)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
