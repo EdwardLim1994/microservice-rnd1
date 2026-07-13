@@ -1,0 +1,43 @@
+{
+  "mode": "release",
+  "version": "integration-testing",
+  "checkpoint": false,
+  "phase": "dev",
+  "currentFeature": null,
+  "completedFeatures": [],
+  "pendingFeatures": [22, 23, 25, 26],
+  "userStoryIssues": [16, 21, 24],
+  "featureIssues": [17, 18, 19, 20, 22, 23, 25, 26],
+  "openPRs": [
+    { "pr": 27, "feature": 17, "title": "Auth Register Mutation", "base": "us/16-user-registration" },
+    { "pr": 28, "feature": 19, "title": "Authentik Terraform and Helm Configuration", "base": "us/16-user-registration" },
+    { "pr": 29, "feature": 18, "title": "Apollo Router Subgraph Wiring", "base": "us/16-user-registration" },
+    { "pr": 31, "feature": 20, "title": "Register UI", "base": "us/16-user-registration" },
+    { "pr": 30, "feature": null, "title": "fix(ci): bun install postinstall ordering + DATABASE_URL", "base": "release/integration-testing" }
+  ],
+  "pauseReason": "All 4 of US-01's feature PRs are open (#27, #28, #29, #31), all with passing SonarQube Quality Gates. A separate pre-existing repo-wide CI bug (bun install --frozen-lockfile always failing on servers/test1's postinstall, present since this repo's first-ever CI run) was found and fixed in PR #30, targeting release/integration-testing directly. Waiting on developer review/merge of all 5 PRs before continuing to US-02/US-03's features (22, 23, 25, 26).",
+  "startedAt": "2026-07-12T09:15:00Z",
+  "updatedAt": "2026-07-12T12:05:00Z",
+  "notes": {
+    "priorAbandonedRun": "PR #15 (us/4-user-registration) was closed with a failed SonarQube gate; its branches (feat/5,6,7,8, us/4) and the empty US-02/US-03 scaffolding branches (feat/10,11,13,14, us/9,12) were deleted and issues #4-#14 (already deleted on GitHub before this run started) are not reused. This run restarted PM from scratch with new issue numbers 16-26.",
+    "specCorrection": "requirements.yaml originally specified scaffolding a new servers/auth-subgraph; corrected to target the existing servers/auth service (commit eeb302d) since that's what real Authentik integration work already depends on.",
+    "acceptedDeviation": "release/version 'integration-testing' is intentionally non-semver, matching the developer-created release/integration-testing branch name — not treated as a validation failure.",
+    "branchLinkGap": "GitHub's development-branch auto-link (REST /issues/{n}/branches and GraphQL createLinkedBranch) did not succeed for any of the 11 branches. Traceability instead relies on branch names embedding issue numbers and each issue body stating its exact branch name.",
+    "qaPhase3Commits": {
+      "feat/17-auth-register-mutation": "c2f4b58",
+      "feat/18-apollo-router-wiring": "94cdefa",
+      "feat/19-authentik-terraform-helm": "cd8029f",
+      "feat/20-register-ui": "7569020",
+      "feat/22-login-mutation": "6b34455",
+      "feat/23-sign-in-ui-token-storage": "48351d7",
+      "feat/25-logout-mutation": "7f9c45f",
+      "feat/26-sign-out-ui": "0de26f2"
+    },
+    "qaPhase4Commits": {
+      "us/16-user-registration": "89cf3b4",
+      "us/21-user-sign-in": "74d7306",
+      "us/24-user-sign-out": "7754e57"
+    },
+    "concurrencyIncident": "The 8 QA Phase 3 subagents shared one working directory despite requested worktree isolation, causing FEAT-07's commit to briefly land on feat/20-register-ui instead of feat/25-logout-mutation. Caught, fixed via cherry-pick with explicit user authorization (see conversation), and verified — all 8 feature branches confirmed clean (exactly one test commit each on the correct base) before proceeding to Phase 4."
+  }
+}
