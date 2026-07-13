@@ -16,7 +16,8 @@
 		"services/*",
 		"packages/*",
 		"servers/*",
-		"generators/*"
+		"generators/*",
+		"e2e"
 	],
 	"packageManager": "bun@1.3.14",
 	"scripts": {
