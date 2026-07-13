@@ -67,7 +67,11 @@ services:
       - traefik.http.routers.authentik.rule=Host(`auth.localhost`)
       - traefik.http.services.authentik.loadbalancer.server.port=9000
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --spider http://localhost:9000/-/health/ready/ || exit 1"]
+      # `wget` isn't installed in this image (confirmed: `docker exec authentik-server which wget`
+      # comes back empty) — it always exited 127, so the container was permanently "unhealthy"
+      # regardless of whether authentik itself was actually up, which blocks `servers/auth`'s
+      # `depends_on: condition: service_healthy`. `curl` is present; swapped to that.
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:9000/-/health/ready/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 20
