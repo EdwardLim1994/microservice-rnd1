@@ -163,7 +163,9 @@ export default class ReleaseManager {
    * Run on a hotfix branch cut from main. Bumps only the given app's patch version — independent
    * of any in-flight release manifest.
    */
-  public async hotfix(appName: string): Promise<DeployableApp & { version: string }> {
+  public async hotfix(
+    appName: string,
+  ): Promise<DeployableApp & { version: string }> {
     const allApps = listDeployableApps(this._repoRoot);
     const app = allApps.find((a) => a.name === appName);
     if (!app) {

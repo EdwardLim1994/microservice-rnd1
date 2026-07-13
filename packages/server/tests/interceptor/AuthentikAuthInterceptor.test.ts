@@ -46,7 +46,11 @@ test('rejects when AUTHENTIK_URL is unset', () => {
 test('grpc: a valid token (per the injected verify) passes through to the real handler', async () => {
   process.env.AUTHENTIK_URL = 'http://authentik-server:9000';
   const server = makeMockGrpcServer();
-  const verify = async () => ({ payload: {}, protectedHeader: {}, key: undefined as never });
+  const verify = async () => ({
+    payload: {},
+    protectedHeader: {},
+    key: undefined as never,
+  });
   const interceptor = new AuthentikAuthInterceptor(undefined, verify as any);
   interceptor.apply(server);
 
@@ -54,8 +58,12 @@ test('grpc: a valid token (per the injected verify) passes through to the real h
   (server as any).addService({}, { testMethod: handler });
 
   const results: unknown[] = [];
-  const callback = (error: unknown, value?: unknown) => results.push({ error, value });
-  server.registered[0].implementation.testMethod(makeCall('Bearer good-token'), callback);
+  const callback = (error: unknown, value?: unknown) =>
+    results.push({ error, value });
+  server.registered[0].implementation.testMethod(
+    makeCall('Bearer good-token'),
+    callback,
+  );
   await flushMicrotasks();
 
   expect(calls).toHaveLength(1);
@@ -76,8 +84,12 @@ test('grpc: rejects with UNAUTHENTICATED when verification throws (expired/inval
   (server as any).addService({}, { testMethod: handler });
 
   const results: unknown[] = [];
-  const callback = (error: unknown, value?: unknown) => results.push({ error, value });
-  server.registered[0].implementation.testMethod(makeCall('Bearer bad-token'), callback);
+  const callback = (error: unknown, value?: unknown) =>
+    results.push({ error, value });
+  server.registered[0].implementation.testMethod(
+    makeCall('Bearer bad-token'),
+    callback,
+  );
   await flushMicrotasks();
 
   expect(calls).toHaveLength(0);
@@ -88,7 +100,11 @@ test('grpc: rejects with UNAUTHENTICATED when verification throws (expired/inval
 test('grpc: rejects when no token is present at all', async () => {
   process.env.AUTHENTIK_URL = 'http://authentik-server:9000';
   const server = makeMockGrpcServer();
-  const verify = async () => ({ payload: {}, protectedHeader: {}, key: undefined as never });
+  const verify = async () => ({
+    payload: {},
+    protectedHeader: {},
+    key: undefined as never,
+  });
   const interceptor = new AuthentikAuthInterceptor(undefined, verify as any);
   interceptor.apply(server);
 
@@ -96,7 +112,8 @@ test('grpc: rejects when no token is present at all', async () => {
   (server as any).addService({}, { testMethod: handler });
 
   const results: unknown[] = [];
-  const callback = (error: unknown, value?: unknown) => results.push({ error, value });
+  const callback = (error: unknown, value?: unknown) =>
+    results.push({ error, value });
   server.registered[0].implementation.testMethod(makeCall(undefined), callback);
   await flushMicrotasks();
 
@@ -118,7 +135,10 @@ test('verify is called with the issuer derived from AUTHENTIK_URL/AUTHENTIK_APPL
   interceptor.apply(server);
   const { handler } = makeUnaryHandler();
   (server as any).addService({}, { testMethod: handler });
-  server.registered[0].implementation.testMethod(makeCall('Bearer some-token'), () => {});
+  server.registered[0].implementation.testMethod(
+    makeCall('Bearer some-token'),
+    () => {},
+  );
   await flushMicrotasks();
 
   expect(calls).toEqual([
@@ -144,7 +164,10 @@ test('sets audience in verify options when AUTHENTIK_JWT_AUDIENCE is configured'
   interceptor.apply(server);
   const { handler } = makeUnaryHandler();
   (server as any).addService({}, { testMethod: handler });
-  server.registered[0].implementation.testMethod(makeCall('token-without-bearer-prefix'), () => {});
+  server.registered[0].implementation.testMethod(
+    makeCall('token-without-bearer-prefix'),
+    () => {},
+  );
   await flushMicrotasks();
 
   expect(calls[0]).toMatchObject({ audience: 'expected-client-id' });

@@ -4,13 +4,13 @@
 	"type": "module",
 	"private": true,
 	"devDependencies": {
-		"@types/bun": "latest",
 		"@graphql-codegen/add": "^7.0.1",
 		"@graphql-codegen/cli": "^7.1.2",
 		"@graphql-codegen/schema-ast": "^6.0.1",
 		"@graphql-codegen/typescript": "^6.0.2",
 		"@graphql-codegen/typescript-resolvers": "^6.0.2",
-		"@rstest/core": "^0.10.6"
+		"@rstest/core": "^0.10.6",
+		"@rstest/coverage-istanbul": "0.10.6"
 	},
 	"dependencies": {
 		"server": "workspace:*",

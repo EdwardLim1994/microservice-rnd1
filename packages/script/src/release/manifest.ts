@@ -18,9 +18,7 @@ export function manifestExists(repoRoot: string): boolean {
   return existsSync(manifestPath(repoRoot));
 }
 
-export async function readManifest(
-  repoRoot: string,
-): Promise<ReleaseManifest> {
+export async function readManifest(repoRoot: string): Promise<ReleaseManifest> {
   return JSON.parse(await readFile(manifestPath(repoRoot), 'utf-8'));
 }
 

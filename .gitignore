@@ -5,6 +5,7 @@
 ,env
 
 /dist
+/**/*/coverage
 
 /.turbo
 /**/*/.terraform
