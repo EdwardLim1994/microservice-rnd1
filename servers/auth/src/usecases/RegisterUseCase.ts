@@ -11,7 +11,9 @@ interface RegisterPayload {
 	message: string;
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Each domain label excludes '.' so the two `+` groups either side of it can't both match the
+// same characters — removes the backtracking ambiguity `[^\s@]+@[^\s@]+\.[^\s@]+` had.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 // Authentik uses the submitted email as the username (see AuthentikClient.enroll()), so a
 // duplicate-email registration surfaces as a username-uniqueness violation — check both fields,

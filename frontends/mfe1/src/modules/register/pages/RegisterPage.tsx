@@ -1,7 +1,9 @@
-import { type FormEvent, useState } from 'react';
+import { type SubmitEvent, useState } from 'react';
 import { useRegister } from '../viewmodel';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Each domain label excludes '.' so the two `+` groups either side of it can't both match the
+// same characters — removes the backtracking ambiguity `[^\s@]+@[^\s@]+\.[^\s@]+` had.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -34,7 +36,7 @@ export function RegisterPage() {
     return valid;
   }
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -70,7 +72,7 @@ export function RegisterPage() {
       className="flex flex-col gap-4 max-w-sm mx-auto"
     >
       <label className="flex flex-col gap-1">
-        Email
+        <span>Email</span>
         <input
           data-testid="email-input"
           type="email"
@@ -85,7 +87,7 @@ export function RegisterPage() {
       )}
 
       <label className="flex flex-col gap-1">
-        Password
+        <span>Password</span>
         <input
           data-testid="password-input"
           type="password"
@@ -104,9 +106,7 @@ export function RegisterPage() {
       </button>
 
       {successMessage && (
-        <p data-testid="success-message" role="status">
-          {successMessage}
-        </p>
+        <output data-testid="success-message">{successMessage}</output>
       )}
       {errorMessage && (
         <p data-testid="error-message" role="alert">
