@@ -256,6 +256,16 @@ export class AuthentikClient {
     }
   }
 
+  // Self-service registration by email+password — uses the email itself as Authentik's username,
+  // so a duplicate-email registration attempt surfaces as the same username-uniqueness violation
+  // createUser()'s callers already know how to detect (see RegisterUseCase's
+  // looksLikeDuplicateEmail). Thin wrapper over createUser(); still bypasses Authentik's own
+  // enrollment-flow stages (email verification, captcha) — same known v1 limitation as the
+  // signUp() mutation this replaced, see servers/auth/CLAUDE.md.
+  async enroll(email: string, password: string): Promise<AuthentikCreatedUser> {
+    return this.createUser({ username: email, email, password });
+  }
+
   // Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
   // verification, captcha); see servers/auth/CLAUDE.md's known-limitations section. Two calls: the
   // user itself, then its initial password (set_password is a separate endpoint in Authentik's
