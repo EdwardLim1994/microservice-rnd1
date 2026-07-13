@@ -1,0 +1,29 @@
+$ rstest
+
+  Rstest v0.10.6
+
+ Coverage enabled with istanbul
+
+ ✓ tests/usecases/RegisterUseCase.test.ts (11)
+  ✓ valid registration returns success: true (1ms)
+  ✓ valid registration calls authentik enrollment with the submitted credentials (1ms)
+  ✓ duplicate email throws a GraphQLError with a duplicate-email-flavored code (2ms)
+  ✓ authentik being unreachable throws a GraphQLError with a service-unavailable-flavored code (0ms)
+  ✓ a network-level failure (not even an HTTP response) is also surfaced as service-unavailable (1ms)
+  ✓ a password policy violation surfaces authentik's own policy error message (1ms)
+  ✓ empty email is rejected before authentik is called (1ms)
+  ✓ empty password is rejected before authentik is called (0ms)
+  ✓ malformed email (no @) is rejected before authentik is called (0ms)
+  ✓ whitespace-only email is rejected before authentik is called (1ms)
+  ✓ whitespace-only password is rejected before authentik is called (0ms)
+
+ Test Files 1 passed
+      Tests 11 passed
+   Duration 6.92s (build 4.29s, tests 2.63s)
+
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |      85 |    78.04 |     100 |   94.44 |                   
+ ...sterUseCase.ts |      85 |    78.04 |     100 |   94.44 | 46,91             
+-------------------|---------|----------|---------|---------|-------------------
