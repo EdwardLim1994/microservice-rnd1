@@ -4,17 +4,30 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router';
+import { RegisterPage } from './modules/register';
 import { Test1Page } from './modules/test1';
 
 const rootRoute = createRootRoute({
   component: () => (
     <div className="h-screen w-full">
-      <Test1Page />
+      <Outlet />
     </div>
   ),
 });
 
-const routeTree = rootRoute.addChildren([]);
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  component: Test1Page,
+});
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  component: RegisterPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, registerRoute]);
 
 export const router = createRouter({ routeTree });
 
