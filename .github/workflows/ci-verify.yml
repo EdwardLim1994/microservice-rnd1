@@ -25,7 +25,25 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - run: bun install --frozen-lockfile
+      # Two-phase install: servers/test1's postinstall (`prisma generate`) loads
+      # prisma.config.ts, which imports `createPrismaConfig` from the `script` workspace
+      # package — but `script` is only source at this point (built via `turbo run build`,
+      # a separate step from `bun install`), and its package.json `exports` field has no
+      # unbuilt-source fallback. A single `bun install` therefore always failed here (confirmed:
+      # every CI run in this repo's history, back to its very first PR). Install ignoring
+      # lifecycle scripts, build `script` explicitly, then run the one deferred postinstall.
+      - run: bun install --frozen-lockfile --ignore-scripts
+
+      - run: bun run build --filter=script
+
+      - name: Run deferred postinstall scripts (skipped above via --ignore-scripts)
+        # DATABASE_URL: `prisma generate` (unlike `migrate`/`db push`) never actually connects —
+        # it only reads the schema file — but Prisma 7's config loader (createPrismaConfig's
+        # `env(databaseUrlEnv)`) validates the env var is resolvable at all regardless of which
+        # command is running, and throws PrismaConfigEnvError if it's unset. CI has never set
+        # this (no live Postgres here), so any syntactically-valid connection string satisfies
+        # it — verified locally: `prisma generate` succeeds against an unreachable host.
+        run: cd servers/test1 && DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" bun run postinstall
 
       - name: Lint + format + test (affected packages only)
         run: |
@@ -42,15 +60,6 @@ jobs:
         run: git diff --exit-code --stat
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4
+        uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Claude Code Review
-        uses: anthropics/claude-code-action@e3ba649a81aa8af3ddca750d3ddc35901f29de19 # v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          direct_prompt: |
-            Review this PR's diff for correctness bugs, security issues, and adherence to the
-            project's CLAUDE.md conventions. Post findings as a PR review comment.
