@@ -25,6 +25,26 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const ROUTER_URL = process.env.APOLLO_ROUTER_URL ?? 'http://localhost:4000/graphql';
+const REACHABILITY_TIMEOUT_MS = 3000;
+
+// test.skipIf(condition) needs `condition` known at registration time (module load), before any
+// beforeAll hook runs — so the reachability probe itself has to happen at module scope via
+// top-level await (Bun's ESM loader supports it), same convention
+// services/authentik/tests/integration/enrollment-and-auth-flows.test.ts uses. Requires a running
+// local stack (`docker compose up`) — CI has none, so these 3 tests skip gracefully there instead
+// of failing on ConnectionRefused.
+let routerReachable = false;
+try {
+	const response = await fetch(ROUTER_URL, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ query: '{ __typename }' }),
+		signal: AbortSignal.timeout(REACHABILITY_TIMEOUT_MS),
+	});
+	routerReachable = response.ok || response.status === 400;
+} catch {
+	routerReachable = false;
+}
 
 const APOLLO_ROOT = join(import.meta.dir, '../..');
 const SUPERGRAPH_CONFIG_PATH = join(APOLLO_ROOT, 'src/config/supergraph.yaml');
@@ -68,7 +88,7 @@ function isUnknownFieldError(body: GraphqlResponseBody, fieldName: string): bool
 }
 
 describe('[INT-FEAT02-01] auth mutations reachable via Apollo Router', () => {
-	test('register reaches the auth subgraph', async () => {
+	test.skipIf(!routerReachable)('register reaches the auth subgraph', async () => {
 		const { body } = await postGraphql(
 			`mutation Register($email: String!, $password: String!) {
 				register(email: $email, password: $password) {
@@ -87,7 +107,7 @@ describe('[INT-FEAT02-01] auth mutations reachable via Apollo Router', () => {
 	});
 
 	// "login" in issue #18's business language == the `signIn` mutation on the auth subgraph.
-	test('login (signIn) reaches the auth subgraph', async () => {
+	test.skipIf(!routerReachable)('login (signIn) reaches the auth subgraph', async () => {
 		const { body } = await postGraphql(
 			`mutation SignIn($username: String!, $password: String!) {
 				signIn(username: $username, password: $password) {
@@ -107,7 +127,7 @@ describe('[INT-FEAT02-01] auth mutations reachable via Apollo Router', () => {
 	});
 
 	// "logout" in issue #18's business language == the `signOut` mutation on the auth subgraph.
-	test('logout (signOut) reaches the auth subgraph', async () => {
+	test.skipIf(!routerReachable)('logout (signOut) reaches the auth subgraph', async () => {
 		const { body } = await postGraphql(
 			`mutation SignOut($refreshToken: String!) {
 				signOut(refreshToken: $refreshToken)
