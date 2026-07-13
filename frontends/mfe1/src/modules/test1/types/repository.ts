@@ -6,7 +6,8 @@ import type { Test1Graphql, Test2Graphql } from 'api';
 // the two live in separate generated modules because each subgraph owns and generates only its
 // own piece of the federated `Test1` type.
 export type Test2Child = Pick<Test2Graphql.Test2, 'id'>;
-export type Test1WithChildren = Pick<Test1Graphql.Test1, 'id'> & Pick<Test2Graphql.Test1, 'test2'>;
+export type Test1WithChildren = Pick<Test1Graphql.Test1, 'id'> &
+  Pick<Test2Graphql.Test1, 'test2'>;
 
 export interface GetTest1Result {
   test1: Test1WithChildren | null;
