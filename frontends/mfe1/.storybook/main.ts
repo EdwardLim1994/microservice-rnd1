@@ -1,6 +1,5 @@
-import type { StorybookConfig } from 'storybook-react-rsbuild';
-
 import { dirname } from 'path';
+import type { StorybookConfig } from 'storybook-react-rsbuild';
 
 import { fileURLToPath } from 'url';
 
