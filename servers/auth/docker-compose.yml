@@ -19,10 +19,16 @@ services:
         condition: service_healthy
     networks:
       - authentik
+      # Lets Apollo Router (services/apollo, on this same network) reach this container by its
+      # service name — see services/apollo/src/config/supergraph.yaml's routing_url comment for
+      # why that value has to match whatever's actually running auth (host `bun run dev` vs this
+      # Docker container), same convention servers/test1/docker-compose.yml follows.
+      - graphql
 
-# Empty on purpose — the "real" definition (driver: bridge) lives in
-# services/authentik/docker-compose.yml; Compose merges same-named top-level networks across
-# every file pulled in by the root docker-compose.yml's `include:`, same convention
+# Empty on purpose — the "real" definitions live in services/authentik/docker-compose.yml and
+# services/apollo/docker-compose.yml respectively; Compose merges same-named top-level networks
+# across every file pulled in by the root docker-compose.yml's `include:`, same convention
 # servers/test1/docker-compose.yml follows for the "adminer"/"vault" networks.
 networks:
   authentik:
+  graphql:

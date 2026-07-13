@@ -14,6 +14,14 @@ output "test2_release_status" {
   value = module.test2.release_status
 }
 
+output "auth_namespace" {
+  value = module.auth.namespace
+}
+
+output "auth_release_status" {
+  value = module.auth.release_status
+}
+
 output "mfe1_namespace" {
   value = module.mfe1.namespace
 }

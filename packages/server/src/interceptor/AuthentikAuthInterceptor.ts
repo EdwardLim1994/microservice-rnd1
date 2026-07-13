@@ -1,4 +1,9 @@
-import { type JWTVerifyOptions, type JWTVerifyResult, createRemoteJWKSet, jwtVerify } from 'jose';
+import {
+  createRemoteJWKSet,
+  type JWTVerifyOptions,
+  type JWTVerifyResult,
+  jwtVerify,
+} from 'jose';
 import { AuthInterceptor } from './AuthInterceptor';
 
 type Verify = (

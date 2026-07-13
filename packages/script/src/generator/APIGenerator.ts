@@ -69,7 +69,9 @@ export default class APIGenerator {
       // string silently produced the literal path "undefined/.cache/buf/cache", which `buf`
       // then created relative to cwd as a real "undefined/" directory inside the server project.
       const bufCacheDir = join(
-        process.env.LOCALAPPDATA ?? process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'),
+        process.env.LOCALAPPDATA ??
+          process.env.XDG_CACHE_HOME ??
+          join(homedir(), '.cache'),
         'buf',
         'cache',
       );
