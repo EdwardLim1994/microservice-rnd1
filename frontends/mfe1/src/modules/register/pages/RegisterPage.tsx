@@ -5,6 +5,41 @@ import { useRegister } from '../viewmodel';
 // same characters — removes the backtracking ambiguity `[^\s@]+@[^\s@]+\.[^\s@]+` had.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
+// Kept as a plain, non-component function (not inlined into RegisterPage's body) — Rsbuild's
+// React Compiler plugin only transforms functions matching its Component/Hook naming heuristic,
+// and folding this try/catch directly into RegisterPage's body triggered a reproducible compiler
+// bug: the compiled output referenced the `catch` clause's bound variable outside the scope it
+// generated a declaration for, throwing `ReferenceError: error is not defined` at submit time
+// (dev server, `reactCompiler: true` in rsbuild.config.ts). Moving the async mutation call +
+// error handling out here sidesteps it entirely.
+type UseRegisterMutate = ReturnType<typeof useRegister>[0];
+
+async function submitRegistration(
+  register: UseRegisterMutate,
+  email: string,
+  password: string,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const result = await register({ variables: { email, password } });
+    const payload = result.data?.register;
+    if (payload?.success) {
+      return { success: true, message: payload.message };
+    }
+    return {
+      success: false,
+      message: payload?.message ?? 'Registration failed. Please try again.',
+    };
+  } catch (submitError) {
+    return {
+      success: false,
+      message:
+        submitError instanceof Error
+          ? submitError.message
+          : 'Unable to reach the server. Please try again.',
+    };
+  }
+}
+
 export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,24 +80,11 @@ export function RegisterPage() {
       return;
     }
 
-    try {
-      const result = await register({
-        variables: { email: email.trim(), password },
-      });
-      const payload = result.data?.register;
-      if (payload?.success) {
-        setSuccessMessage(payload.message);
-      } else {
-        setErrorMessage(
-          payload?.message ?? 'Registration failed. Please try again.',
-        );
-      }
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to reach the server. Please try again.',
-      );
+    const outcome = await submitRegistration(register, email.trim(), password);
+    if (outcome.success) {
+      setSuccessMessage(outcome.message);
+    } else {
+      setErrorMessage(outcome.message);
     }
   }
 
