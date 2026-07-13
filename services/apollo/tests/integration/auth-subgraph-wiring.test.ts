@@ -169,6 +169,12 @@ describe('[INT-FEAT02-02] schema composition succeeds', () => {
 
 			expect(result.exitCode).toBe(0);
 		},
+		// bun:test's default 5000ms timeout isn't enough on a cold run: rover downloads its
+		// 'supergraph' compose plugin on first use in a fresh environment (confirmed in CI —
+		// never observed locally, since rover wasn't installed there at all and this test just
+		// skipped). 30s covers a cold download; a warm rover (plugin already cached) finishes in
+		// well under a second either way.
+		30000,
 	);
 
 	test.skipIf(roverAvailable)('rover CLI not available in this environment — skipped', () => {
