@@ -36,7 +36,7 @@ jobs:
       - name: Identify the touched app
         id: touched
         run: |
-          apps=$(bun ./scripts/release_manager.sh.ts touched-apps main)
+          apps=$(bun ./scripts/release_manager.sh.ts touched-apps origin/main)
           count=$(echo "$apps" | jq 'length')
           if [ "$count" -ne 1 ]; then
             echo "::error::Expected exactly one deployable app touched by this hotfix, found $count: $apps"

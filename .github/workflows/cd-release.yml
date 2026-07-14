@@ -36,9 +36,9 @@ jobs:
       - name: Cut or bump the release manifest
         run: |
           if [ -f release-manifest.json ]; then
-            bun run release:bump-rc main
+            bun run release:bump-rc origin/main
           else
-            bun run release:cut "${GITHUB_REF#refs/heads/}" main
+            bun run release:cut "${GITHUB_REF#refs/heads/}" origin/main
           fi
 
       - name: Commit manifest + app version bumps
