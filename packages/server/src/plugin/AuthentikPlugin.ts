@@ -287,6 +287,79 @@ export class AuthentikClient {
     }
   }
 
+  // RFC 7662 token introspection — needed because RFC 7009 revoke (below) always returns 200 for
+  // an already-dead token, so it alone can't tell logout() "this token was already invalid",
+  // which servers/auth's logout mutation must surface as a distinct error (see its CLAUDE.md).
+  private async introspectToken(
+    token: string,
+  ): Promise<{ active: boolean; sub?: string }> {
+    const response = await fetch(`${this.baseUrl}/application/o/introspect/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        token,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+      }),
+    });
+    if (!response.ok) {
+      throw new AuthentikApiError(response.status, await parseBody(response));
+    }
+    return (await response.json()) as { active: boolean; sub?: string };
+  }
+
+  // Best-effort server-side session termination via Authentik's Admin API, using the service
+  // account token also used by createUser(). Failures here are logged, not thrown — the service
+  // account's RBAC role (provisioned by services/authentik/ansible, see servers/auth/CLAUDE.md)
+  // only grants add_user/view_user/reset_user_password today, not session management, so this is
+  // expected to no-op (403) until that role is widened; a known v1 limitation, not a hard
+  // dependency of logout() actually revoking the token.
+  private async terminateUserSessions(userPk: string): Promise<void> {
+    try {
+      const listResponse = await fetch(
+        `${this.baseUrl}/api/v3/core/sessions/?user=${encodeURIComponent(userPk)}`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      if (!listResponse.ok) {
+        console.error(
+          `AuthentikClient.terminateUserSessions: listing sessions for user ${userPk} failed with ${listResponse.status}`,
+        );
+        return;
+      }
+      const { results } = (await listResponse.json()) as {
+        results: { uuid: string }[];
+      };
+      await Promise.all(
+        results.map((session) =>
+          fetch(`${this.baseUrl}/api/v3/core/sessions/${session.uuid}/`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${this.apiToken}` },
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error(
+        `AuthentikClient.terminateUserSessions: unable to terminate sessions for user ${userPk}`,
+        error,
+      );
+    }
+  }
+
+  // Full RP-initiated logout: unlike signOut()'s plain revokeToken() call, this first introspects
+  // the access token (so an already-dead token surfaces as a distinct error to the caller — see
+  // introspectToken() above), then revokes it and best-effort terminates the underlying Authentik
+  // session, not just the token. See servers/auth/CLAUDE.md for the full rationale.
+  async logout(accessToken: string): Promise<void> {
+    const introspection = await this.introspectToken(accessToken);
+    if (!introspection.active) {
+      throw new AuthentikApiError(401, { error: 'invalid_token' });
+    }
+    await this.revokeToken(accessToken, 'access_token');
+    if (introspection.sub) {
+      await this.terminateUserSessions(introspection.sub);
+    }
+  }
+
   // Self-service registration by email+password — uses the email itself as Authentik's username,
   // so a duplicate-email registration attempt surfaces as the same username-uniqueness violation
   // createUser()'s callers already know how to detect (see RegisterUseCase's
