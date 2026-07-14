@@ -83,7 +83,7 @@ export function findMatchingBracket(
 }
 
 export function addNamedImport(raw: string, source: string, importName: string): string {
-	const importRegex = new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*["']${source}["'];?`);
+	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
 	const match = importRegex.exec(raw);
 	if (!match) {
 		throw new Error(`Could not find an import from "${source}"`);
@@ -104,7 +104,7 @@ export function addNamedImport(raw: string, source: string, importName: string):
 // imports from that source (e.g. injecting a new page's import into a router file that may not
 // yet import anything from that page's module).
 export function addOrMergeNamedImport(raw: string, source: string, importName: string): string {
-	const importRegex = new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*["']${source}["'];?`);
+	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
 	if (importRegex.test(raw)) {
 		return addNamedImport(raw, source, importName);
 	}
@@ -441,7 +441,7 @@ export function copyWithSubstitutions(
 		}
 		let raw = fs.readFileSync(srcPath, "utf-8");
 		for (const [key, value] of Object.entries(replacements)) {
-			raw = raw.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value);
+			raw = raw.replace(new RegExp(String.raw`\{\{\s*${key}\s*\}\}`, "g"), value);
 		}
 		fs.mkdirSync(path.dirname(destPath), { recursive: true });
 		fs.writeFileSync(destPath, raw);
@@ -461,7 +461,7 @@ export function syncHelmPort(location: string, key: "graphql" | "grpc", port: nu
 		return `${relToRoot(absPath)} not found, skipped`;
 	}
 	const raw = fs.readFileSync(absPath, "utf-8");
-	const pattern = new RegExp(`(^\\s*${key}:\\s*)\\d+`, "m");
+	const pattern = new RegExp(String.raw`(^\s*${key}:\s*)\d+`, "m");
 	if (!pattern.test(raw)) {
 		return `${relToRoot(absPath)} has no "${key}:" port entry, skipped`;
 	}
@@ -551,7 +551,7 @@ function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: nu
 // e.g. for locating servers/<name>/docker-compose.yml's main app service. Returns null if that
 // service isn't declared in the file at all.
 function findComposeServiceBody(raw: string, serviceName: string): { start: number; end: number } | null {
-	const header = new RegExp(`^  ${serviceName}:[ \\t]*\\n`, "m").exec(raw);
+	const header = new RegExp(String.raw`^  ${serviceName}:[ \t]*\n`, "m").exec(raw);
 	if (!header) return null;
 	const start = header.index + header[0].length;
 	return { start, end: findIndentedBodyEnd(raw, start, 4) };
@@ -590,7 +590,7 @@ function ensureComposeServiceMapEntries(
 	const service = findComposeServiceBody(raw, serviceName);
 	if (!service) return raw;
 
-	const mapHeader = new RegExp(`^    ${mapKey}:[ \\t]*\\n`, "m");
+	const mapHeader = new RegExp(String.raw`^    ${mapKey}:[ \t]*\n`, "m");
 	const withinService = raw.slice(service.start, service.end);
 	const mapMatch = mapHeader.exec(withinService);
 
@@ -624,7 +624,7 @@ function ensureComposeServiceListItems(
 	const service = findComposeServiceBody(raw, serviceName);
 	if (!service) return raw;
 
-	const listHeader = new RegExp(`^    ${listKey}:[ \\t]*\\n`, "m");
+	const listHeader = new RegExp(String.raw`^    ${listKey}:[ \t]*\n`, "m");
 	const withinService = raw.slice(service.start, service.end);
 	const listMatch = listHeader.exec(withinService);
 
@@ -632,7 +632,7 @@ function ensureComposeServiceListItems(
 		const listStart = service.start + listMatch.index + listMatch[0].length;
 		const listEnd = findIndentedBodyEnd(raw, listStart, 6);
 		const existing = raw.slice(listStart, listEnd);
-		const missing = items.filter((item) => !new RegExp(`^\\s*-\\s*${item}\\s*$`, "m").test(existing));
+		const missing = items.filter((item) => !new RegExp(String.raw`^\s*-\s*${item}\s*$`, "m").test(existing));
 		if (missing.length === 0) return raw;
 		const insertAt = trimTrailingBlankLines(raw, listStart, listEnd);
 		const lines = missing.map((item) => `      - ${item}\n`).join("");
@@ -660,7 +660,7 @@ export function ensureComposeNetworkDeclared(absComposePath: string, networkName
 		// Only treat as already-declared if it's under a real top-level `networks:` section —
 		// a same-named service/env key elsewhere shouldn't false-positive this check.
 		const networksIndex = raw.search(/^networks:\s*$/m);
-		if (networksIndex !== -1 && raw.indexOf(`\n  ${networkName}:`, networksIndex) !== -1) {
+		if (networksIndex !== -1 && raw.includes(`\n  ${networkName}:`, networksIndex)) {
 			return `${relToRoot(absComposePath)} already declares ${networkName}`;
 		}
 	}
