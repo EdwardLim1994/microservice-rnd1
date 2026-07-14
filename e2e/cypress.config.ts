@@ -13,11 +13,16 @@ import { defineConfig } from 'cypress'
 // string). Direct ports sidestep that gap entirely and don't depend on Traefik being reachable at
 // all for local runs.
 export default defineConfig({
+  // GRAPHQL_URL is public, non-sensitive config (just a URL) — exposed to spec code via
+  // Cypress.expose() rather than Cypress.env(), which allowCypressEnv: false below disables
+  // entirely (Cypress.env() readable by any browser code is deprecated, see
+  // https://on.cypress.io/env and https://on.cypress.io/expose).
+  allowCypressEnv: false,
   e2e: {
     baseUrl: process.env.FRONTEND_URL ?? 'http://localhost:3001',
     specPattern: 'cypress/e2e/**/*.cy.ts',
     supportFile: 'cypress/support/e2e.ts',
-    env: {
+    expose: {
       GRAPHQL_URL: process.env.GRAPHQL_URL ?? 'http://localhost:4000',
     },
   },
