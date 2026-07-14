@@ -29,12 +29,6 @@ function makeContainer() {
   return createContainer({ injectionMode: InjectionMode.PROXY });
 }
 
-test('register() is a no-op', () => {
-  const container = makeContainer();
-  const router = new TestCronRouter(container);
-  expect(() => router.register({})).not.toThrow();
-});
-
 test('dispatchers getter auto-registers use cases in container', () => {
   const container = makeContainer();
   const router = new TestCronRouter(container);

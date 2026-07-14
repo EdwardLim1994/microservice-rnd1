@@ -1,5 +1,6 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
+import { isRegistrable } from '../abstract/Registrable';
 
 export class GrpcDriver extends BaseDriver {
   private readonly _server: Server;
@@ -20,6 +21,7 @@ export class GrpcDriver extends BaseDriver {
     }
 
     for (const router of routers) {
+      if (!isRegistrable(router)) continue;
       router.register(this._server);
     }
 

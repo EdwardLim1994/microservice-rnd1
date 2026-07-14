@@ -52,12 +52,6 @@ function makeContainer(serializer: KafkaSerializer) {
   return container;
 }
 
-test('register() is a no-op', () => {
-  const container = makeContainer(makeMockSerializer().serializer);
-  const router = new TestKafkaRouter(container);
-  expect(() => router.register({})).not.toThrow();
-});
-
 test('topics decodes via the container-resolved kafkaSerializer, bound per topic', async () => {
   const mock = makeMockSerializer();
   const container = makeContainer(mock.serializer);

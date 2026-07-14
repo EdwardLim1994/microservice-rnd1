@@ -6,3 +6,5 @@ export { BasePlugin } from './BasePlugin';
 export { BaseRepository } from './BaseRepository';
 export { BaseRouter } from './BaseRouter';
 export { BaseUseCase } from './BaseUseCase';
+export type { Registrable } from './Registrable';
+export { isRegistrable } from './Registrable';

@@ -9,6 +9,7 @@ import type {
 import { type AwilixContainer, asClass } from 'awilix';
 import { BaseRouter } from '../abstract/BaseRouter';
 import type { BaseUseCase } from '../abstract/BaseUseCase';
+import type { Registrable } from '../abstract/Registrable';
 
 type ExtractReq<T> = T extends handleUnaryCall<infer Req, any> ? Req : never;
 type ExtractRes<T> = T extends handleUnaryCall<any, infer Res> ? Res : never;
@@ -21,7 +22,10 @@ export type GrpcHandlerMap<TService> = {
 
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-export abstract class GrpcRouter<TService> extends BaseRouter {
+export abstract class GrpcRouter<TService>
+  extends BaseRouter
+  implements Registrable
+{
   constructor(protected readonly container: AwilixContainer) {
     super();
   }
