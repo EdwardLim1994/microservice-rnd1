@@ -147,6 +147,42 @@ test('on successful sign-out, clears all auth keys and shows a success message',
   expectAllAuthKeysCleared();
 });
 
+test('clears all auth keys and shows an error message when the mutation resolves with success: false', async () => {
+  // Distinct from the GraphQL-error case below: the mutation itself succeeds (no `errors`), but
+  // the payload reports failure — e.g. `LogoutUseCase` returning `{ success: false, message }`.
+  seedSignedInStorage();
+
+  const mocks = [
+    {
+      request: {
+        query: LOGOUT_MUTATION,
+        variables: { accessToken: MOCK_ACCESS_TOKEN },
+      },
+      result: {
+        data: {
+          logout: {
+            success: false,
+            message: 'Unable to sign out. Please try again.',
+          },
+        },
+      },
+    },
+  ];
+
+  render(
+    <MockedProvider mocks={mocks}>
+      <LogoutPage />
+    </MockedProvider>,
+  );
+
+  await clickSignOut();
+
+  expect(
+    await screen.findByTestId('sign-out-error-message'),
+  ).toBeInTheDocument();
+  expectAllAuthKeysCleared();
+});
+
 test('clears all auth keys even when the mutation returns a GraphQL error', async () => {
   // This is the critical edge case from issue #26: localStorage must be cleared client-side
   // "regardless of mutation success or failure" — not only cleared on the happy path.
