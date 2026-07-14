@@ -54,6 +54,7 @@ export abstract class GraphqlRouter extends BaseRouter {
     );
   }
 
-  // ponytail: no-op — ApolloDriver reads typeDefs/resolvers directly before server creation
-  register(_server: unknown): void {}
+  register(_server: unknown): void {
+    // ponytail: no-op — ApolloDriver reads typeDefs/resolvers directly before server creation
+  }
 }

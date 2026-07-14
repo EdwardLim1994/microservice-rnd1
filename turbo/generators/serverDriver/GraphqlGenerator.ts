@@ -4,6 +4,7 @@ import type { PlopTypes } from "@turbo/gen";
 import {
 	addApiScript,
 	ensureGenScript,
+	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
 	syncHelmPort,
@@ -81,33 +82,7 @@ function appendGraphqlPort(absPath: string, port: number, createIfMissing: boole
 // (demo1/demo2's pre-existing hardcoded `port: N` literal on the ApolloDriver entry) for a
 // port already in use, and returns the lowest one >= DEFAULT_GRAPHQL_PORT not already taken.
 function findAvailableGraphqlPort(root: string): number {
-	const serversDir = path.join(root, "servers");
-	const usedPorts = new Set<number>();
-
-	if (fs.existsSync(serversDir)) {
-		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
-			if (!entry.isDirectory()) continue;
-			const serverDir = path.join(serversDir, entry.name);
-
-			const envSamplePath = path.join(serverDir, ".env.sample");
-			if (fs.existsSync(envSamplePath)) {
-				const match = /^GRAPHQL_PORT=(\d+)/m.exec(fs.readFileSync(envSamplePath, "utf-8"));
-				if (match) usedPorts.add(Number(match[1]));
-			}
-
-			const appPath = path.join(serverDir, "src", "app.ts");
-			if (fs.existsSync(appPath)) {
-				const match = /driver:\s*ApolloDriver[\s\S]{0,200}?port:\s*(\d+)/.exec(
-					fs.readFileSync(appPath, "utf-8"),
-				);
-				if (match) usedPorts.add(Number(match[1]));
-			}
-		}
-	}
-
-	let port = DEFAULT_GRAPHQL_PORT;
-	while (usedPorts.has(port)) port++;
-	return port;
+	return findAvailableServerPort(root, "GRAPHQL_PORT", "ApolloDriver", DEFAULT_GRAPHQL_PORT);
 }
 
 function buildApolloDriverEntry(itemIndent: string): string {

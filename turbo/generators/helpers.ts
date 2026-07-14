@@ -94,7 +94,7 @@ export function addNamedImport(raw: string, source: string, importName: string):
 		.filter(Boolean);
 	if (names.includes(importName)) return raw;
 	names.push(importName);
-	names.sort();
+	names.sort((a, b) => a.localeCompare(b));
 	return raw.replace(importRegex, `import { ${names.join(", ")} } from "${source}";`);
 }
 
@@ -325,11 +325,23 @@ export function findAvailableFrontendPort(root: string): number {
 
 const DEFAULT_MOBILE_PORT = 3011;
 
+// Reads a single apps/*/package.json's "dev" script for a `--port N` already in use — the
+// per-workspace half of findAvailableMobilePort's scan, split out to keep that function's
+// cognitive complexity down. Harmless to call for every apps/* workspace, not just Expo ones —
+// an Rsbuild-based app's "dev" script ("rsbuild --open") never matches the `--port` pattern, so
+// it just returns null.
+function extractMobilePortFromPackageJson(pkgPath: string): number | null {
+	if (!fs.existsSync(pkgPath)) return null;
+	const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
+		| string
+		| undefined;
+	const match = devScript ? /--port\s+(\d+)/.exec(devScript) : null;
+	return match ? Number(match[1]) : null;
+}
+
 // Scans every apps/*/package.json for a `--port N` already used in its "dev" script (Expo's
 // dev-server/tunnel port — apps/mobile's own is `expo start --host tunnel --port 3011`) and
-// returns the lowest one >= DEFAULT_MOBILE_PORT not already taken. Harmless to scan every
-// apps/* workspace, not just Expo ones — an Rsbuild-based app's "dev" script ("rsbuild --open")
-// never matches the `--port` pattern, so it's simply skipped.
+// returns the lowest one >= DEFAULT_MOBILE_PORT not already taken.
 export function findAvailableMobilePort(root: string): number {
 	const usedPorts = new Set<number>();
 
@@ -337,13 +349,8 @@ export function findAvailableMobilePort(root: string): number {
 	if (fs.existsSync(appsDir)) {
 		for (const entry of fs.readdirSync(appsDir, { withFileTypes: true })) {
 			if (!entry.isDirectory()) continue;
-			const pkgPath = path.join(appsDir, entry.name, "package.json");
-			if (!fs.existsSync(pkgPath)) continue;
-			const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
-				| string
-				| undefined;
-			const match = devScript ? /--port\s+(\d+)/.exec(devScript) : null;
-			if (match) usedPorts.add(Number(match[1]));
+			const port = extractMobilePortFromPackageJson(path.join(appsDir, entry.name, "package.json"));
+			if (port !== null) usedPorts.add(port);
 		}
 	}
 
@@ -447,6 +454,57 @@ export function syncHelmPort(location: string, key: "graphql" | "grpc", port: nu
 	}
 	fs.writeFileSync(absPath, raw.replace(pattern, `$1${port}`));
 	return `${relToRoot(absPath)} (ports.${key} -> ${port})`;
+}
+
+// Reads one servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
+// (demo1/demo2's pre-existing hardcoded `port: N` literal on the matching driver entry) for a
+// port already in use, adding whatever it finds to `usedPorts` — the per-server half of
+// findAvailableServerPort's scan, split out to keep that function's cognitive complexity down.
+function collectServerPortUsage(
+	serverDir: string,
+	envVar: string,
+	driverName: string,
+	usedPorts: Set<number>,
+): void {
+	const envSamplePath = path.join(serverDir, ".env.sample");
+	if (fs.existsSync(envSamplePath)) {
+		const match = new RegExp(`^${envVar}=(\\d+)`, "m").exec(fs.readFileSync(envSamplePath, "utf-8"));
+		if (match) usedPorts.add(Number(match[1]));
+	}
+
+	const appPath = path.join(serverDir, "src", "app.ts");
+	if (fs.existsSync(appPath)) {
+		const match = new RegExp(`driver:\\s*${driverName}[\\s\\S]{0,200}?port:\\s*(\\d+)`).exec(
+			fs.readFileSync(appPath, "utf-8"),
+		);
+		if (match) usedPorts.add(Number(match[1]));
+	}
+}
+
+// Scans every servers/*/.env.sample and servers/*/src/app.ts for a port already in use (see
+// collectServerPortUsage) and returns the lowest one >= defaultPort not already taken — shared by
+// GraphqlGenerator's findAvailableGraphqlPort (`envVar: "GRAPHQL_PORT"`, `driverName:
+// "ApolloDriver"`) and GrpcGenerator's findAvailableGrpcPort (`"GRPC_PORT"`, `"GrpcDriver"`),
+// which were otherwise identical aside from those three values.
+export function findAvailableServerPort(
+	root: string,
+	envVar: string,
+	driverName: string,
+	defaultPort: number,
+): number {
+	const serversDir = path.join(root, "servers");
+	const usedPorts = new Set<number>();
+
+	if (fs.existsSync(serversDir)) {
+		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
+			if (!entry.isDirectory()) continue;
+			collectServerPortUsage(path.join(serversDir, entry.name), envVar, driverName, usedPorts);
+		}
+	}
+
+	let port = defaultPort;
+	while (usedPorts.has(port)) port++;
+	return port;
 }
 
 // --- docker-compose.yml service-block editing -------------------------------------------------
