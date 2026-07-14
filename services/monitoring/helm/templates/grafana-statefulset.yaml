@@ -17,9 +17,19 @@ spec:
         {{- include "grafana.labels" . | nindent 8 }}
     spec:
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: grafana
           image: "{{ .Values.grafana.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
           ports:
             - name: http
               containerPort: 3000

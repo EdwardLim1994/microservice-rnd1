@@ -21,9 +21,19 @@ spec:
       # image outright in this cluster; disabling Service env var injection here too avoids
       # relying on the meilisearch image never hitting a similar collision.
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: meilisearch
           image: "{{ .Values.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
           ports:
             - name: meilisearch
               containerPort: 7700
