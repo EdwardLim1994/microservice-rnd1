@@ -38,7 +38,11 @@ jobs:
       - name: Identify the touched apps
         id: touched
         run: |
-          apps=$(bun ./scripts/release_manager.sh.ts touched-apps origin/main)
+          # -c (compact) matters: release_manager.sh.ts pretty-prints its JSON output (multi-line),
+          # and $GITHUB_OUTPUT's own file-command format rejects a multi-line value written as
+          # "key=$multilineValue" — every line after the first gets parsed as its own malformed
+          # "key=value" pair instead of being part of the value.
+          apps=$(bun ./scripts/release_manager.sh.ts touched-apps origin/main | jq -c '.')
           count=$(echo "$apps" | jq 'length')
           if [ "$count" -eq 0 ]; then
             echo "::error::Expected at least one deployable app touched by this hotfix, found 0"
