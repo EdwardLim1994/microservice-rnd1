@@ -13,7 +13,7 @@ const TOKEN_KEYS = ['auth_access_token', 'auth_refresh_token', 'auth_id_token']
 // Apollo Router's own direct host-port publish — a different host/port than
 // `Cypress.config().baseUrl` (mfe1's own port, for `cy.visit()`), so the GraphQL setup calls below
 // can't reuse it (see services/traefik/CLAUDE.md and cypress.config.ts's own comment).
-const GRAPHQL_URL = `${Cypress.env('GRAPHQL_URL') ?? 'http://localhost:4000'}/graphql`
+const GRAPHQL_URL = `${Cypress.expose('GRAPHQL_URL') ?? 'http://localhost:4000'}/graphql`
 
 function uniqueEmail() {
   return `e2e-logout-${Date.now()}@example.com`
