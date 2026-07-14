@@ -95,8 +95,4 @@ export abstract class KafkaConsumerRouter<
       }),
     );
   }
-
-  register(_consumer: unknown): void {
-    // ponytail: no-op — KafkaDriver reads topics/dispatchers directly, same as GraphqlRouter
-  }
 }

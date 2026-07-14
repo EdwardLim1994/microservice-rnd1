@@ -33,6 +33,10 @@ class StubRouter extends BaseRouter {
   }
 }
 
+// e.g. a CronRouter/KafkaConsumerRouter/GraphqlRouter passed alongside gRPC routers on a
+// multi-driver ServerApp — GrpcDriver must skip it rather than throw on a missing register().
+class NonRegistrableStubRouter extends BaseRouter {}
+
 test('start() binds to correct address', async () => {
   const mock = makeMockServer();
   const driver = new GrpcDriver(mock);
@@ -58,6 +62,20 @@ test('start() calls register on each router with the grpc server', async () => {
     plugins: [],
   });
   expect(router.lastServer).toBe(mock);
+});
+
+test('start() skips a router that does not implement Registrable', async () => {
+  const mock = makeMockServer();
+  const driver = new GrpcDriver(mock);
+  await expect(
+    driver.start({
+      port: 3000,
+      host: '0.0.0.0',
+      routers: [new NonRegistrableStubRouter()],
+      interceptors: [],
+      plugins: [],
+    }),
+  ).resolves.toBeUndefined();
 });
 
 test('stop() calls tryShutdown on the server', async () => {

@@ -48,8 +48,4 @@ export abstract class CronRouter<
       }),
     );
   }
-
-  register(_scheduler: unknown): void {
-    // ponytail: no-op — CronDriver reads schedules/dispatchers directly, same as KafkaConsumerRouter
-  }
 }
