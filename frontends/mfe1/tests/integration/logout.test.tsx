@@ -23,23 +23,25 @@ import { LogoutPage } from '../../src/modules/logout';
  *   `"sign-out-network-error-message"`, `"sign-out-not-signed-in-message"`. We assert presence
  *   only, never exact copy — copy is a design-token concern the issue explicitly punts on ("No
  *   Claude Design handoff this release").
- * - The mutation itself: `servers/auth`'s already-deployed schema
- *   (`servers/auth/src/schemas/graphql/auth.graphql`, generated into
- *   `packages/api`'s `AuthGraphql.MutationSignOutArgs`) defines `signOut(refreshToken: String!):
- *   Boolean!` — there is no `logout` mutation and no `accessToken` argument in the real schema.
- *   The issue's own Input line ("access token read from localStorage auth_access_token") is
- *   therefore read here as the *presence check* that decides whether to call the mutation at all
- *   (mirroring the issue's edge case "No token found in localStorage... skip the mutation call"),
- *   while the mutation call itself must send `auth_refresh_token`'s value as `refreshToken`, per
- *   the real backend contract. `SIGN_OUT_MUTATION` below is therefore the exact document (name,
- *   field, argument) the `logout` module's data layer must reproduce byte-for-byte — `MockedProvider`
- *   matches mocks by query AST + variables, so any deviation (different operation name, field
- *   alias, argument name) makes every mock below go unmatched.
+ * - The mutation itself: `servers/auth`'s auth subgraph exposes `logout(accessToken: String!):
+ *   LogoutPayload!` (`LogoutPayload { success: Boolean!, message: String! }`), replacing the old
+ *   `signOut(refreshToken): Boolean!` per FEAT-07 (issue #25) and the OpenSpec SDL at
+ *   `.openspec/requirements/release/integration-testing/auth.api.graphql`. The issue's own Input
+ *   line ("access token read from localStorage auth_access_token") is therefore both the presence
+ *   check that decides whether to call the mutation at all (mirroring the issue's edge case "No
+ *   token found in localStorage... skip the mutation call") AND the mutation variable itself.
+ *   `LOGOUT_MUTATION` below is therefore the exact document (name, field, argument) the `logout`
+ *   module's data layer must reproduce byte-for-byte — `MockedProvider` matches mocks by query AST
+ *   + variables, so any deviation (different operation name, field alias, argument name) makes
+ *   every mock below go unmatched.
  */
 
-const SIGN_OUT_MUTATION = gql`
-  mutation SignOut($refreshToken: String!) {
-    signOut(refreshToken: $refreshToken)
+const LOGOUT_MUTATION = gql`
+  mutation Logout($accessToken: String!) {
+    logout(accessToken: $accessToken) {
+      success
+      message
+    }
   }
 `;
 
@@ -87,10 +89,14 @@ test('shows a loading state on the button while the mutation is in flight', asyn
   const mocks = [
     {
       request: {
-        query: SIGN_OUT_MUTATION,
-        variables: { refreshToken: MOCK_REFRESH_TOKEN },
+        query: LOGOUT_MUTATION,
+        variables: { accessToken: MOCK_ACCESS_TOKEN },
       },
-      result: { data: { signOut: true } },
+      result: {
+        data: {
+          logout: { success: true, message: 'Signed out successfully.' },
+        },
+      },
       // Long enough that the assertion right after click reliably observes the in-flight state
       // before the mock resolves.
       delay: 50,
@@ -116,10 +122,14 @@ test('on successful sign-out, clears all auth keys and shows a success message',
   const mocks = [
     {
       request: {
-        query: SIGN_OUT_MUTATION,
-        variables: { refreshToken: MOCK_REFRESH_TOKEN },
+        query: LOGOUT_MUTATION,
+        variables: { accessToken: MOCK_ACCESS_TOKEN },
       },
-      result: { data: { signOut: true } },
+      result: {
+        data: {
+          logout: { success: true, message: 'Signed out successfully.' },
+        },
+      },
     },
   ];
 
@@ -145,11 +155,15 @@ test('clears all auth keys even when the mutation returns a GraphQL error', asyn
   const mocks = [
     {
       request: {
-        query: SIGN_OUT_MUTATION,
-        variables: { refreshToken: MOCK_REFRESH_TOKEN },
+        query: LOGOUT_MUTATION,
+        variables: { accessToken: MOCK_ACCESS_TOKEN },
       },
       result: {
-        errors: [new GraphQLError('Invalid or already-revoked refresh token')],
+        errors: [
+          new GraphQLError(
+            'The provided access token is invalid or has expired',
+          ),
+        ],
       },
     },
   ];
@@ -175,15 +189,19 @@ test('when no token is in localStorage, never calls the mutation, clears keys an
   const mocks = [
     {
       request: {
-        query: SIGN_OUT_MUTATION,
-        variables: { refreshToken: MOCK_REFRESH_TOKEN },
+        query: LOGOUT_MUTATION,
+        variables: { accessToken: MOCK_ACCESS_TOKEN },
       },
       result: () => {
         // Tracked via the mock itself (per this repo's convention of official test helpers over
         // `vi` module mocks) — this must stay at 0 for this scenario, since the component is
         // expected to skip the mutation entirely when there's no token to sign out with.
         mutationCallCount += 1;
-        return { data: { signOut: true } };
+        return {
+          data: {
+            logout: { success: true, message: 'Signed out successfully.' },
+          },
+        };
       },
     },
   ];
@@ -209,8 +227,8 @@ test('clears all auth keys even when the network/Apollo Router request fails', a
   const mocks = [
     {
       request: {
-        query: SIGN_OUT_MUTATION,
-        variables: { refreshToken: MOCK_REFRESH_TOKEN },
+        query: LOGOUT_MUTATION,
+        variables: { accessToken: MOCK_ACCESS_TOKEN },
       },
       // A transport-level failure (e.g. Apollo Router unreachable), distinct from a GraphQL
       // error in `result.errors` above.
