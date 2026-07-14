@@ -16,9 +16,10 @@ afterEach(() => {
 // overrides a global key with happy-dom's real implementation when that key is either in its
 // hardcoded list or *absent* from `global` already; since Bun's own key already exists, happy-dom's
 // working `window.localStorage`/`sessionStorage` never gets installed, and any code touching
-// `window.localStorage` (e.g. `LoginPage`) throws on `.getItem`/`.setItem` being called on
-// `undefined`. Standing up a minimal same-tab Storage polyfill here — real `localStorage` semantics
-// (string-keyed, string values, no cross-test persistence needed) are all these tests require.
+// `window.localStorage` (e.g. `LoginPage`, `LogoutPage`) throws on `.getItem`/`.setItem` being
+// called on `undefined`. Standing up a minimal same-tab Storage polyfill here — real `localStorage`
+// semantics (string-keyed, string values, no cross-test persistence needed) are all these tests
+// require.
 class MemoryStorage implements Storage {
   private readonly store = new Map<string, string>();
 

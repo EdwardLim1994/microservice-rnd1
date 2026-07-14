@@ -31,6 +31,12 @@ WORKDIR /app
 COPY package.json bun.lock* turbo.json ./
 COPY packages ./packages
 COPY frontends/mfe1 ./frontends/mfe1
+# Root package.json's `workspaces` lists "e2e" as a literal path, not a glob like
+# "frontends/*"/"packages/*" — bun tolerates a glob matching nothing in a partial copy like this
+# one, but a literal path must actually exist or `bun install` hard-fails with "Workspace not
+# found e2e". Only its package.json is needed to satisfy that check; this build never touches
+# e2e's code.
+COPY e2e/package.json ./e2e/package.json
 
 # Not --frozen-lockfile: bun.lock was generated against the full monorepo workspace set, but
 # this build only copies the subset actually needed (packages + this project) — bun's freeze

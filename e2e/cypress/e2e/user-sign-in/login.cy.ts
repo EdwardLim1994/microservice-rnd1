@@ -10,6 +10,11 @@
 const VALID_PASSWORD = 'A-Valid-Password-123!'
 const TOKEN_KEYS = ['auth_access_token', 'auth_refresh_token', 'auth_id_token']
 
+// Apollo Router's own direct host-port publish — a different host/port than
+// `Cypress.config().baseUrl` (mfe1's own port, for `cy.visit()`), so this can't reuse it (see
+// services/traefik/CLAUDE.md and cypress.config.ts's own comment).
+const GRAPHQL_URL = `${Cypress.env('GRAPHQL_URL') ?? 'http://localhost:4000'}/graphql`
+
 function uniqueEmail() {
   return `e2e-login-${Date.now()}@example.com`
 }
@@ -17,7 +22,7 @@ function uniqueEmail() {
 function registerViaApi(email: string, password: string) {
   return cy.request({
     method: 'POST',
-    url: `${Cypress.config().baseUrl}/graphql`,
+    url: GRAPHQL_URL,
     body: {
       query: `mutation Register($email: String!, $password: String!) {
         register(email: $email, password: $password) { success message }
