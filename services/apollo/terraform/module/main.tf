@@ -5,6 +5,7 @@ resource "helm_release" "apollo_router" {
   name      = "apollo-router"
   chart     = abspath("${path.module}/../../helm")
   namespace = var.namespace
+  timeout   = 600
 
   set {
     name  = "namespace"

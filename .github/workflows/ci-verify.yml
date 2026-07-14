@@ -46,14 +46,15 @@ jobs:
         run: cd servers/test1 && DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" bun run postinstall
 
       - name: Lint + format + test (affected packages only)
-        # mfe1/web1 excluded: both have pre-existing, unrelated test failures (mfe1: a happy-dom
-        # fetch-abort issue; web1: needs a Module Federation runtime rstest doesn't bootstrap) —
-        # neither is fixed by this change, and turbo.json being a root config file means any
-        # change to it sweeps every package into the affected set, including these two.
+        # web1 excluded: needs a Module Federation runtime rstest doesn't bootstrap, not fixed by
+        # this change. mfe1 stays in — its own pre-existing broken test (tests/index.test.tsx, a
+        # real un-mocked Apollo network call, environment-dependent) is excluded at the rstest.config.ts
+        # level instead (see that file's own comment) rather than dropping mfe1 from CI entirely,
+        # since mfe1's other, passing tests provide real coverage Sonar needs.
         run: |
           filter="...[origin/${{ github.event.pull_request.base.ref }}]"
-          bun run check --filter="$filter" --filter="!mfe1" --filter="!web1"
-          bun run test --filter="$filter" --filter="!mfe1" --filter="!web1"
+          bun run check --filter="$filter" --filter="!web1"
+          bun run test --filter="$filter" --filter="!web1"
 
       - name: Fail if check --write left uncommitted changes
         # packages' own "check"/"format" scripts run biome in --write mode (meant for local

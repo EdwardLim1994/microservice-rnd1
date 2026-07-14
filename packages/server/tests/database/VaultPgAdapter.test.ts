@@ -6,10 +6,7 @@ const originalFetch = globalThis.fetch;
 
 function mockVaultFetch() {
   const calls: { url: string; init?: RequestInit }[] = [];
-  globalThis.fetch = (async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = input.toString();
     calls.push({ url, init });
 
@@ -22,7 +19,9 @@ function mockVaultFetch() {
 
     if (url.includes('/v1/database/creds/')) {
       return new Response(
-        JSON.stringify({ data: { username: 'dyn-user', password: 'dyn-pass' } }),
+        JSON.stringify({
+          data: { username: 'dyn-user', password: 'dyn-pass' },
+        }),
         { status: 200 },
       );
     }
@@ -68,7 +67,9 @@ test('fromEnv() logs in via AppRole, fetches dynamic creds, and returns a PgAdap
     role_id: 'role-id',
     secret_id: 'secret-id',
   });
-  expect(calls[1].url).toBe('http://localhost:8200/v1/database/creds/test1-role');
+  expect(calls[1].url).toBe(
+    'http://localhost:8200/v1/database/creds/test1-role',
+  );
   expect(calls[1].init?.headers).toMatchObject({
     'X-Vault-Token': 'test-client-token',
   });
@@ -87,7 +88,9 @@ test('fromEnv() throws when Vault responds with an error status', async () => {
   globalThis.fetch = (async () =>
     new Response('permission denied', { status: 403 })) as typeof fetch;
 
-  await expect(VaultPgAdapter.fromEnv()).rejects.toThrow('Vault request failed');
+  await expect(VaultPgAdapter.fromEnv()).rejects.toThrow(
+    'Vault request failed',
+  );
 });
 
 test('fromEnv() accepts explicit config overriding env vars', async () => {

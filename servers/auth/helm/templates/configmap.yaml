@@ -11,3 +11,6 @@ data:
   # Service's targetPort all stay in sync from one place (values.yaml) instead of four.
   GRAPHQL_PORT: {{ .Values.ports.graphql | quote }}
   GRPC_PORT: {{ .Values.ports.grpc | quote }}
+  # See services/authentik/CLAUDE.md — the OAuth2 client credentials themselves are secret (see
+  # authentik-secret.yaml) but the Authentik URL itself is not.
+  AUTHENTIK_URL: {{ .Values.authentik.url | quote }}
