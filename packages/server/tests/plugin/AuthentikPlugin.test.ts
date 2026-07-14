@@ -315,6 +315,64 @@ test('signIn() throws if the final token exchange fails', async () => {
   ).rejects.toBeInstanceOf(AuthentikApiError);
 });
 
+// --- logout() -------------------------------------------------------------------------------
+
+test('logout() introspects, revokes, and terminates the user session on an active token', async () => {
+  const client = new AuthentikClient(CONFIG);
+  const fetchCalls: string[] = [];
+  await withMockFetch(
+    (call) => {
+      const responses = [
+        jsonResponse(200, { active: true, sub: 'user-1' }), // introspect
+        new Response(null, { status: 200 }), // revoke
+        jsonResponse(200, { results: [{ uuid: 'session-1' }] }), // list sessions
+        new Response(null, { status: 204 }), // delete session
+      ];
+      fetchCalls.push(`call-${call}`);
+      return responses[call] as Response;
+    },
+    () => client.logout('a-valid-access-token'),
+  );
+  expect(fetchCalls.length).toBe(4);
+});
+
+test('logout() throws AuthentikApiError without revoking when the token is already inactive', async () => {
+  const client = new AuthentikClient(CONFIG);
+  let fetchCallCount = 0;
+  await expect(
+    withMockFetch(
+      () => {
+        fetchCallCount++;
+        return jsonResponse(200, { active: false });
+      },
+      () => client.logout('an-expired-access-token'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+  // Only the introspection call — revoke() must never run for an already-inactive token.
+  expect(fetchCallCount).toBe(1);
+});
+
+test('logout() throws AuthentikApiError when introspection itself fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(503, { detail: 'unavailable' })], () =>
+      client.logout('a-token'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('logout() does not throw when best-effort session termination fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await withMockFetch(
+    [
+      jsonResponse(200, { active: true, sub: 'user-1' }), // introspect
+      new Response(null, { status: 200 }), // revoke
+      jsonResponse(403, { detail: 'forbidden' }), // list sessions — RBAC not granted
+    ],
+    () => client.logout('a-valid-access-token'),
+  );
+});
+
 // --- AuthentikPlugin ----------------------------------------------------------------------------
 
 test('AuthentikPlugin.onStart() calls healthCheck() and registers the client', async () => {

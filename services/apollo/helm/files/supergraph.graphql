@@ -51,7 +51,24 @@ input join__ContextArgument {
   selection: join__FieldValue!
 }
 
-type Query @join__type(graph: TEST1) @join__type(graph: TEST2) {
+type AuthPayload @join__type(graph: AUTH) {
+  accessToken: String!
+  refreshToken: String!
+  idToken: String!
+}
+
+type RegisterPayload @join__type(graph: AUTH) {
+  success: Boolean!
+  message: String!
+}
+
+type Mutation @join__type(graph: AUTH) {
+  login(email: String!, password: String!): AuthPayload!
+  register(email: String!, password: String!): RegisterPayload!
+  signOut(refreshToken: String!): Boolean!
+}
+
+type Query @join__type(graph: AUTH) @join__type(graph: TEST1) @join__type(graph: TEST2) {
   test1: Test1 @join__field(graph: TEST1)
   test2: Test2 @join__field(graph: TEST2)
 }
@@ -63,23 +80,4 @@ type Test1 @join__type(graph: TEST1, key: "id") @join__type(graph: TEST2, key: "
 
 type Test2 @join__type(graph: TEST2, key: "id") {
   id: ID!
-}
-
-type Mutation @join__type(graph: AUTH) {
-  signIn(username: String!, password: String!): AuthTokens! @join__field(graph: AUTH)
-  register(email: String!, password: String!): RegisterPayload! @join__field(graph: AUTH)
-  signOut(refreshToken: String!): Boolean! @join__field(graph: AUTH)
-}
-
-type AuthTokens @join__type(graph: AUTH) {
-  accessToken: String!
-  refreshToken: String
-  idToken: String
-  tokenType: String!
-  expiresIn: Int!
-}
-
-type RegisterPayload @join__type(graph: AUTH) {
-  success: Boolean!
-  message: String!
 }
