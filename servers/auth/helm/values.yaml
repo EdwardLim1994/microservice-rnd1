@@ -15,3 +15,16 @@ image:
 ports:
   graphql: 4003
   grpc: 5001
+
+# In-cluster Authentik (services/authentik/helm, shared "infra" namespace) — see
+# services/authentik/CLAUDE.md for the OAuth2 Provider/Application/service-account provisioning
+# this depends on.
+authentik:
+  url: http://authentik-server.infra.svc.cluster.local:9000
+  # Filled in manually after running `bun run auth:provision` against the in-cluster Authentik —
+  # there's no in-cluster equivalent of that provisioning step yet (local docker-compose only, see
+  # services/authentik/CLAUDE.md's known-limitations section), same as servers/test1's
+  # vault.roleId/vault.secretId. Authentik-issued, not knowable at `turbo gen` time.
+  oauthClientId: ""
+  oauthClientSecret: ""
+  apiToken: ""

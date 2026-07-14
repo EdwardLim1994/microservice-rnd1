@@ -1,6 +1,6 @@
 import path from 'node:path';
 import 'dotenv/config';
-import { type PrismaConfig, defineConfig, env } from 'prisma/config';
+import { defineConfig, env, type PrismaConfig } from 'prisma/config';
 
 export interface CreatePrismaConfigOptions {
   schemaDir?: string;

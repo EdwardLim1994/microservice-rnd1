@@ -49,7 +49,8 @@ export interface VaultPgAdapterConfig {
 // prototype; see packages/server/CLAUDE.md's Database section.
 export class VaultPgAdapter {
   static async fromEnv(config: VaultPgAdapterConfig = {}): Promise<PgAdapter> {
-    const vaultAddr = config.vaultAddr ?? process.env.VAULT_ADDR ?? 'http://localhost:8200';
+    const vaultAddr =
+      config.vaultAddr ?? process.env.VAULT_ADDR ?? 'http://localhost:8200';
     const roleId = config.roleId ?? process.env.VAULT_ROLE_ID;
     const secretId = config.secretId ?? process.env.VAULT_SECRET_ID;
     const dbRole = config.dbRole ?? process.env.VAULT_DB_ROLE;

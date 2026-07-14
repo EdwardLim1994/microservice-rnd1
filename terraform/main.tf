@@ -22,6 +22,13 @@ module "test2" {
   schema_registry_url = var.schema_registry_url
 }
 
+module "auth" {
+  source = "../servers/auth/terraform/module"
+
+  namespace     = var.auth_namespace
+  app_image_tag = var.auth_app_image_tag
+}
+
 module "mfe1" {
   source = "../frontends/mfe1/terraform/module"
 

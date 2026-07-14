@@ -2,8 +2,8 @@ import { expect, test } from '@rstest/core';
 import { asValue, createContainer, InjectionMode } from 'awilix';
 import { BaseUseCase } from '../../src/abstract/BaseUseCase';
 import {
-  CronRouter,
   type CronHandlerMap,
+  CronRouter,
   type CronScheduleMap,
 } from '../../src/router/CronRouter';
 

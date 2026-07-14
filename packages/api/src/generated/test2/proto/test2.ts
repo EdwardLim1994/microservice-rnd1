@@ -5,45 +5,49 @@
 // source: test2.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
 import {
   type CallOptions,
   type ChannelCredentials,
-  Client,
+  type Client,
   type ClientOptions,
   type ClientUnaryCall,
   type handleUnaryCall,
-  makeGenericClientConstructor,
   type Metadata,
+  makeGenericClientConstructor,
   type ServiceError,
   type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { Empty } from "./google/protobuf/empty";
-import { messageTypeRegistry } from "./typeRegistry";
+} from '@grpc/grpc-js';
+import { Empty } from './google/protobuf/empty';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "test2";
+export const protobufPackage = 'test2';
 
 export interface Test2 {
-  $type: "test2.Test2";
+  $type: 'test2.Test2';
   id: string;
 }
 
 function createBaseTest2(): Test2 {
-  return { $type: "test2.Test2", id: "" };
+  return { $type: 'test2.Test2', id: '' };
 }
 
-export const Test2: MessageFns<Test2, "test2.Test2"> = {
-  $type: "test2.Test2" as const,
+export const Test2: MessageFns<Test2, 'test2.Test2'> = {
+  $type: 'test2.Test2' as const,
 
-  encode(message: Test2, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: Test2,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Test2 {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseTest2();
     while (reader.pos < end) {
@@ -67,12 +71,15 @@ export const Test2: MessageFns<Test2, "test2.Test2"> = {
   },
 
   fromJSON(object: any): Test2 {
-    return { $type: Test2.$type, id: isSet(object.id) ? globalThis.String(object.id) : "" };
+    return {
+      $type: Test2.$type,
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
+    };
   },
 
   toJSON(message: Test2): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
     return obj;
@@ -83,7 +90,7 @@ export const Test2: MessageFns<Test2, "test2.Test2"> = {
   },
   fromPartial<I extends Exact<DeepPartial<Test2>, I>>(object: I): Test2 {
     const message = createBaseTest2();
-    message.id = object.id ?? "";
+    message.id = object.id ?? '';
     return message;
   },
 };
@@ -93,12 +100,14 @@ messageTypeRegistry.set(Test2.$type, Test2);
 export type Test2ServiceService = typeof Test2ServiceService;
 export const Test2ServiceService = {
   getTest2: {
-    path: "/test2.Test2Service/GetTest2" as const,
+    path: '/test2.Test2Service/GetTest2' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: Empty): Buffer => Buffer.from(Empty.encode(value).finish()),
+    requestSerialize: (value: Empty): Buffer =>
+      Buffer.from(Empty.encode(value).finish()),
     requestDeserialize: (value: Buffer): Empty => Empty.decode(value),
-    responseSerialize: (value: Test2): Buffer => Buffer.from(Test2.encode(value).finish()),
+    responseSerialize: (value: Test2): Buffer =>
+      Buffer.from(Test2.encode(value).finish()),
     responseDeserialize: (value: Buffer): Test2 => Test2.decode(value),
   },
 } as const;
@@ -108,7 +117,10 @@ export interface Test2ServiceServer extends UntypedServiceImplementation {
 }
 
 export interface Test2ServiceClient extends Client {
-  getTest2(request: Empty, callback: (error: ServiceError | null, response: Test2) => void): ClientUnaryCall;
+  getTest2(
+    request: Empty,
+    callback: (error: ServiceError | null, response: Test2) => void,
+  ): ClientUnaryCall;
   getTest2(
     request: Empty,
     metadata: Metadata,
@@ -124,24 +136,42 @@ export interface Test2ServiceClient extends Client {
 
 export const Test2ServiceClient = makeGenericClientConstructor(
   Test2ServiceService,
-  "test2.Test2Service",
+  'test2.Test2Service',
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): Test2ServiceClient;
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): Test2ServiceClient;
   service: typeof Test2ServiceService;
   serviceName: string;
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

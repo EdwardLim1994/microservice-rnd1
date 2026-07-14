@@ -26,6 +26,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "server.fullname" . }}-config
+            - secretRef:
+                name: {{ include "server.fullname" . }}-authentik-secret
           # tcpSocket, not an HTTP path — no health endpoint exists in packages/server today (see
           # packages/server/CLAUDE.md). Won't pass until a driver listens on the graphql port —
           # see values.yaml's ports comment.
