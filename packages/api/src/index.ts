@@ -1,2 +1,2 @@
-export * from "./generated";
-export * from "./kafka/topics";
+export * from './generated';
+export * from './kafka/topics';

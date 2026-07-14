@@ -48,6 +48,18 @@ variable "test2_app_image_tag" {
   default     = "local"
 }
 
+variable "auth_namespace" {
+  description = "Kubernetes namespace auth is deployed into"
+  type        = string
+  default     = "auth"
+}
+
+variable "auth_app_image_tag" {
+  description = "Tag of the auth runtime image, built into minikube's docker daemon"
+  type        = string
+  default     = "local"
+}
+
 variable "mfe1_namespace" {
   description = "Kubernetes namespace mfe1 is deployed into"
   type        = string

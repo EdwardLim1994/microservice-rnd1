@@ -5,9 +5,12 @@
 ,env
 
 /dist
+/**/*/coverage
 
 /.turbo
+/**/*/.turbo
 /**/*/.terraform
 /**/*/tfplan
 /**/*/*.tfstate*
+/**/*/*.tfvars*
 /temp

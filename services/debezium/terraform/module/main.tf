@@ -10,6 +10,7 @@ resource "helm_release" "debezium" {
   # servers/test1/terraform/module/main.tf for the full explanation of abspath()'s purpose here.
   chart     = abspath("${path.module}/../../helm")
   namespace = var.namespace
+  timeout   = 600
 
   set {
     name  = "namespace"
