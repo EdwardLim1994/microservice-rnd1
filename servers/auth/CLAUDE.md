@@ -119,4 +119,13 @@ duplicate-username error paths, all against a live local Authentik instance.
   unbuilt alternative (gateway-level instead of per-server).
 - No in-cluster (Helm/k8s) equivalent of `auth:provision` — `services/authentik/helm` has the
   `AUTHENTIK_BOOTSTRAP_TOKEN` plumbing in place, but nothing runs the provisioning Ansible role
-  against an in-cluster Authentik yet. Local dev (`docker compose`) only, for now.
+  against an in-cluster Authentik yet, so there's no automated way to populate
+  `servers/auth/helm/values.yaml`'s `authentik.oauthClientId`/`oauthClientSecret`/`apiToken`
+  placeholders (consumed by `authentik-secret.yaml`, mirroring `servers/test1/helm`'s
+  `vault.roleId`/`vault.secretId` — same "filled in manually, not knowable at `turbo gen` time"
+  shape, and just as unautomated: Terraform doesn't wire these through either, same as it doesn't
+  for Vault's). Fill them by hand (`helm upgrade --set authentik.oauthClientId=... --set
+  authentik.oauthClientSecret=... --set authentik.apiToken=...`, values sourced from an
+  `auth:provision` run against a reachable Authentik instance) until in-cluster provisioning is
+  automated. Local dev (`docker compose`) remains the only fully-automated path, via
+  `auth:provision` writing straight into `.env`.

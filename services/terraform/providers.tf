@@ -16,7 +16,8 @@ terraform {
   # root's state must use a DIFFERENT key/prefix from the app-level terraform/ root (they're
   # already separate state owners per this directory's own CLAUDE.md — nothing that applies here
   # should ever be able to touch the app-level state, and vice versa).
-  backend "s3" {
+  backend "local" {
+    path = "terraform.tfstate"
     # bucket = "TODO"
     # key    = "services/terraform.tfstate"
     # region = "TODO"

@@ -1,26 +1,19 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: [])
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.14", import: [])
 
 type AuthPayload {
-  accessToken: String!
-  refreshToken: String!
-  idToken: String!
+	accessToken: String!
+	refreshToken: String!
+	idToken: String!
 }
 
-type SignUpResult {
-  id: ID!
-  username: String!
-  email: String!
-}
-
-input SignUpInput {
-  username: String!
-  email: String!
-  password: String!
-  name: String
+type RegisterPayload {
+	success: Boolean!
+	message: String!
 }
 
 type Mutation {
-  login(email: String!, password: String!): AuthPayload!
-  signUp(input: SignUpInput!): SignUpResult!
-  signOut(refreshToken: String!): Boolean!
+	login(email: String!, password: String!): AuthPayload!
+	register(email: String!, password: String!): RegisterPayload!
+	signOut(refreshToken: String!): Boolean!
 }

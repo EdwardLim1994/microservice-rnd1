@@ -5,6 +5,7 @@ resource "helm_release" "redis" {
   name      = "redis"
   chart     = abspath("${path.module}/../../helm")
   namespace = var.namespace
+  timeout   = 600
 
   set {
     name  = "namespace"

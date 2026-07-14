@@ -16,9 +16,11 @@ bootstrap:
   email: admin@localhost
   password: adminpassword
   # Mints a ready-made akadmin API token at boot (no login step needed) — empty by default;
-  # generate via `openssl rand -hex 32` if in-cluster provisioning of Authentik's internal objects
-  # (OAuth2 Provider/Application/service account) is ever automated for k8s. Not consumed by
-  # anything in this chart today — see services/authentik/CLAUDE.md's known-limitations section.
+  # generate via `openssl rand -hex 32` (services/terraform's authentik_bootstrap_token variable
+  # sets this via --set when deployed through that root) before running servers/auth/ansible's
+  # provisioning role against this cluster's Authentik — see servers/auth/CLAUDE.md's
+  # auth:provision section and services/authentik/CLAUDE.md's known-limitations section (still no
+  # automated in-cluster trigger for the role itself, just the plumbing to authenticate one).
   token: ""
 
 persistence:

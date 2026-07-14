@@ -11,6 +11,7 @@
 		"script": "workspace:*"
 	},
 	"scripts": {
-		"supergraph": "bun ./src/scripts/compose_supergraph.sh.ts"
+		"supergraph": "bun ./src/scripts/compose_supergraph.sh.ts",
+		"test": "bun test ./tests"
 	}
 }

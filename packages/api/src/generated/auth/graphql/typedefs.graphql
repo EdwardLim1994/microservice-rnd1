@@ -10,19 +10,11 @@ type AuthPayload {
 
 type Mutation {
   login(email: String!, password: String!): AuthPayload!
+  register(email: String!, password: String!): RegisterPayload!
   signOut(refreshToken: String!): Boolean!
-  signUp(input: SignUpInput!): SignUpResult!
 }
 
-input SignUpInput {
-  email: String!
-  name: String
-  password: String!
-  username: String!
-}
-
-type SignUpResult {
-  email: String!
-  id: ID!
-  username: String!
+type RegisterPayload {
+  message: String!
+  success: Boolean!
 }

@@ -25,11 +25,16 @@ export type AuthPayload = {
 export type Mutation = {
   __typename?: 'Mutation';
   login: AuthPayload;
+  register: RegisterPayload;
   signOut: Scalars['Boolean']['output'];
-  signUp: SignUpResult;
 };
 
 export type MutationLoginArgs = {
+  email: Scalars['String']['input'];
+  password: Scalars['String']['input'];
+};
+
+export type MutationRegisterArgs = {
   email: Scalars['String']['input'];
   password: Scalars['String']['input'];
 };
@@ -38,22 +43,10 @@ export type MutationSignOutArgs = {
   refreshToken: Scalars['String']['input'];
 };
 
-export type MutationSignUpArgs = {
-  input: SignUpInput;
-};
-
-export type SignUpInput = {
-  email: Scalars['String']['input'];
-  name?: InputMaybe<Scalars['String']['input']>;
-  password: Scalars['String']['input'];
-  username: Scalars['String']['input'];
-};
-
-export type SignUpResult = {
-  __typename?: 'SignUpResult';
-  email: Scalars['String']['output'];
-  id: Scalars['ID']['output'];
-  username: Scalars['String']['output'];
+export type RegisterPayload = {
+  __typename?: 'RegisterPayload';
+  message: Scalars['String']['output'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -182,9 +175,7 @@ export type ResolversTypes = ResolversObject<{
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
-  SignUpInput: SignUpInput;
-  SignUpResult: ResolverTypeWrapper<SignUpResult>;
-  ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -193,9 +184,7 @@ export type ResolversParentTypes = ResolversObject<{
   String: Scalars['String']['output'];
   Mutation: Record<PropertyKey, never>;
   Boolean: Scalars['Boolean']['output'];
-  SignUpInput: SignUpInput;
-  SignUpResult: SignUpResult;
-  ID: Scalars['ID']['output'];
+  RegisterPayload: RegisterPayload;
 }>;
 
 export type AuthPayloadResolvers<
@@ -219,32 +208,31 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationLoginArgs, 'email' | 'password'>
   >;
+  register?: Resolver<
+    ResolversTypes['RegisterPayload'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRegisterArgs, 'email' | 'password'>
+  >;
   signOut?: Resolver<
     ResolversTypes['Boolean'],
     ParentType,
     ContextType,
     RequireFields<MutationSignOutArgs, 'refreshToken'>
   >;
-  signUp?: Resolver<
-    ResolversTypes['SignUpResult'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationSignUpArgs, 'input'>
-  >;
 }>;
 
-export type SignUpResultResolvers<
+export type RegisterPayloadResolvers<
   ContextType = AuthContextType,
   ParentType extends
-    ResolversParentTypes['SignUpResult'] = ResolversParentTypes['SignUpResult'],
+    ResolversParentTypes['RegisterPayload'] = ResolversParentTypes['RegisterPayload'],
 > = ResolversObject<{
-  email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  username?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
 }>;
 
 export type Resolvers<ContextType = AuthContextType> = ResolversObject<{
   AuthPayload?: AuthPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
-  SignUpResult?: SignUpResultResolvers<ContextType>;
+  RegisterPayload?: RegisterPayloadResolvers<ContextType>;
 }>;
