@@ -16,6 +16,8 @@ concurrency:
 jobs:
   promote:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       apps: ${{ steps.diff.outputs.apps }}
     steps:

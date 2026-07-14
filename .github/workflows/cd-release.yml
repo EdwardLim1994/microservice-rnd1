@@ -19,6 +19,8 @@ concurrency:
 jobs:
   release-manifest:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       apps: ${{ steps.manifest.outputs.apps }}
     steps:

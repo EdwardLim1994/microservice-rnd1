@@ -17,6 +17,8 @@ concurrency:
 jobs:
   hotfix:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       app_name: ${{ steps.hotfix.outputs.app_name }}
       version: ${{ steps.hotfix.outputs.version }}
