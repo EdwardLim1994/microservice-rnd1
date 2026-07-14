@@ -36,8 +36,9 @@ export async function touchedApps(
   apps: DeployableApp[],
   baseRef: string,
 ): Promise<DeployableApp[]> {
-  const diff =
-    await Bun.$`git diff --name-only ${baseRef}...HEAD`.cwd(repoRoot).text();
+  const diff = await Bun.$`git diff --name-only ${baseRef}...HEAD`
+    .cwd(repoRoot)
+    .text();
   const changedFiles = diff.split('\n').filter(Boolean);
   return apps.filter((app) =>
     changedFiles.some((file) => file.startsWith(`${app.path}/`)),

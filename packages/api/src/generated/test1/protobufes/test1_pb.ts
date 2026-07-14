@@ -2,22 +2,34 @@
 // @generated from file test1.proto (package test1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { EmptySchema } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_empty } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type { Message } from '@bufbuild/protobuf';
+import type {
+  GenFile,
+  GenMessage,
+  GenService,
+} from '@bufbuild/protobuf/codegenv2';
+import {
+  fileDesc,
+  messageDesc,
+  serviceDesc,
+} from '@bufbuild/protobuf/codegenv2';
+import type { EmptySchema } from '@bufbuild/protobuf/wkt';
+import { file_google_protobuf_empty } from '@bufbuild/protobuf/wkt';
 
 /**
  * Describes the file test1.proto.
  */
-export const file_test1: GenFile = /*@__PURE__*/
-  fileDesc("Cgt0ZXN0MS5wcm90bxIFdGVzdDEiEwoFVGVzdDESCgoCaWQYASABKAkyQAoMVGVzdDFTZXJ2aWNlEjAKCEdldFRlc3QxEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GgwudGVzdDEuVGVzdDFiBnByb3RvMw", [file_google_protobuf_empty]);
+export const file_test1: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'Cgt0ZXN0MS5wcm90bxIFdGVzdDEiEwoFVGVzdDESCgoCaWQYASABKAkyQAoMVGVzdDFTZXJ2aWNlEjAKCEdldFRlc3QxEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GgwudGVzdDEuVGVzdDFiBnByb3RvMw',
+    [file_google_protobuf_empty],
+  );
 
 /**
  * @generated from message test1.Test1
  */
-export type Test1 = Message<"test1.Test1"> & {
+export type Test1 = Message<'test1.Test1'> & {
   /**
    * @generated from field: string id = 1;
    */
@@ -28,7 +40,8 @@ export type Test1 = Message<"test1.Test1"> & {
  * Describes the message test1.Test1.
  * Use `create(Test1Schema)` to create a new message.
  */
-export const Test1Schema: GenMessage<Test1> = /*@__PURE__*/
+export const Test1Schema: GenMessage<Test1> =
+  /*@__PURE__*/
   messageDesc(file_test1, 0);
 
 /**
@@ -39,10 +52,8 @@ export const Test1Service: GenService<{
    * @generated from rpc test1.Test1Service.GetTest1
    */
   getTest1: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof EmptySchema;
     output: typeof Test1Schema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_test1, 0);
-
+  };
+}> = /*@__PURE__*/ serviceDesc(file_test1, 0);

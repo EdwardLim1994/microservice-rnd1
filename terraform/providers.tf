@@ -21,7 +21,8 @@ terraform {
   # This root is shared by both the `uat` and `prod` CD stages via Terraform workspaces
   # (`terraform workspace select uat` / `prod`), not separate backend keys — the workspace name
   # is automatically appended to the state path by Terraform, so one backend block covers both.
-  backend "s3" {
+  backend "local" {
+    path = "terraform.tfstate"
     # bucket = "TODO"
     # key    = "apps/terraform.tfstate"
     # region = "TODO"

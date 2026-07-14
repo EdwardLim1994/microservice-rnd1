@@ -313,10 +313,13 @@ test('run() resolves a sync database() adapter and registers prisma in container
 
 test('run() awaits an async database() factory before registering prisma', async () => {
   let factoryCalled = false;
-  const app = ServerApp.init([StubDriver]).database(StubPrismaClient, async () => {
-    factoryCalled = true;
-    return new StubDbAdapter();
-  });
+  const app = ServerApp.init([StubDriver]).database(
+    StubPrismaClient,
+    async () => {
+      factoryCalled = true;
+      return new StubDbAdapter();
+    },
+  );
   await app.run();
 
   expect(factoryCalled).toBe(true);

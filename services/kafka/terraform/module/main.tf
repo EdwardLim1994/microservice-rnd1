@@ -4,11 +4,12 @@
 # root) — see services/terraform/CLAUDE.md. This module assumes var.namespace already exists.
 
 resource "helm_release" "kafka" {
-  name      = "kafka"
+  name = "kafka"
   # path.module resolves relative to this file's own location on disk, not the caller's — see
   # servers/demo1/terraform/module/main.tf for the full explanation of abspath()'s purpose here.
   chart     = abspath("${path.module}/../../helm")
   namespace = var.namespace
+  timeout   = 600
 
   set {
     name  = "namespace"

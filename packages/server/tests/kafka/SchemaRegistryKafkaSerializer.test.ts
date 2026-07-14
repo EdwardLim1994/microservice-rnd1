@@ -1,9 +1,9 @@
-import { expect, test } from '@rstest/core';
 import type { DescMessage } from '@bufbuild/protobuf';
+import { expect, test } from '@rstest/core';
 import {
-  SchemaRegistryKafkaSerializer,
   type ProtobufDeserializerLike,
   type ProtobufSerializerLike,
+  SchemaRegistryKafkaSerializer,
 } from '../../src/kafka/SchemaRegistryKafkaSerializer';
 
 const Demo1Schema = { name: 'Demo1Schema' } as unknown as DescMessage;

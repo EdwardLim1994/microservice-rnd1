@@ -5,6 +5,7 @@ resource "helm_release" "authentik" {
   name      = "authentik"
   chart     = abspath("${path.module}/../../helm")
   namespace = var.namespace
+  timeout   = 600
 
   set {
     name  = "namespace"
@@ -24,5 +25,10 @@ resource "helm_release" "authentik" {
   set {
     name  = "bootstrap.password"
     value = var.bootstrap_password
+  }
+
+  set {
+    name  = "bootstrap.token"
+    value = var.bootstrap_token
   }
 }
