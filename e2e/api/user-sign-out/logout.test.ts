@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest'
 // as setup, since logout has no other provisioning path in this suite.
 // See .openspec/requirements/release/integration-testing/requirements.yaml — US-03 / auth.api.graphql
 
-const BASE_URL = process.env.CLUSTER_URL ?? 'http://localhost:80'
+// Apollo Router is routed through Traefik at graphql.localhost (see services/traefik/CLAUDE.md)
+// — there is no bare-`localhost` route for it, so this must not default to one.
+const BASE_URL = process.env.GRAPHQL_URL ?? 'http://graphql.localhost'
 const GRAPHQL_ENDPOINT = `${BASE_URL}/graphql`
 
 const REGISTER_MUTATION = `

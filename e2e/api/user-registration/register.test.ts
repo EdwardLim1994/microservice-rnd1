@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest'
 // FEAT-02 (Apollo Router wiring) are both implemented and merged.
 // See .openspec/requirements/release/integration-testing/requirements.yaml — US-01 / auth.api.graphql
 
-const BASE_URL = process.env.CLUSTER_URL ?? 'http://localhost:80'
+// Apollo Router is routed through Traefik at graphql.localhost (see services/traefik/CLAUDE.md)
+// — there is no bare-`localhost` route for it, so this must not default to one.
+const BASE_URL = process.env.GRAPHQL_URL ?? 'http://graphql.localhost'
 const GRAPHQL_ENDPOINT = `${BASE_URL}/graphql`
 
 const REGISTER_MUTATION = `
