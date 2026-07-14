@@ -10,10 +10,10 @@
 const VALID_PASSWORD = 'A-Valid-Password-123!'
 const TOKEN_KEYS = ['auth_access_token', 'auth_refresh_token', 'auth_id_token']
 
-// Apollo Router is routed through Traefik at graphql.localhost — a different host than
-// `Cypress.config().baseUrl` (mfe1.localhost, for `cy.visit()`), so this can't reuse it (see
+// Apollo Router's own direct host-port publish — a different host/port than
+// `Cypress.config().baseUrl` (mfe1's own port, for `cy.visit()`), so this can't reuse it (see
 // services/traefik/CLAUDE.md and cypress.config.ts's own comment).
-const GRAPHQL_URL = `${Cypress.env('GRAPHQL_URL') ?? 'http://graphql.localhost'}/graphql`
+const GRAPHQL_URL = `${Cypress.env('GRAPHQL_URL') ?? 'http://localhost:4000'}/graphql`
 
 function uniqueEmail() {
   return `e2e-login-${Date.now()}@example.com`

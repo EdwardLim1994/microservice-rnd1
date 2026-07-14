@@ -6,9 +6,13 @@ import { describe, expect, it } from 'vitest'
 // mutation (US-01) as setup, since login has no other provisioning path in this suite.
 // See .openspec/requirements/release/integration-testing/requirements.yaml — US-02 / auth.api.graphql
 
-// Apollo Router is routed through Traefik at graphql.localhost (see services/traefik/CLAUDE.md)
-// — there is no bare-`localhost` route for it, so this must not default to one.
-const BASE_URL = process.env.GRAPHQL_URL ?? 'http://graphql.localhost'
+// Apollo Router's direct host-port publish (services/apollo/docker-compose.yml), not its
+// Traefik `*.localhost` route — Node's own `dns.lookup` (this suite runs under Vitest/Node, not
+// a browser) does not resolve arbitrary `*.localhost` subdomains per RFC 6761 the way
+// browsers/curl/Bun do (confirmed empirically: only the exact string "localhost" is
+// special-cased, "graphql.localhost" throws ENOTFOUND). See cypress.config.ts's own comment for
+// the same reasoning on the browser side.
+const BASE_URL = process.env.GRAPHQL_URL ?? 'http://localhost:4000'
 const GRAPHQL_ENDPOINT = `${BASE_URL}/graphql`
 
 const REGISTER_MUTATION = `
