@@ -15,30 +15,28 @@ export type Scalars = {
   _FieldSet: { input: unknown; output: unknown };
 };
 
-export type AuthTokens = {
-  __typename?: 'AuthTokens';
+export type AuthPayload = {
+  __typename?: 'AuthPayload';
   accessToken: Scalars['String']['output'];
-  expiresIn: Scalars['Int']['output'];
-  idToken?: Maybe<Scalars['String']['output']>;
-  refreshToken?: Maybe<Scalars['String']['output']>;
-  tokenType: Scalars['String']['output'];
+  idToken: Scalars['String']['output'];
+  refreshToken: Scalars['String']['output'];
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
+  login: AuthPayload;
   register: RegisterPayload;
-  signIn: AuthTokens;
   signOut: Scalars['Boolean']['output'];
+};
+
+export type MutationLoginArgs = {
+  email: Scalars['String']['input'];
+  password: Scalars['String']['input'];
 };
 
 export type MutationRegisterArgs = {
   email: Scalars['String']['input'];
   password: Scalars['String']['input'];
-};
-
-export type MutationSignInArgs = {
-  password: Scalars['String']['input'];
-  username: Scalars['String']['input'];
 };
 
 export type MutationSignOutArgs = {
@@ -173,9 +171,8 @@ export type DirectiveResolverFn<
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
-  AuthTokens: ResolverTypeWrapper<AuthTokens>;
+  AuthPayload: ResolverTypeWrapper<AuthPayload>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
-  Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
@@ -183,28 +180,21 @@ export type ResolversTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
-  AuthTokens: AuthTokens;
+  AuthPayload: AuthPayload;
   String: Scalars['String']['output'];
-  Int: Scalars['Int']['output'];
   Mutation: Record<PropertyKey, never>;
   Boolean: Scalars['Boolean']['output'];
   RegisterPayload: RegisterPayload;
 }>;
 
-export type AuthTokensResolvers<
+export type AuthPayloadResolvers<
   ContextType = AuthContextType,
   ParentType extends
-    ResolversParentTypes['AuthTokens'] = ResolversParentTypes['AuthTokens'],
+    ResolversParentTypes['AuthPayload'] = ResolversParentTypes['AuthPayload'],
 > = ResolversObject<{
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  expiresIn?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  idToken?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  refreshToken?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  tokenType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
 export type MutationResolvers<
@@ -212,17 +202,17 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
+  login?: Resolver<
+    ResolversTypes['AuthPayload'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationLoginArgs, 'email' | 'password'>
+  >;
   register?: Resolver<
     ResolversTypes['RegisterPayload'],
     ParentType,
     ContextType,
     RequireFields<MutationRegisterArgs, 'email' | 'password'>
-  >;
-  signIn?: Resolver<
-    ResolversTypes['AuthTokens'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationSignInArgs, 'password' | 'username'>
   >;
   signOut?: Resolver<
     ResolversTypes['Boolean'],
@@ -242,7 +232,7 @@ export type RegisterPayloadResolvers<
 }>;
 
 export type Resolvers<ContextType = AuthContextType> = ResolversObject<{
-  AuthTokens?: AuthTokensResolvers<ContextType>;
+  AuthPayload?: AuthPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   RegisterPayload?: RegisterPayloadResolvers<ContextType>;
 }>;
