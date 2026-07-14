@@ -22,10 +22,19 @@ spec:
         app.kubernetes.io/component: migrate
     spec:
       restartPolicy: OnFailure
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: migrate
           image: "{{ .Values.image.migrate.repository }}:{{ .Values.image.migrate.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
           env:
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.postgres.user }}:{{ .Values.postgres.password }}@{{ include "server.fullname" . }}-postgres:5432/{{ .Values.postgres.database }}"

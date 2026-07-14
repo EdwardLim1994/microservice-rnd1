@@ -3,6 +3,7 @@ import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 import {
 	addApiScript,
+	collapseTrailingNewlines,
 	ensureGenScript,
 	findAvailableServerPort,
 	injectDriverEntry,
@@ -129,7 +130,7 @@ function appendSupergraphSubgraph(location: string, name: string, port: number):
 		`\n   ${name}:\n      routing_url: http://${name}:${port}\n` +
 		`      schema:\n         file: ${schemaRelPath}\n`;
 
-	fs.writeFileSync(SUPERGRAPH_YAML_PATH, `${raw.replace(/\n+$/, "\n")}${entry}`);
+	fs.writeFileSync(SUPERGRAPH_YAML_PATH, `${collapseTrailingNewlines(raw)}${entry}`);
 	return `${relToRoot(SUPERGRAPH_YAML_PATH)} (+${name})`;
 }
 

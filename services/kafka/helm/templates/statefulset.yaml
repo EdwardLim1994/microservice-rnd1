@@ -22,9 +22,19 @@ spec:
       # too avoids relying on that being true forever, for no functional loss (nothing here reads
       # KAFKA_PORT or any other auto-injected var).
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: kafka
           image: "{{ .Values.kafka.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
           ports:
             - name: plaintext
               containerPort: 9092

@@ -235,7 +235,7 @@ export function injectDriverEntry(
 	if (trimmedArgs.startsWith("[")) {
 		const openBracketIndex = openParenIndex + 1 + argsText.indexOf("[");
 		const closeBracketIndex = findMatchingBracket(raw, openBracketIndex, "[", "]");
-		const inner = raw.slice(openBracketIndex + 1, closeBracketIndex).replace(/\s*$/, "");
+		const inner = raw.slice(openBracketIndex + 1, closeBracketIndex).trimEnd();
 		const separator = inner.trim() === "" || inner.trim().endsWith(",") ? "" : ",";
 		const newInner = `${inner}${separator}\n${itemIndent}${entry},\n${baseIndent}`;
 		raw = `${raw.slice(0, openBracketIndex)}[${newInner}]${raw.slice(closeBracketIndex + 1)}`;
@@ -386,6 +386,19 @@ export function appendBarrelLine(absBarrelPath: string, line: string): string {
 	return `${relToRoot(absBarrelPath)} (+${line})`;
 }
 
+// Collapses one-or-more trailing newlines in `raw` down to exactly `count` newlines — a
+// non-regex equivalent of `raw.replace(/\n+$/, "\n".repeat(count))`. Written this way (rather
+// than the regex) because SonarCloud's regex-super-linear-backtracking check (typescript:S8786)
+// flagged that pattern repeated across this file/DatabaseGenerator.ts/GraphqlGenerator.ts; a
+// plain scan-backwards loop sidesteps the check entirely instead of trying to appease its
+// heuristic. Same "leave `raw` untouched if it has no trailing newline at all" behavior as the
+// `+`-quantified regex it replaces (`raw.replace(/\n+$/, ...)` only fires on 1+ matches).
+export function collapseTrailingNewlines(raw: string, count = 1): string {
+	let end = raw.length;
+	while (end > 0 && raw[end - 1] === "\n") end--;
+	return end === raw.length ? raw : `${raw.slice(0, end)}${"\n".repeat(count)}`;
+}
+
 // Registers a newly-scaffolded <location>/<name>/docker-compose.yml in the root
 // docker-compose.yml's `include:` list, so `docker compose up` from repo root actually brings
 // it up — shared by the "server" and "web" project generators, both of which scaffold their own
@@ -400,7 +413,7 @@ export function appendRootComposeInclude(root: string, location: string, name: s
 	if (raw.includes(line)) {
 		return `${path.relative(root, rootComposePath)} already includes ${location}/${name}`;
 	}
-	fs.writeFileSync(rootComposePath, `${raw.replace(/\n+$/, "\n")}${line}\n`);
+	fs.writeFileSync(rootComposePath, `${collapseTrailingNewlines(raw)}${line}\n`);
 	return `${path.relative(root, rootComposePath)} (+${location}/${name})`;
 }
 
@@ -551,7 +564,7 @@ function findComposeServiceBody(raw: string, serviceName: string): { start: numb
 // the top-level `networks:` section) — inserting new content there would land the new lines
 // *after* that separator, visually detached from the block they actually belong to.
 function trimTrailingBlankLines(raw: string, start: number, end: number): number {
-	const trimmedLength = raw.slice(start, end).replace(/\n+$/, "\n").length;
+	const trimmedLength = collapseTrailingNewlines(raw.slice(start, end)).length;
 	return start + trimmedLength;
 }
 
@@ -626,7 +639,8 @@ function ensureComposeServiceListItems(
 		return `${raw.slice(0, insertAt)}${lines}${raw.slice(insertAt)}`;
 	}
 
-	const block = `    ${listKey}:\n${items.map((item) => `      - ${item}\n`).join("")}`;
+	const itemLines = items.map((item) => `      - ${item}\n`).join("");
+	const block = `    ${listKey}:\n${itemLines}`;
 	const insertAt = trimTrailingBlankLines(raw, service.start, service.end);
 	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
 }
@@ -652,7 +666,7 @@ export function ensureComposeNetworkDeclared(absComposePath: string, networkName
 	}
 	const next = /^networks:\s*$/m.test(raw)
 		? raw.replace(/^networks:\s*$/m, `networks:\n  ${networkName}:`)
-		: `${raw.replace(/\n+$/, "\n")}\nnetworks:\n  ${networkName}:\n`;
+		: `${collapseTrailingNewlines(raw)}\nnetworks:\n  ${networkName}:\n`;
 	fs.writeFileSync(absComposePath, next);
 	return `${relToRoot(absComposePath)} (+${networkName} network)`;
 }

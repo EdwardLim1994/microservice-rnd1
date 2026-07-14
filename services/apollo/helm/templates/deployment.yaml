@@ -19,9 +19,18 @@ spec:
       # auto-injected <SVC>_PORT env var crashed that image outright; disabling Service env var
       # injection here too avoids relying on the router image never hitting a similar collision.
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: apollo-router
           image: "{{ .Values.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
           ports:
             - name: http
               containerPort: 4000

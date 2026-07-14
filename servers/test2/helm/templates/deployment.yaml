@@ -14,10 +14,19 @@ spec:
       labels:
         {{- include "server.labels" . | nindent 8 }}
     spec:
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.app.repository }}:{{ .Values.image.app.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
           ports:
             - name: graphql
               containerPort: {{ .Values.ports.graphql }}

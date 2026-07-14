@@ -3,6 +3,7 @@ import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 import {
 	addNamedImport,
+	collapseTrailingNewlines,
 	detectIndent,
 	findMatchingBracket,
 	wireComposeService,
@@ -66,7 +67,7 @@ function injectServerAppChainCall(absAppPath: string, marker: string, callText: 
 	// point is still `.someCall(` with no line break, give it its own line too, instead of
 	// leaving it dangling after our inserted call on the same line.
 	let tail = raw.slice(insertAt);
-	if (/^\./.test(tail)) {
+	if (tail.startsWith(".")) {
 		tail = `\n${chainIndent}${tail}`;
 	}
 	raw = `${raw.slice(0, insertAt)}\n${chainIndent}${callText}${tail}`;
@@ -171,7 +172,7 @@ function ensureAdminerNetworkDeclared(raw: string): string {
 		if (/^\s{2}adminer:\s*$/m.test(raw)) return raw;
 		return raw.replace(/^networks:\s*$/m, "networks:\n  adminer:");
 	}
-	return `${raw.replace(/\n+$/, "\n")}networks:\n  adminer:\n`;
+	return `${collapseTrailingNewlines(raw)}networks:\n  adminer:\n`;
 }
 
 // Injects the <name>-migrate/<name>-db services before the top-level `networks:` key if one
@@ -183,9 +184,10 @@ function injectDockerComposeServices(absComposePath: string, snippet: string, na
 	}
 
 	const networksMatch = raw.match(/^networks:\s*$/m);
-	const before = (
-		networksMatch?.index !== undefined ? raw.slice(0, networksMatch.index) : raw
-	).replace(/\n+$/, "\n\n");
+	const before = collapseTrailingNewlines(
+		networksMatch?.index !== undefined ? raw.slice(0, networksMatch.index) : raw,
+		2,
+	);
 	const after =
 		networksMatch?.index !== undefined ? raw.slice(networksMatch.index) : "networks:\n  adminer:\n";
 
@@ -209,7 +211,7 @@ function injectDockerfileMigrateStage(absDockerfilePath: string, snippet: string
 		throw new Error(`Could not find "${marker}" marker in ${absDockerfilePath}`);
 	}
 
-	const before = raw.slice(0, markerIndex).replace(/\n+$/, "\n\n");
+	const before = collapseTrailingNewlines(raw.slice(0, markerIndex), 2);
 	const next = `${before}${snippet}\n\n${raw.slice(markerIndex)}`;
 
 	fs.writeFileSync(absDockerfilePath, next);
@@ -352,13 +354,21 @@ function injectVaultSecretEnvFrom(location: string): string {
 	if (raw.includes("-vault-secret")) {
 		return `${relToRoot(absPath)} already references a vault secret`;
 	}
-	const marker = /^(\s*)- configMapRef:\n\s*name: .*-config\n/m;
-	const match = marker.exec(raw);
-	if (!match) {
+	// Non-regex equivalent of /^(\s*)- configMapRef:\n\s*name: .*-config\n/m — Sonar's regex
+	// super-linear-backtracking check (typescript:S8786) flagged the combination of two `\s*`
+	// quantifiers either side of literal text; plain substring scanning sidesteps it entirely.
+	const marker = "- configMapRef:\n";
+	const markerIndex = raw.indexOf(marker);
+	const lineStart = markerIndex === -1 ? -1 : raw.lastIndexOf("\n", markerIndex) + 1;
+	const nameLineStart = markerIndex === -1 ? -1 : markerIndex + marker.length;
+	const nameLineEnd = nameLineStart === -1 ? -1 : raw.indexOf("\n", nameLineStart);
+	const nameLine = nameLineEnd === -1 ? "" : raw.slice(nameLineStart, nameLineEnd).trim();
+	const isConfigMapNameLine = nameLine.startsWith("name: ") && nameLine.endsWith("-config");
+	if (markerIndex === -1 || nameLineEnd === -1 || !isConfigMapNameLine) {
 		return `${relToRoot(absPath)} has no configMapRef entry to anchor on, skipped`;
 	}
-	const indent = match[1];
-	const insertAt = match.index + match[0].length;
+	const indent = raw.slice(lineStart, markerIndex);
+	const insertAt = nameLineEnd + 1;
 	const secretRefBlock = `${indent}- secretRef:\n${indent}    name: {{ include "server.fullname" . }}-vault-secret\n`;
 	const next = `${raw.slice(0, insertAt)}${secretRefBlock}${raw.slice(insertAt)}`;
 	fs.writeFileSync(absPath, next);

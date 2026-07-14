@@ -24,6 +24,8 @@ spec:
       # env var injection entirely sidesteps it; nothing here relies on it (kafka's own address
       # is passed explicitly via SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS below).
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       # Kubernetes has no docker-compose-style `depends_on: condition: service_healthy` — gate
       # startup explicitly rather than rely solely on Schema Registry's own client retry.
       initContainers:
@@ -33,6 +35,13 @@ spec:
       containers:
         - name: schema-registry
           image: "{{ .Values.schemaRegistry.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
           ports:
             - name: http
               containerPort: 8081
