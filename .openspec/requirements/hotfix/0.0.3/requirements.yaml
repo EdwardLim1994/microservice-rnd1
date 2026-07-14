@@ -1,0 +1,51 @@
+---
+release: 0.0.3
+date: 2026-07-14
+hotfix: true
+hotfixBranch: hotfix/0.0.3-sonarqube-quality-gate
+previousVersion: 0.0.2
+
+bugs:
+  - id: BUG-1
+    title: "SonarCloud CRITICAL issues on main (cognitive complexity + empty methods)"
+    userImpact: "No direct user-facing impact — these are maintainability/reliability findings (SonarCloud severity CRITICAL) that raise the risk of future regressions in code generation and router registration paths."
+    component: "repo-wide: turbo/generators/**, packages/server/src/router/**"
+    type: backend
+    rootCause: "Several functions exceed the allowed cognitive complexity threshold (15), one Array.sort() call omits a locale-aware compare function, and three router register() methods are empty stubs flagged as dead code."
+    expectedBehaviour: "SonarCloud reports zero OPEN/CONFIRMED issues at CRITICAL severity or above on the main branch."
+    actualBehaviour: "7 CRITICAL issues open on main: typescript:S3776 (x3, cognitive complexity 16-21 vs 15 allowed) in turbo/generators/helpers.ts:333, turbo/generators/serverDriver/GraphqlGenerator.ts:83, turbo/generators/serverDriver/GrpcGenerator.ts:68; typescript:S2871 (x1) in turbo/generators/helpers.ts:97; typescript:S1186 (x3, empty register method) in packages/server/src/router/CronRouter.ts:53, KafkaRouter.ts:100, GraphqlRouter.ts:58."
+    graphqlChanges: false
+    claudeDesignURL: null
+    integrationTestPlan:
+      - id: INT-BUG-1-1
+        scenario: "Existing unit/integration test suites for CronRouter, KafkaRouter, GraphqlRouter, and the turbo generators still pass after refactor — no behavioural change, only complexity reduction and dead-code removal."
+
+  - id: BUG-2
+    title: "SonarCloud MAJOR issues on main (Kubernetes resource limits + misc TS)"
+    userImpact: "No direct user-facing impact — Helm-templated Kubernetes manifests lack resource requests/limits and RBAC automount hardening, which risks noisy-neighbour resource contention or over-privileged pods once deployed; a superlinear regex and disabled lint rules add latent maintainability/perf risk."
+    component: "repo-wide: services/*/helm/templates/**, servers/*/helm/templates/**, misc packages/*/src, servers/*/src"
+    type: backend
+    rootCause: "Helm chart templates (Traefik, auth, and others) were scaffolded without CPU/memory/storage requests and limits and without disabling service-account token automount; a handful of TypeScript files have backtracking-prone regexes or blanket eslint-disable comments without documented reasons."
+    expectedBehaviour: "SonarCloud reports zero OPEN/CONFIRMED issues at MAJOR severity on the main branch."
+    actualBehaviour: "155 MAJOR issues open on main, dominated by Kubernetes rules across Helm deployment templates: kubernetes:S6897 storage request (24), S6892 CPU request (24), S6873 memory request (24), S6864 memory limit (24), S6865 automount service account token (23), S6870 storage limit (12); plus typescript:S8786 superlinear regex (10), typescript:S7724 unqualified eslint-disable (9), and a handful of one-off findings (nested template literals, String#startsWith, unpinned image tag, etc.)."
+    graphqlChanges: false
+    claudeDesignURL: null
+    integrationTestPlan:
+      - id: INT-BUG-2-1
+        scenario: "helm lint / helm template passes for every chart touched, and `helm upgrade --dry-run` shows only resources/limits/automountServiceAccountToken fields added — no other spec drift."
+      - id: INT-BUG-2-2
+        scenario: "Existing unit tests covering the regex- and lint-flagged TypeScript files still pass after the fix."
+
+  - id: BUG-3
+    title: "SonarCloud MINOR/INFO issues on main (clear-text protocols, style, dead code)"
+    userImpact: "No user-facing impact — lowest-severity findings: cleartext protocol usage in dev/local config, minor style preferences, a few unused imports and TODO markers."
+    component: "repo-wide: misc TypeScript/JavaScript, Dockerfiles, Terraform, Ansible"
+    type: backend
+    rootCause: "Several dev/local endpoints use http:// / clear-text protocols instead of https, a handful of Dockerfiles run images that default to root, some TypeScript uses indexOf/replace/deprecated APIs instead of preferred modern equivalents, two unused imports remain, and 6 TODO comments in Terraform are untracked."
+    expectedBehaviour: "SonarCloud reports zero OPEN/CONFIRMED issues at MINOR or INFO severity on the main branch."
+    actualBehaviour: "55 issues open on main (49 MINOR + 6 INFO): kubernetes:S5332 clear-text protocol (11), typescript:S7780 String.raw preference (10), terraform:S1135 TODO comments (6), typescript:S5332 http insecure (5), docker:S6471 root user (5), ansible:S5332 clear-text (3), typescript:S1874 deprecated API (3), plus assorted single-instance style/dead-code findings (unused imports x2, optional chaining x2, indexOf/replace/lodash-subpath/empty-constructor-class x1 each)."
+    graphqlChanges: false
+    claudeDesignURL: null
+    integrationTestPlan:
+      - id: INT-BUG-3-1
+        scenario: "Lint/build passes after removing unused imports and swapping deprecated/insecure API usages — no behavioural change."
