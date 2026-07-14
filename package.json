@@ -1,40 +1,41 @@
 {
-	"name": "rnd1",
-	"version": "1.0.0",
-	"devDependencies": {
-		"@types/bun": "latest",
-		"@turbo/gen": "^2.10.2",
-		"config": "workspace:*",
-		"script": "workspace:*"
-	},
-	"dependencies": {
-		"turbo": "^2.10.4"
-	},
-	"workspaces": [
-		"apps/*",
-		"frontends/*",
-		"services/*",
-		"packages/*",
-		"servers/*",
-		"generators/*"
-	],
-	"packageManager": "bun@1.3.14",
-	"scripts": {
-		"dev": "turbo run dev",
-		"build": "turbo run build",
-		"test": "turbo run test",
-		"gen": "turbo run gen && turbo run build --filter=api",
-		"compile": "turbo run compile",
-		"format": "turbo run format",
-		"lint": "turbo run lint",
-		"check": "turbo run check",
-		"supergraph": "turbo run supergraph",
-		"generate": "turbo gen",
-		"k8s:build": "eval \"$(minikube docker-env)\" && turbo run k8s:build",
-		"release:cut": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts cut-release",
-		"release:bump-rc": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts bump-rc",
-		"release:promote": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts promote",
-		"release:hotfix": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts hotfix",
-		"release:touched-apps": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts touched-apps"
-	}
+  "name": "rnd1",
+  "version": "1.1.0-rc1",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@turbo/gen": "^2.10.2",
+    "config": "workspace:*",
+    "script": "workspace:*"
+  },
+  "dependencies": {
+    "turbo": "^2.10.4"
+  },
+  "workspaces": [
+    "apps/*",
+    "frontends/*",
+    "services/*",
+    "packages/*",
+    "servers/*",
+    "generators/*",
+    "e2e"
+  ],
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "gen": "turbo run gen && turbo run build --filter=api",
+    "compile": "turbo run compile",
+    "format": "turbo run format",
+    "lint": "turbo run lint",
+    "check": "turbo run check",
+    "supergraph": "turbo run supergraph",
+    "generate": "turbo gen",
+    "k8s:build": "eval \"$(minikube docker-env)\" && turbo run k8s:build",
+    "release:cut": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts cut-release",
+    "release:bump-rc": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts bump-rc",
+    "release:promote": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts promote",
+    "release:hotfix": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts hotfix",
+    "release:touched-apps": "turbo run build --filter=script && bun ./scripts/release_manager.sh.ts touched-apps"
+  }
 }

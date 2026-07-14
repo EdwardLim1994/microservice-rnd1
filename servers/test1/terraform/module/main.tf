@@ -5,7 +5,7 @@ resource "kubernetes_namespace" "test1" {
 }
 
 resource "helm_release" "test1" {
-  name      = "test1"
+  name = "test1"
   # path.module resolves relative to this file's own location on disk, not the caller's — so this
   # correctly points at this server's helm/ directory whether invoked from this server's own
   # thin wrapper (source = "./module") or from the root terraform config
@@ -15,6 +15,7 @@ resource "helm_release" "test1" {
   # concrete gotcha this avoids (a spurious helm_release diff on every plan otherwise).
   chart     = abspath("${path.module}/../../helm")
   namespace = kubernetes_namespace.test1.metadata[0].name
+  timeout   = 600
 
   set {
     name  = "image.app.tag"

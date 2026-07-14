@@ -1,5 +1,6 @@
 schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION) {
   query: Query
+  mutation: Mutation
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
@@ -32,6 +33,7 @@ enum link__Purpose {
 scalar link__Import
 
 enum join__Graph {
+  AUTH @join__graph(name: "auth", url: "{{ .Values.subgraphs.auth.url }}")
   TEST1 @join__graph(name: "test1", url: "{{ .Values.subgraphs.test1.url }}")
   TEST2 @join__graph(name: "test2", url: "{{ .Values.subgraphs.test2.url }}")
 }
@@ -49,7 +51,24 @@ input join__ContextArgument {
   selection: join__FieldValue!
 }
 
-type Query @join__type(graph: TEST1) @join__type(graph: TEST2) {
+type AuthPayload @join__type(graph: AUTH) {
+  accessToken: String!
+  refreshToken: String!
+  idToken: String!
+}
+
+type RegisterPayload @join__type(graph: AUTH) {
+  success: Boolean!
+  message: String!
+}
+
+type Mutation @join__type(graph: AUTH) {
+  login(email: String!, password: String!): AuthPayload!
+  register(email: String!, password: String!): RegisterPayload!
+  signOut(refreshToken: String!): Boolean!
+}
+
+type Query @join__type(graph: AUTH) @join__type(graph: TEST1) @join__type(graph: TEST2) {
   test1: Test1 @join__field(graph: TEST1)
   test2: Test2 @join__field(graph: TEST2)
 }
