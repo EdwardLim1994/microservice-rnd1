@@ -112,7 +112,7 @@ function appendSupergraphSubgraph(location: string, name: string, port: number):
 		return `${relToRoot(SUPERGRAPH_YAML_PATH)} not found, skipped`;
 	}
 	const raw = fs.readFileSync(SUPERGRAPH_YAML_PATH, "utf-8");
-	if (new RegExp(`\\n\\s+${name}:`).test(raw)) {
+	if (new RegExp(String.raw`\n\s+${name}:`).test(raw)) {
 		return `${relToRoot(SUPERGRAPH_YAML_PATH)} already lists ${name}`;
 	}
 

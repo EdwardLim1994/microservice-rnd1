@@ -29,7 +29,7 @@ function pascalCase(name: string): string {
 // Proto package names can't contain hyphens (unlike server workspace names, which are
 // kebab-case) — underscore-join the name for use as the stub's `package` declaration.
 function protoPackage(name: string): string {
-	return name.replace(/-/g, "_");
+	return name.replaceAll("-", "_");
 }
 
 // Merges the gRPC packages + "gen" script into an existing package.json, preserving that

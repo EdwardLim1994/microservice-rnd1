@@ -3,7 +3,7 @@ import type { JSX } from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-function HeroUILogo({ tintColor }: { tintColor: string }): JSX.Element {
+function HeroUILogo({ tintColor }: { readonly tintColor: string }): JSX.Element {
   return (
     <Svg width={90} height={30} viewBox="0 0 140 44" fill="none">
       <Path
