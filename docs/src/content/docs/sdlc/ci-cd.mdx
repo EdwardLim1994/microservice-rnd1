@@ -8,6 +8,7 @@ GitHub Actions pipeline implementing the branching/tagging strategy documented i
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci-verify.yml` | `pull_request` (any branch) | `turbo run check test` scoped to affected packages, fails on any `check`-driven working-tree diff, SonarCloud scan, Claude Code review comment. |
+| `ci-sonar-main.yml` | `push` to `main` | Re-runs the full (unfiltered) test suite and a SonarCloud scan against `main` itself. Exists because `ci-verify.yml` only ever scans in PR context — without this, `main`'s own SonarCloud branch analysis never updates after a merge, even though every PR into it passed its own scan. |
 | `cd-release.yml` | `push` to `release/**` | Cuts (`release:cut`) or bumps (`release:bump-rc`) `release-manifest.json` and every touched app's version, commits it back (`[skip ci]`), builds+pushes a DockerHub image per touched app at its rc version, `terraform apply`s the app-level root against the `uat` Terraform workspace. |
 | `cd-prod.yml` | `push` to `main` | If `release-manifest.json` is present (a release just merged), strips every app's `-rcN` suffix (`release:promote`), deletes the manifest, retags (no rebuild) each app's last rc image to its final version, `terraform apply`s the `prod` workspace. No-ops cleanly on any other main push. |
 | `cd-hotfix.yml` | `push` to `hotfix/**` | Identifies every touched app (`release:touched-apps`) — most hotfixes touch one, but a repo-wide sweep (e.g. a code-quality cleanup spanning several servers/frontends) can touch several — bumps each one's patch version (`release:hotfix`, looped per app), builds+pushes one image per app (matrix job), then a single `terraform apply` with one `-target`/`-var` pair per touched app against `prod` (not matrixed — every touched app shares the same state file, so a matrix here would race on the state lock instead of composing cleanly the way the independent per-app image builds do). Fails only if zero apps are touched. |
@@ -51,7 +52,7 @@ workflow can run end-to-end — none of this is wired up automatically:
 | `DOCKERHUB_USERNAME` | secret | `cd-release.yml`, `cd-prod.yml`, `cd-hotfix.yml` |
 | `DOCKERHUB_TOKEN` | secret | same |
 | `DOCKERHUB_NAMESPACE` | variable | same — DockerHub org/namespace, not yet decided; images push to `<namespace>/<app>:<version>` |
-| `SONAR_TOKEN` | secret | `ci-verify.yml` — SonarCloud project already keyed via root `sonar-project.properties` (`EdwardLim1994_microservice-rnd1`) |
+| `SONAR_TOKEN` | secret | `ci-verify.yml`, `ci-sonar-main.yml` — SonarCloud project already keyed via root `sonar-project.properties` (`EdwardLim1994_microservice-rnd1`) |
 | `ANTHROPIC_API_KEY` | secret | `ci-verify.yml`'s Claude Code review step |
 | Terraform backend credentials | secret(s), cloud-specific | not yet decided — see below |
 | Cluster credentials (`KUBECONFIG` or cloud-specific auth) | secret | every `terraform apply` step, so the `kubernetes`/`helm` providers can reach the real cluster from a GitHub Actions runner instead of `minikube` |
