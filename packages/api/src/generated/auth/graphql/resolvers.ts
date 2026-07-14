@@ -24,11 +24,21 @@ export type AuthTokens = {
   tokenType: Scalars['String']['output'];
 };
 
+export type LogoutPayload = {
+  __typename?: 'LogoutPayload';
+  message: Scalars['String']['output'];
+  success: Scalars['Boolean']['output'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
+  logout: LogoutPayload;
   register: RegisterPayload;
   signIn: AuthTokens;
-  signOut: Scalars['Boolean']['output'];
+};
+
+export type MutationLogoutArgs = {
+  accessToken: Scalars['String']['input'];
 };
 
 export type MutationRegisterArgs = {
@@ -39,10 +49,6 @@ export type MutationRegisterArgs = {
 export type MutationSignInArgs = {
   password: Scalars['String']['input'];
   username: Scalars['String']['input'];
-};
-
-export type MutationSignOutArgs = {
-  refreshToken: Scalars['String']['input'];
 };
 
 export type RegisterPayload = {
@@ -176,8 +182,9 @@ export type ResolversTypes = ResolversObject<{
   AuthTokens: ResolverTypeWrapper<AuthTokens>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
-  Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
+  LogoutPayload: ResolverTypeWrapper<LogoutPayload>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
 }>;
 
@@ -186,8 +193,9 @@ export type ResolversParentTypes = ResolversObject<{
   AuthTokens: AuthTokens;
   String: Scalars['String']['output'];
   Int: Scalars['Int']['output'];
-  Mutation: Record<PropertyKey, never>;
+  LogoutPayload: LogoutPayload;
   Boolean: Scalars['Boolean']['output'];
+  Mutation: Record<PropertyKey, never>;
   RegisterPayload: RegisterPayload;
 }>;
 
@@ -207,11 +215,26 @@ export type AuthTokensResolvers<
   tokenType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
+export type LogoutPayloadResolvers<
+  ContextType = AuthContextType,
+  ParentType extends
+    ResolversParentTypes['LogoutPayload'] = ResolversParentTypes['LogoutPayload'],
+> = ResolversObject<{
+  message?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+}>;
+
 export type MutationResolvers<
   ContextType = AuthContextType,
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
+  logout?: Resolver<
+    ResolversTypes['LogoutPayload'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationLogoutArgs, 'accessToken'>
+  >;
   register?: Resolver<
     ResolversTypes['RegisterPayload'],
     ParentType,
@@ -223,12 +246,6 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationSignInArgs, 'password' | 'username'>
-  >;
-  signOut?: Resolver<
-    ResolversTypes['Boolean'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationSignOutArgs, 'refreshToken'>
   >;
 }>;
 
@@ -243,6 +260,7 @@ export type RegisterPayloadResolvers<
 
 export type Resolvers<ContextType = AuthContextType> = ResolversObject<{
   AuthTokens?: AuthTokensResolvers<ContextType>;
+  LogoutPayload?: LogoutPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   RegisterPayload?: RegisterPayloadResolvers<ContextType>;
 }>;

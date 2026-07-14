@@ -1,8 +1,8 @@
 import { AuthGraphql } from "api";
 import { type GraphqlHandlerMap, GraphqlRouter } from "server";
+import LogoutUseCase from "../usecases/LogoutUseCase";
 import RegisterUseCase from "../usecases/RegisterUseCase";
 import SignInUseCase from "../usecases/SignInUseCase";
-import SignOutUseCase from "../usecases/SignOutUseCase";
 
 export default class AuthGraphqlRouter extends GraphqlRouter {
 	get typeDefs(): string {
@@ -14,7 +14,7 @@ export default class AuthGraphqlRouter extends GraphqlRouter {
 			Mutation: {
 				signIn: SignInUseCase,
 				register: RegisterUseCase,
-				signOut: SignOutUseCase,
+				logout: LogoutUseCase,
 			},
 		};
 	}

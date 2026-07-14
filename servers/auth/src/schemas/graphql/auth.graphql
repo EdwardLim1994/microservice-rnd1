@@ -14,8 +14,13 @@ type RegisterPayload {
 	message: String!
 }
 
+type LogoutPayload {
+	success: Boolean!
+	message: String!
+}
+
 type Mutation {
 	signIn(username: String!, password: String!): AuthTokens!
 	register(email: String!, password: String!): RegisterPayload!
-	signOut(refreshToken: String!): Boolean!
+	logout(accessToken: String!): LogoutPayload!
 }

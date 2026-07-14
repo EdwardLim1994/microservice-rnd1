@@ -10,10 +10,15 @@ type AuthTokens {
   tokenType: String!
 }
 
+type LogoutPayload {
+  message: String!
+  success: Boolean!
+}
+
 type Mutation {
+  logout(accessToken: String!): LogoutPayload!
   register(email: String!, password: String!): RegisterPayload!
   signIn(password: String!, username: String!): AuthTokens!
-  signOut(refreshToken: String!): Boolean!
 }
 
 type RegisterPayload {
