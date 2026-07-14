@@ -1,41 +1,41 @@
 {
-	"name": "test1",
-	"version": "1.0.0",
-	"module": "index.ts",
-	"type": "module",
-	"private": true,
-	"devDependencies": {
-		"@types/bun": "latest",
-		"@bufbuild/buf": "^1.70.0",
-		"@bufbuild/protobuf": "^2.12.1",
-		"@bufbuild/protoc-gen-es": "^2.12.1",
-		"protoc": "^35.1.0",
-		"@graphql-codegen/add": "^7.0.1",
-		"@graphql-codegen/cli": "^7.1.2",
-		"@graphql-codegen/schema-ast": "^6.0.1",
-		"@graphql-codegen/typescript": "^6.0.2",
-		"@graphql-codegen/typescript-resolvers": "^6.0.2",
-		"prisma": "^7.8.0"
-	},
-	"dependencies": {
-		"server": "workspace:*",
-		"config": "workspace:*",
-		"@grpc/grpc-js": "^1.14.4",
-		"ts-proto": "^2.11.8",
-		"api": "workspace:*",
-		"script": "workspace:*",
-		"graphql": "^16.14.2",
-		"@prisma/client": "^7.8.0",
-		"@prisma/client-runtime-utils": "^7.8.0",
-		"kafkajs": "^2.2.4",
-		"@confluentinc/schemaregistry": "^1.9.1"
-	},
-	"scripts": {
-		"dev": "bun run index.ts --watch --verbose",
-		"k8s:build": "cd ../.. && docker build -f servers/test1/Dockerfile -t test1:local . && docker build -f servers/test1/Dockerfile --target migrate -t test1-migrate:local .",
-		"gen": "bun ./src/scripts/generate_api.sh.ts",
-		"vault:provision": "cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @servers/test1/ansible/vars.yml",
-		"cdc:provision": "cd ../.. && docker compose run --rm debezium-ansible ansible-playbook services/debezium/ansible/provision.yml -e @servers/test1/ansible/vars.yml",
-		"postinstall": "prisma generate"
-	}
+  "name": "test1",
+  "version": "1.1.0-rc1",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@bufbuild/buf": "^1.70.0",
+    "@bufbuild/protobuf": "^2.12.1",
+    "@bufbuild/protoc-gen-es": "^2.12.1",
+    "protoc": "^35.1.0",
+    "@graphql-codegen/add": "^7.0.1",
+    "@graphql-codegen/cli": "^7.1.2",
+    "@graphql-codegen/schema-ast": "^6.0.1",
+    "@graphql-codegen/typescript": "^6.0.2",
+    "@graphql-codegen/typescript-resolvers": "^6.0.2",
+    "prisma": "^7.8.0"
+  },
+  "dependencies": {
+    "server": "workspace:*",
+    "config": "workspace:*",
+    "@grpc/grpc-js": "^1.14.4",
+    "ts-proto": "^2.11.8",
+    "api": "workspace:*",
+    "script": "workspace:*",
+    "graphql": "^16.14.2",
+    "@prisma/client": "^7.8.0",
+    "@prisma/client-runtime-utils": "^7.8.0",
+    "kafkajs": "^2.2.4",
+    "@confluentinc/schemaregistry": "^1.9.1"
+  },
+  "scripts": {
+    "dev": "bun run index.ts --watch --verbose",
+    "k8s:build": "cd ../.. && docker build -f servers/test1/Dockerfile -t test1:local . && docker build -f servers/test1/Dockerfile --target migrate -t test1-migrate:local .",
+    "gen": "bun ./src/scripts/generate_api.sh.ts",
+    "vault:provision": "cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @servers/test1/ansible/vars.yml",
+    "cdc:provision": "cd ../.. && docker compose run --rm debezium-ansible ansible-playbook services/debezium/ansible/provision.yml -e @servers/test1/ansible/vars.yml",
+    "postinstall": "prisma generate"
+  }
 }
