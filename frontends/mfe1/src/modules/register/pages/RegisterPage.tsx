@@ -1,9 +1,7 @@
 import { type SubmitEvent, useState } from 'react';
+import { CredentialsForm } from '../../../components/CredentialsForm';
+import { validateCredentials } from '../../../lib/credentialsValidation';
 import { useRegister } from '../viewmodel';
-
-// Each domain label excludes '.' so the two `+` groups either side of it can't both match the
-// same characters — removes the backtracking ambiguity `[^\s@]+@[^\s@]+\.[^\s@]+` had.
-const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 // Kept as a plain, non-component function (not inlined into RegisterPage's body) — Rsbuild's
 // React Compiler plugin only transforms functions matching its Component/Hook naming heuristic,
@@ -49,34 +47,15 @@ export function RegisterPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [register, { loading }] = useRegister();
 
-  function validate(): boolean {
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-    let valid = true;
-
-    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
-      setEmailError('Enter a valid email address.');
-      valid = false;
-    } else {
-      setEmailError(null);
-    }
-
-    if (!trimmedPassword) {
-      setPasswordError('Password is required.');
-      valid = false;
-    } else {
-      setPasswordError(null);
-    }
-
-    return valid;
-  }
-
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!validate()) {
+    const validation = validateCredentials(email, password);
+    setEmailError(validation.emailError);
+    setPasswordError(validation.passwordError);
+    if (!validation.valid) {
       return;
     }
 
@@ -89,52 +68,19 @@ export function RegisterPage() {
   }
 
   return (
-    <form
+    <CredentialsForm
+      email={email}
+      password={password}
+      onEmailChange={setEmail}
+      onPasswordChange={setPassword}
+      emailError={emailError}
+      passwordError={passwordError}
+      loading={loading}
+      submitLabel="Register"
+      loadingLabel="Registering…"
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 max-w-sm mx-auto"
-    >
-      <label className="flex flex-col gap-1">
-        <span>Email</span>
-        <input
-          data-testid="email-input"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </label>
-      {emailError && (
-        <p data-testid="email-error" role="alert">
-          {emailError}
-        </p>
-      )}
-
-      <label className="flex flex-col gap-1">
-        <span>Password</span>
-        <input
-          data-testid="password-input"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
-      {passwordError && (
-        <p data-testid="password-error" role="alert">
-          {passwordError}
-        </p>
-      )}
-
-      <button data-testid="submit-button" type="submit" disabled={loading}>
-        {loading ? 'Registering…' : 'Register'}
-      </button>
-
-      {successMessage && (
-        <output data-testid="success-message">{successMessage}</output>
-      )}
-      {errorMessage && (
-        <p data-testid="error-message" role="alert">
-          {errorMessage}
-        </p>
-      )}
-    </form>
+      successMessage={successMessage}
+      errorMessage={errorMessage}
+    />
   );
 }

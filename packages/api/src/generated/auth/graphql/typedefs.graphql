@@ -2,12 +2,10 @@ schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: []) {
   mutation: Mutation
 }
 
-type AuthTokens {
+type AuthPayload {
   accessToken: String!
-  expiresIn: Int!
-  idToken: String
-  refreshToken: String
-  tokenType: String!
+  idToken: String!
+  refreshToken: String!
 }
 
 type LogoutPayload {
@@ -16,9 +14,9 @@ type LogoutPayload {
 }
 
 type Mutation {
+  login(email: String!, password: String!): AuthPayload!
   logout(accessToken: String!): LogoutPayload!
   register(email: String!, password: String!): RegisterPayload!
-  signIn(password: String!, username: String!): AuthTokens!
 }
 
 type RegisterPayload {
