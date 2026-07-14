@@ -35,7 +35,7 @@ export default defineConfig({
   // above still uses) since the production deployment's actual port varies — NodePort vs
   // `kubectl port-forward`.
   output: {
-    assetPrefix: `http://${process.env.MFE1_HOST ?? 'localhost'}:${process.env.MFE1_PORT ?? 3001 }`,
+    assetPrefix: `http://${process.env.MFE1_HOST ?? 'localhost'}:${process.env.MFE1_PORT ?? 3001}`,
   },
   server: {
     port: 3001,

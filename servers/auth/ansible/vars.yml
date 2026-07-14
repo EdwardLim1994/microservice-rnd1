@@ -1,4 +1,9 @@
 ---
 server_name: auth
-authentik_url: http://authentik-server:9000
+# Defaults to the docker-compose service hostname (only reachable from the "authentik-ansible"
+# tool container's own "authentik" network) — override with AUTHENTIK_URL for any other target
+# (e.g. an in-cluster Authentik reached via `kubectl port-forward`, run with plain `ansible-playbook`
+# directly rather than through `bun run auth:provision`'s docker-compose wrapper, which has no
+# route to a k8s Service). Same env-var-override convention as authentik_bootstrap_token below.
+authentik_url: "{{ lookup('env', 'AUTHENTIK_URL') | default('http://authentik-server:9000', true) }}"
 authentik_bootstrap_token: "{{ lookup('env', 'AUTHENTIK_BOOTSTRAP_TOKEN') }}"

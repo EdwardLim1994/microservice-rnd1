@@ -30,7 +30,9 @@ class CookieJar {
   }
 
   header(): string {
-    return [...this.cookies.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+    return [...this.cookies.entries()]
+      .map(([name, value]) => `${name}=${value}`)
+      .join('; ');
   }
 }
 
@@ -90,7 +92,8 @@ export class AuthentikClient {
   constructor(config: AuthentikClientConfig = {}) {
     const baseUrl = config.baseUrl ?? process.env.AUTHENTIK_URL;
     const clientId = config.clientId ?? process.env.AUTHENTIK_OAUTH_CLIENT_ID;
-    const clientSecret = config.clientSecret ?? process.env.AUTHENTIK_OAUTH_CLIENT_SECRET;
+    const clientSecret =
+      config.clientSecret ?? process.env.AUTHENTIK_OAUTH_CLIENT_SECRET;
     const apiToken = config.apiToken ?? process.env.AUTHENTIK_API_TOKEN;
 
     if (!baseUrl || !clientId || !clientSecret || !apiToken) {
@@ -123,7 +126,10 @@ export class AuthentikClient {
   // drives the same path a browser would: the Flow Executor API validates the real password via
   // the authentication flow's stages, then a normal Authorization Code exchange mints real tokens
   // once the resulting session is authenticated. See servers/auth/CLAUDE.md for the full story.
-  async signIn(username: string, password: string): Promise<AuthentikTokenResponse> {
+  async signIn(
+    username: string,
+    password: string,
+  ): Promise<AuthentikTokenResponse> {
     const cookies = await this.runAuthenticationFlow(username, password);
     return this.exchangeAuthorizationCode(cookies);
   }
@@ -153,7 +159,10 @@ export class AuthentikClient {
   // Drives default-authentication-flow's stages (identification -> password -> an authenticated
   // session) via the Flow Executor API, returning the resulting session cookies. The flow's stage
   // order/shape was confirmed empirically against the running instance, not just from docs.
-  private async runAuthenticationFlow(username: string, password: string): Promise<CookieJar> {
+  private async runAuthenticationFlow(
+    username: string,
+    password: string,
+  ): Promise<CookieJar> {
     const cookies = new CookieJar();
     const flowUrl = `${this.baseUrl}/api/v3/flows/executor/default-authentication-flow/?query=`;
 
@@ -162,7 +171,12 @@ export class AuthentikClient {
       throw new AuthentikApiError(400, challenge);
     }
 
-    challenge = await this.flowStep('POST', flowUrl, { uid_field: username }, cookies);
+    challenge = await this.flowStep(
+      'POST',
+      flowUrl,
+      { uid_field: username },
+      cookies,
+    );
     if (challenge.component !== 'ak-stage-password') {
       // Unknown username, or the flow isn't shaped the way this client expects.
       throw new AuthentikApiError(400, challenge);
@@ -195,7 +209,9 @@ export class AuthentikClient {
   // this replaced. redirect: 'manual' is required so fetch returns the 302 itself (with a readable
   // Location header, since this runs server-side with no browser CORS opacity) instead of
   // following it to a redirect_uri that was never meant to be reachable.
-  private async exchangeAuthorizationCode(cookies: CookieJar): Promise<AuthentikTokenResponse> {
+  private async exchangeAuthorizationCode(
+    cookies: CookieJar,
+  ): Promise<AuthentikTokenResponse> {
     const authorizeUrl = new URL(`${this.baseUrl}/application/o/authorize/`);
     authorizeUrl.searchParams.set('client_id', this.clientId);
     authorizeUrl.searchParams.set('response_type', 'code');
@@ -204,7 +220,10 @@ export class AuthentikClient {
     // signOut() revokes that token; see the Ansible provisioning role's own scope-mappings note
     // for why this must also be bound to the Provider as a property mapping, not just requested
     // here (an unmapped scope is silently dropped, not granted).
-    authorizeUrl.searchParams.set('scope', 'openid profile email offline_access');
+    authorizeUrl.searchParams.set(
+      'scope',
+      'openid profile email offline_access',
+    );
     authorizeUrl.searchParams.set('state', crypto.randomUUID());
 
     const authorizeResponse = await fetch(authorizeUrl, {
@@ -213,11 +232,17 @@ export class AuthentikClient {
     });
     const location = authorizeResponse.headers.get('location');
     if (authorizeResponse.status !== 302 || !location) {
-      throw new AuthentikApiError(authorizeResponse.status, await parseBody(authorizeResponse));
+      throw new AuthentikApiError(
+        authorizeResponse.status,
+        await parseBody(authorizeResponse),
+      );
     }
     const code = new URL(location, this.baseUrl).searchParams.get('code');
     if (!code) {
-      throw new AuthentikApiError(400, { error: 'no authorization code in redirect', location });
+      throw new AuthentikApiError(400, {
+        error: 'no authorization code in redirect',
+        location,
+      });
     }
 
     const tokenResponse = await fetch(`${this.baseUrl}/application/o/token/`, {
@@ -232,7 +257,10 @@ export class AuthentikClient {
       }),
     });
     if (!tokenResponse.ok) {
-      throw new AuthentikApiError(tokenResponse.status, await parseBody(tokenResponse));
+      throw new AuthentikApiError(
+        tokenResponse.status,
+        await parseBody(tokenResponse),
+      );
     }
     return (await tokenResponse.json()) as AuthentikTokenResponse;
   }
@@ -240,7 +268,10 @@ export class AuthentikClient {
   // RFC 7009 token revocation. Per spec, this endpoint returns 200 for an already-invalid token
   // too — there's no way (nor need) to distinguish "was live" from "was already dead" here, only
   // a genuine transport/5xx failure is treated as an error.
-  async revokeToken(token: string, tokenTypeHint?: 'access_token' | 'refresh_token'): Promise<void> {
+  async revokeToken(
+    token: string,
+    tokenTypeHint?: 'access_token' | 'refresh_token',
+  ): Promise<void> {
     const response = await fetch(`${this.baseUrl}/application/o/revoke/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -254,6 +285,16 @@ export class AuthentikClient {
     if (!response.ok) {
       throw new AuthentikApiError(response.status, await parseBody(response));
     }
+  }
+
+  // Self-service registration by email+password — uses the email itself as Authentik's username,
+  // so a duplicate-email registration attempt surfaces as the same username-uniqueness violation
+  // createUser()'s callers already know how to detect (see RegisterUseCase's
+  // looksLikeDuplicateEmail). Thin wrapper over createUser(); still bypasses Authentik's own
+  // enrollment-flow stages (email verification, captcha) — same known v1 limitation as the
+  // signUp() mutation this replaced, see servers/auth/CLAUDE.md.
+  async enroll(email: string, password: string): Promise<AuthentikCreatedUser> {
+    return this.createUser({ username: email, email, password });
   }
 
   // Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
@@ -280,7 +321,10 @@ export class AuthentikClient {
       }),
     });
     if (!createResponse.ok) {
-      throw new AuthentikApiError(createResponse.status, await parseBody(createResponse));
+      throw new AuthentikApiError(
+        createResponse.status,
+        await parseBody(createResponse),
+      );
     }
     const user = (await createResponse.json()) as AuthentikCreatedUser;
 
@@ -302,7 +346,10 @@ export class AuthentikClient {
       console.error(
         `AuthentikClient.createUser: user ${user.pk} (${user.username}) was created but set_password failed with ${setPasswordResponse.status} — the account exists with no usable password`,
       );
-      throw new AuthentikApiError(setPasswordResponse.status, await parseBody(setPasswordResponse));
+      throw new AuthentikApiError(
+        setPasswordResponse.status,
+        await parseBody(setPasswordResponse),
+      );
     }
 
     return user;
@@ -316,7 +363,8 @@ export class AuthentikPlugin extends BasePlugin {
   // RedisPlugin/MeilisearchPlugin
   constructor(
     private readonly container: AwilixContainer,
-    private readonly createClient: () => AuthentikClient = () => new AuthentikClient(),
+    private readonly createClient: () => AuthentikClient = () =>
+      new AuthentikClient(),
   ) {
     super();
   }

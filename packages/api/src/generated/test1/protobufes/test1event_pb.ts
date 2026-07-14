@@ -2,20 +2,23 @@
 // @generated from file test1event.proto (package test1event, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Message } from "@bufbuild/protobuf";
+import type { Message } from '@bufbuild/protobuf';
+import type { GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2';
+import { fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2';
 
 /**
  * Describes the file test1event.proto.
  */
-export const file_test1event: GenFile = /*@__PURE__*/
-  fileDesc("ChB0ZXN0MWV2ZW50LnByb3RvEgp0ZXN0MWV2ZW50IiYKClRlc3QxRXZlbnQSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCWIGcHJvdG8z");
+export const file_test1event: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'ChB0ZXN0MWV2ZW50LnByb3RvEgp0ZXN0MWV2ZW50IiYKClRlc3QxRXZlbnQSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCWIGcHJvdG8z',
+  );
 
 /**
  * @generated from message test1event.Test1Event
  */
-export type Test1Event = Message<"test1event.Test1Event"> & {
+export type Test1Event = Message<'test1event.Test1Event'> & {
   /**
    * @generated from field: string id = 1;
    */
@@ -31,6 +34,6 @@ export type Test1Event = Message<"test1event.Test1Event"> & {
  * Describes the message test1event.Test1Event.
  * Use `create(Test1EventSchema)` to create a new message.
  */
-export const Test1EventSchema: GenMessage<Test1Event> = /*@__PURE__*/
+export const Test1EventSchema: GenMessage<Test1Event> =
+  /*@__PURE__*/
   messageDesc(file_test1event, 0);
-
