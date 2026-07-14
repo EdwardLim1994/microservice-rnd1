@@ -3,7 +3,9 @@ import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 import {
 	addApiScript,
+	collapseTrailingNewlines,
 	ensureGenScript,
+	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
 	syncHelmPort,
@@ -81,33 +83,7 @@ function appendGraphqlPort(absPath: string, port: number, createIfMissing: boole
 // (demo1/demo2's pre-existing hardcoded `port: N` literal on the ApolloDriver entry) for a
 // port already in use, and returns the lowest one >= DEFAULT_GRAPHQL_PORT not already taken.
 function findAvailableGraphqlPort(root: string): number {
-	const serversDir = path.join(root, "servers");
-	const usedPorts = new Set<number>();
-
-	if (fs.existsSync(serversDir)) {
-		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
-			if (!entry.isDirectory()) continue;
-			const serverDir = path.join(serversDir, entry.name);
-
-			const envSamplePath = path.join(serverDir, ".env.sample");
-			if (fs.existsSync(envSamplePath)) {
-				const match = /^GRAPHQL_PORT=(\d+)/m.exec(fs.readFileSync(envSamplePath, "utf-8"));
-				if (match) usedPorts.add(Number(match[1]));
-			}
-
-			const appPath = path.join(serverDir, "src", "app.ts");
-			if (fs.existsSync(appPath)) {
-				const match = /driver:\s*ApolloDriver[\s\S]{0,200}?port:\s*(\d+)/.exec(
-					fs.readFileSync(appPath, "utf-8"),
-				);
-				if (match) usedPorts.add(Number(match[1]));
-			}
-		}
-	}
-
-	let port = DEFAULT_GRAPHQL_PORT;
-	while (usedPorts.has(port)) port++;
-	return port;
+	return findAvailableServerPort(root, "GRAPHQL_PORT", "ApolloDriver", DEFAULT_GRAPHQL_PORT);
 }
 
 function buildApolloDriverEntry(itemIndent: string): string {
@@ -136,7 +112,7 @@ function appendSupergraphSubgraph(location: string, name: string, port: number):
 		return `${relToRoot(SUPERGRAPH_YAML_PATH)} not found, skipped`;
 	}
 	const raw = fs.readFileSync(SUPERGRAPH_YAML_PATH, "utf-8");
-	if (new RegExp(`\\n\\s+${name}:`).test(raw)) {
+	if (new RegExp(String.raw`\n\s+${name}:`).test(raw)) {
 		return `${relToRoot(SUPERGRAPH_YAML_PATH)} already lists ${name}`;
 	}
 
@@ -154,7 +130,7 @@ function appendSupergraphSubgraph(location: string, name: string, port: number):
 		`\n   ${name}:\n      routing_url: http://${name}:${port}\n` +
 		`      schema:\n         file: ${schemaRelPath}\n`;
 
-	fs.writeFileSync(SUPERGRAPH_YAML_PATH, `${raw.replace(/\n+$/, "\n")}${entry}`);
+	fs.writeFileSync(SUPERGRAPH_YAML_PATH, `${collapseTrailingNewlines(raw)}${entry}`);
 	return `${relToRoot(SUPERGRAPH_YAML_PATH)} (+${name})`;
 }
 

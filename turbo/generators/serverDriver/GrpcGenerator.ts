@@ -4,6 +4,7 @@ import type { PlopTypes } from "@turbo/gen";
 import {
 	addApiScript,
 	ensureGenScript,
+	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
 	syncHelmPort,
@@ -28,7 +29,7 @@ function pascalCase(name: string): string {
 // Proto package names can't contain hyphens (unlike server workspace names, which are
 // kebab-case) — underscore-join the name for use as the stub's `package` declaration.
 function protoPackage(name: string): string {
-	return name.replace(/-/g, "_");
+	return name.replaceAll("-", "_");
 }
 
 // Merges the gRPC packages + "gen" script into an existing package.json, preserving that
@@ -66,33 +67,7 @@ function appendGrpcPort(absPath: string, port: number, createIfMissing: boolean)
 // (demo1/demo2's pre-existing hardcoded `port: N` literal on the GrpcDriver entry) for a
 // port already in use, and returns the lowest one >= DEFAULT_GRPC_PORT not already taken.
 function findAvailableGrpcPort(root: string): number {
-	const serversDir = path.join(root, "servers");
-	const usedPorts = new Set<number>();
-
-	if (fs.existsSync(serversDir)) {
-		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
-			if (!entry.isDirectory()) continue;
-			const serverDir = path.join(serversDir, entry.name);
-
-			const envSamplePath = path.join(serverDir, ".env.sample");
-			if (fs.existsSync(envSamplePath)) {
-				const match = /^GRPC_PORT=(\d+)/m.exec(fs.readFileSync(envSamplePath, "utf-8"));
-				if (match) usedPorts.add(Number(match[1]));
-			}
-
-			const appPath = path.join(serverDir, "src", "app.ts");
-			if (fs.existsSync(appPath)) {
-				const match = /driver:\s*GrpcDriver[\s\S]{0,200}?port:\s*(\d+)/.exec(
-					fs.readFileSync(appPath, "utf-8"),
-				);
-				if (match) usedPorts.add(Number(match[1]));
-			}
-		}
-	}
-
-	let port = DEFAULT_GRPC_PORT;
-	while (usedPorts.has(port)) port++;
-	return port;
+	return findAvailableServerPort(root, "GRPC_PORT", "GrpcDriver", DEFAULT_GRPC_PORT);
 }
 
 function buildGrpcDriverEntry(itemIndent: string): string {

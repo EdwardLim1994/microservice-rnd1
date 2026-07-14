@@ -20,10 +20,20 @@ spec:
       # auto-injected <SVC>_PORT env var crashed that image outright; disabling Service env var
       # injection here too avoids relying on redis:latest never hitting a similar collision.
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       containers:
         - name: redis
           image: "{{ .Values.image }}"
           command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
           ports:
             - name: redis
               containerPort: 6379

@@ -1,11 +1,9 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import lodash from 'lodash';
+import capitalize from 'lodash/capitalize';
 import { collectSubDirExports, writeSubDirBarrels } from '../helper/barrel';
 import { checkDependency, log } from '../helper/common';
-
-const { capitalize } = lodash;
 
 export default class APIGenerator {
   private _barrelRoot: string;

@@ -83,7 +83,7 @@ export function findMatchingBracket(
 }
 
 export function addNamedImport(raw: string, source: string, importName: string): string {
-	const importRegex = new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*["']${source}["'];?`);
+	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
 	const match = importRegex.exec(raw);
 	if (!match) {
 		throw new Error(`Could not find an import from "${source}"`);
@@ -94,7 +94,7 @@ export function addNamedImport(raw: string, source: string, importName: string):
 		.filter(Boolean);
 	if (names.includes(importName)) return raw;
 	names.push(importName);
-	names.sort();
+	names.sort((a, b) => a.localeCompare(b));
 	return raw.replace(importRegex, `import { ${names.join(", ")} } from "${source}";`);
 }
 
@@ -104,7 +104,7 @@ export function addNamedImport(raw: string, source: string, importName: string):
 // imports from that source (e.g. injecting a new page's import into a router file that may not
 // yet import anything from that page's module).
 export function addOrMergeNamedImport(raw: string, source: string, importName: string): string {
-	const importRegex = new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*["']${source}["'];?`);
+	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
 	if (importRegex.test(raw)) {
 		return addNamedImport(raw, source, importName);
 	}
@@ -235,7 +235,7 @@ export function injectDriverEntry(
 	if (trimmedArgs.startsWith("[")) {
 		const openBracketIndex = openParenIndex + 1 + argsText.indexOf("[");
 		const closeBracketIndex = findMatchingBracket(raw, openBracketIndex, "[", "]");
-		const inner = raw.slice(openBracketIndex + 1, closeBracketIndex).replace(/\s*$/, "");
+		const inner = raw.slice(openBracketIndex + 1, closeBracketIndex).trimEnd();
 		const separator = inner.trim() === "" || inner.trim().endsWith(",") ? "" : ",";
 		const newInner = `${inner}${separator}\n${itemIndent}${entry},\n${baseIndent}`;
 		raw = `${raw.slice(0, openBracketIndex)}[${newInner}]${raw.slice(closeBracketIndex + 1)}`;
@@ -325,11 +325,23 @@ export function findAvailableFrontendPort(root: string): number {
 
 const DEFAULT_MOBILE_PORT = 3011;
 
+// Reads a single apps/*/package.json's "dev" script for a `--port N` already in use — the
+// per-workspace half of findAvailableMobilePort's scan, split out to keep that function's
+// cognitive complexity down. Harmless to call for every apps/* workspace, not just Expo ones —
+// an Rsbuild-based app's "dev" script ("rsbuild --open") never matches the `--port` pattern, so
+// it just returns null.
+function extractMobilePortFromPackageJson(pkgPath: string): number | null {
+	if (!fs.existsSync(pkgPath)) return null;
+	const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
+		| string
+		| undefined;
+	const match = devScript ? /--port\s+(\d+)/.exec(devScript) : null;
+	return match ? Number(match[1]) : null;
+}
+
 // Scans every apps/*/package.json for a `--port N` already used in its "dev" script (Expo's
 // dev-server/tunnel port — apps/mobile's own is `expo start --host tunnel --port 3011`) and
-// returns the lowest one >= DEFAULT_MOBILE_PORT not already taken. Harmless to scan every
-// apps/* workspace, not just Expo ones — an Rsbuild-based app's "dev" script ("rsbuild --open")
-// never matches the `--port` pattern, so it's simply skipped.
+// returns the lowest one >= DEFAULT_MOBILE_PORT not already taken.
 export function findAvailableMobilePort(root: string): number {
 	const usedPorts = new Set<number>();
 
@@ -337,13 +349,8 @@ export function findAvailableMobilePort(root: string): number {
 	if (fs.existsSync(appsDir)) {
 		for (const entry of fs.readdirSync(appsDir, { withFileTypes: true })) {
 			if (!entry.isDirectory()) continue;
-			const pkgPath = path.join(appsDir, entry.name, "package.json");
-			if (!fs.existsSync(pkgPath)) continue;
-			const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
-				| string
-				| undefined;
-			const match = devScript ? /--port\s+(\d+)/.exec(devScript) : null;
-			if (match) usedPorts.add(Number(match[1]));
+			const port = extractMobilePortFromPackageJson(path.join(appsDir, entry.name, "package.json"));
+			if (port !== null) usedPorts.add(port);
 		}
 	}
 
@@ -379,6 +386,19 @@ export function appendBarrelLine(absBarrelPath: string, line: string): string {
 	return `${relToRoot(absBarrelPath)} (+${line})`;
 }
 
+// Collapses one-or-more trailing newlines in `raw` down to exactly `count` newlines — a
+// non-regex equivalent of `raw.replace(/\n+$/, "\n".repeat(count))`. Written this way (rather
+// than the regex) because SonarCloud's regex-super-linear-backtracking check (typescript:S8786)
+// flagged that pattern repeated across this file/DatabaseGenerator.ts/GraphqlGenerator.ts; a
+// plain scan-backwards loop sidesteps the check entirely instead of trying to appease its
+// heuristic. Same "leave `raw` untouched if it has no trailing newline at all" behavior as the
+// `+`-quantified regex it replaces (`raw.replace(/\n+$/, ...)` only fires on 1+ matches).
+export function collapseTrailingNewlines(raw: string, count = 1): string {
+	let end = raw.length;
+	while (end > 0 && raw[end - 1] === "\n") end--;
+	return end === raw.length ? raw : `${raw.slice(0, end)}${"\n".repeat(count)}`;
+}
+
 // Registers a newly-scaffolded <location>/<name>/docker-compose.yml in the root
 // docker-compose.yml's `include:` list, so `docker compose up` from repo root actually brings
 // it up — shared by the "server" and "web" project generators, both of which scaffold their own
@@ -393,7 +413,7 @@ export function appendRootComposeInclude(root: string, location: string, name: s
 	if (raw.includes(line)) {
 		return `${path.relative(root, rootComposePath)} already includes ${location}/${name}`;
 	}
-	fs.writeFileSync(rootComposePath, `${raw.replace(/\n+$/, "\n")}${line}\n`);
+	fs.writeFileSync(rootComposePath, `${collapseTrailingNewlines(raw)}${line}\n`);
 	return `${path.relative(root, rootComposePath)} (+${location}/${name})`;
 }
 
@@ -421,7 +441,7 @@ export function copyWithSubstitutions(
 		}
 		let raw = fs.readFileSync(srcPath, "utf-8");
 		for (const [key, value] of Object.entries(replacements)) {
-			raw = raw.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), value);
+			raw = raw.replace(new RegExp(String.raw`\{\{\s*${key}\s*\}\}`, "g"), value);
 		}
 		fs.mkdirSync(path.dirname(destPath), { recursive: true });
 		fs.writeFileSync(destPath, raw);
@@ -441,12 +461,63 @@ export function syncHelmPort(location: string, key: "graphql" | "grpc", port: nu
 		return `${relToRoot(absPath)} not found, skipped`;
 	}
 	const raw = fs.readFileSync(absPath, "utf-8");
-	const pattern = new RegExp(`(^\\s*${key}:\\s*)\\d+`, "m");
+	const pattern = new RegExp(String.raw`(^\s*${key}:\s*)\d+`, "m");
 	if (!pattern.test(raw)) {
 		return `${relToRoot(absPath)} has no "${key}:" port entry, skipped`;
 	}
 	fs.writeFileSync(absPath, raw.replace(pattern, `$1${port}`));
 	return `${relToRoot(absPath)} (ports.${key} -> ${port})`;
+}
+
+// Reads one servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
+// (demo1/demo2's pre-existing hardcoded `port: N` literal on the matching driver entry) for a
+// port already in use, adding whatever it finds to `usedPorts` — the per-server half of
+// findAvailableServerPort's scan, split out to keep that function's cognitive complexity down.
+function collectServerPortUsage(
+	serverDir: string,
+	envVar: string,
+	driverName: string,
+	usedPorts: Set<number>,
+): void {
+	const envSamplePath = path.join(serverDir, ".env.sample");
+	if (fs.existsSync(envSamplePath)) {
+		const match = new RegExp(String.raw`^${envVar}=(\d+)`, "m").exec(fs.readFileSync(envSamplePath, "utf-8"));
+		if (match) usedPorts.add(Number(match[1]));
+	}
+
+	const appPath = path.join(serverDir, "src", "app.ts");
+	if (fs.existsSync(appPath)) {
+		const match = new RegExp(String.raw`driver:\s*${driverName}[\s\S]{0,200}?port:\s*(\d+)`).exec(
+			fs.readFileSync(appPath, "utf-8"),
+		);
+		if (match) usedPorts.add(Number(match[1]));
+	}
+}
+
+// Scans every servers/*/.env.sample and servers/*/src/app.ts for a port already in use (see
+// collectServerPortUsage) and returns the lowest one >= defaultPort not already taken — shared by
+// GraphqlGenerator's findAvailableGraphqlPort (`envVar: "GRAPHQL_PORT"`, `driverName:
+// "ApolloDriver"`) and GrpcGenerator's findAvailableGrpcPort (`"GRPC_PORT"`, `"GrpcDriver"`),
+// which were otherwise identical aside from those three values.
+export function findAvailableServerPort(
+	root: string,
+	envVar: string,
+	driverName: string,
+	defaultPort: number,
+): number {
+	const serversDir = path.join(root, "servers");
+	const usedPorts = new Set<number>();
+
+	if (fs.existsSync(serversDir)) {
+		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
+			if (!entry.isDirectory()) continue;
+			collectServerPortUsage(path.join(serversDir, entry.name), envVar, driverName, usedPorts);
+		}
+	}
+
+	let port = defaultPort;
+	while (usedPorts.has(port)) port++;
+	return port;
 }
 
 // --- docker-compose.yml service-block editing -------------------------------------------------
@@ -480,7 +551,7 @@ function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: nu
 // e.g. for locating servers/<name>/docker-compose.yml's main app service. Returns null if that
 // service isn't declared in the file at all.
 function findComposeServiceBody(raw: string, serviceName: string): { start: number; end: number } | null {
-	const header = new RegExp(`^  ${serviceName}:[ \\t]*\\n`, "m").exec(raw);
+	const header = new RegExp(String.raw`^  ${serviceName}:[ \t]*\n`, "m").exec(raw);
 	if (!header) return null;
 	const start = header.index + header[0].length;
 	return { start, end: findIndentedBodyEnd(raw, start, 4) };
@@ -493,7 +564,7 @@ function findComposeServiceBody(raw: string, serviceName: string): { start: numb
 // the top-level `networks:` section) — inserting new content there would land the new lines
 // *after* that separator, visually detached from the block they actually belong to.
 function trimTrailingBlankLines(raw: string, start: number, end: number): number {
-	const trimmedLength = raw.slice(start, end).replace(/\n+$/, "\n").length;
+	const trimmedLength = collapseTrailingNewlines(raw.slice(start, end)).length;
 	return start + trimmedLength;
 }
 
@@ -519,7 +590,7 @@ function ensureComposeServiceMapEntries(
 	const service = findComposeServiceBody(raw, serviceName);
 	if (!service) return raw;
 
-	const mapHeader = new RegExp(`^    ${mapKey}:[ \\t]*\\n`, "m");
+	const mapHeader = new RegExp(String.raw`^    ${mapKey}:[ \t]*\n`, "m");
 	const withinService = raw.slice(service.start, service.end);
 	const mapMatch = mapHeader.exec(withinService);
 
@@ -553,7 +624,7 @@ function ensureComposeServiceListItems(
 	const service = findComposeServiceBody(raw, serviceName);
 	if (!service) return raw;
 
-	const listHeader = new RegExp(`^    ${listKey}:[ \\t]*\\n`, "m");
+	const listHeader = new RegExp(String.raw`^    ${listKey}:[ \t]*\n`, "m");
 	const withinService = raw.slice(service.start, service.end);
 	const listMatch = listHeader.exec(withinService);
 
@@ -561,14 +632,15 @@ function ensureComposeServiceListItems(
 		const listStart = service.start + listMatch.index + listMatch[0].length;
 		const listEnd = findIndentedBodyEnd(raw, listStart, 6);
 		const existing = raw.slice(listStart, listEnd);
-		const missing = items.filter((item) => !new RegExp(`^\\s*-\\s*${item}\\s*$`, "m").test(existing));
+		const missing = items.filter((item) => !new RegExp(String.raw`^\s*-\s*${item}\s*$`, "m").test(existing));
 		if (missing.length === 0) return raw;
 		const insertAt = trimTrailingBlankLines(raw, listStart, listEnd);
 		const lines = missing.map((item) => `      - ${item}\n`).join("");
 		return `${raw.slice(0, insertAt)}${lines}${raw.slice(insertAt)}`;
 	}
 
-	const block = `    ${listKey}:\n${items.map((item) => `      - ${item}\n`).join("")}`;
+	const itemLines = items.map((item) => `      - ${item}\n`).join("");
+	const block = `    ${listKey}:\n${itemLines}`;
 	const insertAt = trimTrailingBlankLines(raw, service.start, service.end);
 	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
 }
@@ -588,13 +660,13 @@ export function ensureComposeNetworkDeclared(absComposePath: string, networkName
 		// Only treat as already-declared if it's under a real top-level `networks:` section —
 		// a same-named service/env key elsewhere shouldn't false-positive this check.
 		const networksIndex = raw.search(/^networks:\s*$/m);
-		if (networksIndex !== -1 && raw.indexOf(`\n  ${networkName}:`, networksIndex) !== -1) {
+		if (networksIndex !== -1 && raw.includes(`\n  ${networkName}:`, networksIndex)) {
 			return `${relToRoot(absComposePath)} already declares ${networkName}`;
 		}
 	}
 	const next = /^networks:\s*$/m.test(raw)
 		? raw.replace(/^networks:\s*$/m, `networks:\n  ${networkName}:`)
-		: `${raw.replace(/\n+$/, "\n")}\nnetworks:\n  ${networkName}:\n`;
+		: `${collapseTrailingNewlines(raw)}\nnetworks:\n  ${networkName}:\n`;
 	fs.writeFileSync(absComposePath, next);
 	return `${relToRoot(absComposePath)} (+${networkName} network)`;
 }

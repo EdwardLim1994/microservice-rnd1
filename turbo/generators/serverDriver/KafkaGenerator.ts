@@ -158,7 +158,7 @@ function insertBeforeClosingBrace(
 	}
 	const openBraceIndex = raw.indexOf("{", markerIndex);
 	const closeBraceIndex = findMatchingBracket(raw, openBraceIndex, "{", "}");
-	const before = raw.slice(0, closeBraceIndex).replace(/\s*$/, "\n");
+	const before = `${raw.slice(0, closeBraceIndex).trimEnd()}\n`;
 	fs.writeFileSync(absPath, `${before}${snippet}${raw.slice(closeBraceIndex)}`);
 	return `${relToRoot(absPath)} (+${uniqueMarker})`;
 }

@@ -1,8 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import lodash from 'lodash';
-
-const { capitalize } = lodash;
+import capitalize from 'lodash/capitalize';
 
 export const writeSubDirBarrels = async (dir: string): Promise<void> => {
   const entries = readdirSync(dir, { withFileTypes: true });

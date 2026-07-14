@@ -23,6 +23,13 @@ spec:
       containers:
         - name: traefik
           image: "{{ .Values.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
           args:
             - --providers.kubernetesingress=true
             # Only route Ingress objects that opt in via this class — see templates/ingressclass.yaml.

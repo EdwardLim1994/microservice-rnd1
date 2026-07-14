@@ -24,6 +24,8 @@ spec:
       # (here, that'd be KAFKA_CONNECT_PORT). Disabling Service env var injection sidesteps it,
       # same as every other infra pod in this repo.
       enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
       # Kubernetes has no docker-compose-style `depends_on: condition: service_healthy` — gate
       # startup explicitly rather than rely solely on Kafka Connect's own client retry, same
       # pattern as schema-registry-deployment.yaml's own wait-for-kafka initContainer.
@@ -43,6 +45,13 @@ spec:
         - name: kafka-connect
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
           ports:
             - name: http
               containerPort: 8083

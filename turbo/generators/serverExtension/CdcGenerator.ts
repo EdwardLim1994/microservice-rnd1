@@ -127,7 +127,7 @@ function injectWalLevelLogical(absComposePath: string, name: string): string {
 	if (raw.includes("wal_level=logical")) {
 		return `${relToRoot(absComposePath)} already has wal_level=logical`;
 	}
-	const marker = new RegExp(`( {6}POSTGRES_DB: ${name}\\n)( {4}ports:)`);
+	const marker = new RegExp(String.raw`( {6}POSTGRES_DB: ${name}\n)( {4}ports:)`);
 	const match = marker.exec(raw);
 	if (!match) {
 		return `${relToRoot(absComposePath)} has no matching "${name}-db" POSTGRES_DB line, skipped`;

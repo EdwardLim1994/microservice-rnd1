@@ -1,10 +1,12 @@
 name: CD Hotfix
 
 # Hotfix branches cut from main (not from any release branch — see CLAUDE.md's branching
-# strategy) ship independently of any in-flight release: bump the touched app's patch version,
-# build+push its image, and apply prod for just that app. A hotfix is expected to touch exactly
-# one deployable app; this workflow fails loudly if it touches zero or more than one, since that
-# signals the branch isn't actually a hotfix (or is trying to bundle unrelated changes).
+# strategy) ship independently of any in-flight release: bump each touched app's patch version,
+# build+push its image, and apply prod for just those apps. A hotfix may touch one or more
+# deployable apps — most fix a single app, but a repo-wide sweep (e.g. a code-quality/security
+# cleanup spanning several servers/frontends at once) legitimately touches more than one. This
+# workflow fails loudly only if it touches zero, since that signals the branch isn't actually a
+# hotfix.
 on:
   push:
     branches:
@@ -20,9 +22,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      app_name: ${{ steps.hotfix.outputs.app_name }}
-      version: ${{ steps.hotfix.outputs.version }}
-      path: ${{ steps.hotfix.outputs.path }}
+      apps: ${{ steps.hotfix.outputs.apps }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -35,33 +35,46 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run build --filter=script
 
-      - name: Identify the touched app
+      - name: Identify the touched apps
         id: touched
         run: |
-          apps=$(bun ./scripts/release_manager.sh.ts touched-apps origin/main)
+          # -c (compact) matters: release_manager.sh.ts pretty-prints its JSON output (multi-line),
+          # and $GITHUB_OUTPUT's own file-command format rejects a multi-line value written as
+          # "key=$multilineValue" — every line after the first gets parsed as its own malformed
+          # "key=value" pair instead of being part of the value.
+          apps=$(bun ./scripts/release_manager.sh.ts touched-apps origin/main | jq -c '.')
           count=$(echo "$apps" | jq 'length')
-          if [ "$count" -ne 1 ]; then
-            echo "::error::Expected exactly one deployable app touched by this hotfix, found $count: $apps"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::Expected at least one deployable app touched by this hotfix, found 0"
             exit 1
           fi
-          echo "app_name=$(echo "$apps" | jq -r '.[0]')" >> "$GITHUB_OUTPUT"
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
 
-      - name: Bump the app's patch version
+      - name: Bump each touched app's patch version
         id: hotfix
+        env:
+          TOUCHED_APPS: ${{ steps.touched.outputs.apps }}
         run: |
-          result=$(bun ./scripts/release_manager.sh.ts hotfix "${{ steps.touched.outputs.app_name }}")
-          echo "app_name=$(echo "$result" | jq -r '.name')" >> "$GITHUB_OUTPUT"
-          echo "version=$(echo "$result" | jq -r '.version')" >> "$GITHUB_OUTPUT"
-          echo "path=$(echo "$result" | jq -r '.path')" >> "$GITHUB_OUTPUT"
+          results="[]"
+          for app in $(echo "$TOUCHED_APPS" | jq -r '.[]'); do
+            result=$(bun ./scripts/release_manager.sh.ts hotfix "$app")
+            results=$(echo "$results" | jq --argjson r "$result" '. + [$r]')
+          done
+          echo "apps=$(echo "$results" | jq -c '.')" >> "$GITHUB_OUTPUT"
+          echo "summary=$(echo "$results" | jq -r '[.[] | "\(.name)@\(.version)"] | join(", ")')" >> "$GITHUB_OUTPUT"
 
-      - name: Commit the version bump
+      - name: Commit the version bumps
         uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
         with:
-          commit_message: "chore(hotfix): bump ${{ steps.hotfix.outputs.app_name }} to ${{ steps.hotfix.outputs.version }} [skip ci]"
+          commit_message: "chore(hotfix): bump ${{ steps.hotfix.outputs.summary }} [skip ci]"
 
   build-and-push:
     needs: hotfix
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJSON(needs.hotfix.outputs.apps) }}
+      fail-fast: false
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -70,11 +83,11 @@ jobs:
       - name: Skip if no Dockerfile yet
         id: has_dockerfile
         run: |
-          if [ -f "${{ needs.hotfix.outputs.path }}/Dockerfile" ]; then
+          if [ -f "${{ matrix.app.path }}/Dockerfile" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::${{ needs.hotfix.outputs.app_name }} has no Dockerfile yet — skipping image build."
+            echo "::warning::${{ matrix.app.name }} has no Dockerfile yet — skipping image build."
           fi
 
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -87,9 +100,9 @@ jobs:
         if: steps.has_dockerfile.outputs.exists == 'true'
         with:
           context: .
-          file: ${{ needs.hotfix.outputs.path }}/Dockerfile
+          file: ${{ matrix.app.path }}/Dockerfile
           push: true
-          tags: ${{ vars.DOCKERHUB_NAMESPACE }}/${{ needs.hotfix.outputs.app_name }}:${{ needs.hotfix.outputs.version }}
+          tags: ${{ vars.DOCKERHUB_NAMESPACE }}/${{ matrix.app.name }}:${{ matrix.app.version }}
 
   terraform-apply-prod:
     needs: [hotfix, build-and-push]
@@ -107,10 +120,15 @@ jobs:
         # Backend config supplied via -backend-config once bucket/region are decided — see
         # docs/ci-cd.md.
 
-      - name: terraform apply (prod workspace, targeted to this app only)
+      - name: terraform apply (prod workspace, targeted to just the touched apps)
+        # One apply, multiple -target/-var flags — not a matrix. Every touched app shares the
+        # same terraform state file; parallel matrix jobs would race on the state lock instead
+        # of composing cleanly the way build-and-push's independent per-app image builds do.
         working-directory: terraform
+        env:
+          TOUCHED_APPS: ${{ needs.hotfix.outputs.apps }}
         run: |
+          targets=$(echo "$TOUCHED_APPS" | jq -r '[.[] | "-target=module.\(.name)"] | join(" ")')
+          varArgs=$(echo "$TOUCHED_APPS" | jq -r '[.[] | "-var=\(.name)_app_image_tag=\(.version)"] | join(" ")')
           terraform workspace select -or-create prod
-          terraform apply -auto-approve \
-            -target="module.${{ needs.hotfix.outputs.app_name }}" \
-            -var="${{ needs.hotfix.outputs.app_name }}_app_image_tag=${{ needs.hotfix.outputs.version }}"
+          terraform apply -auto-approve $targets $varArgs

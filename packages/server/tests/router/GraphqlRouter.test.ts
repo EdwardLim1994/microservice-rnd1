@@ -25,12 +25,6 @@ function makeContainer() {
   return createContainer({ injectionMode: InjectionMode.PROXY });
 }
 
-test('register() is a no-op', () => {
-  const container = makeContainer();
-  const router = new TestGraphqlRouter(container);
-  expect(() => router.register({})).not.toThrow();
-});
-
 test('resolvers getter auto-registers use cases in container', () => {
   const container = makeContainer();
   const router = new TestGraphqlRouter(container);
