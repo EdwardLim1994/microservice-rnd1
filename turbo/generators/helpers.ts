@@ -468,13 +468,13 @@ function collectServerPortUsage(
 ): void {
 	const envSamplePath = path.join(serverDir, ".env.sample");
 	if (fs.existsSync(envSamplePath)) {
-		const match = new RegExp(`^${envVar}=(\\d+)`, "m").exec(fs.readFileSync(envSamplePath, "utf-8"));
+		const match = new RegExp(String.raw`^${envVar}=(\d+)`, "m").exec(fs.readFileSync(envSamplePath, "utf-8"));
 		if (match) usedPorts.add(Number(match[1]));
 	}
 
 	const appPath = path.join(serverDir, "src", "app.ts");
 	if (fs.existsSync(appPath)) {
-		const match = new RegExp(`driver:\\s*${driverName}[\\s\\S]{0,200}?port:\\s*(\\d+)`).exec(
+		const match = new RegExp(String.raw`driver:\s*${driverName}[\s\S]{0,200}?port:\s*(\d+)`).exec(
 			fs.readFileSync(appPath, "utf-8"),
 		);
 		if (match) usedPorts.add(Number(match[1]));
