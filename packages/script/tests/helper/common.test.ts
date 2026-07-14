@@ -46,10 +46,10 @@ test('log.error writes an [ERROR] prefixed message to console.error', () => {
   expect(String(calls[0]?.args[0])).toContain('[ERROR]: broken');
 });
 
-test('log.success writes a [SUCCESS] prefixed message to console.log', () => {
+test('log.success writes a [SUCCESS] prefixed message to console.error', () => {
   log.success('done');
   expect(calls).toHaveLength(1);
-  expect(calls[0]?.method).toBe('log');
+  expect(calls[0]?.method).toBe('error');
   expect(String(calls[0]?.args[0])).toContain('[SUCCESS]: done');
 });
 
