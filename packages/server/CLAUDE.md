@@ -121,6 +121,89 @@ class TestDemoUseCase extends BaseUseCase<Empty, Demo1> {
 
 One class, one method, one business operation. Resolved transiently from container per request.
 
+### ProcessOrchestrator — orchestrated SAGA
+
+`ProcessOrchestrator<TContext>` is itself a `BaseUseCase<TContext, TContext>` — it slots straight
+into any `GrpcHandlerMap`/`GraphqlHandlerMap` like a normal use case, no router changes needed. A
+concrete saga overrides `build()` to register steps in order via `this.step(main, fallback,
+options?)`; each step's `main` use case receives the accumulated context and returns a
+`Partial<TContext>` patch merged into it before the next step runs.
+
+```ts
+interface RegisterUserContext {
+  email: string;
+  password: string;
+  name: string;
+  userId?: string;
+  emailSent?: boolean;
+}
+
+class CreateUserUseCase extends BaseUseCase<RegisterUserContext, Partial<RegisterUserContext>> {
+  constructor(private readonly userRepository: UserRepository) { super(); }
+  async execute({ email, password, name }: RegisterUserContext) {
+    const user = await this.userRepository.create({ email, password, name });
+    return { userId: user.id };
+  }
+}
+
+class DeleteUserUseCase extends BaseUseCase<RegisterUserContext, void> {
+  constructor(private readonly userRepository: UserRepository) { super(); }
+  async execute({ userId }: RegisterUserContext) {
+    if (userId) await this.userRepository.delete(userId);
+  }
+}
+
+class SendWelcomeEmailUseCase extends BaseUseCase<RegisterUserContext, Partial<RegisterUserContext>> {
+  constructor(private readonly emailService: EmailService) { super(); }
+  async execute({ email, name }: RegisterUserContext) {
+    await this.emailService.sendWelcome(email, name);
+    return { emailSent: true };
+  }
+}
+
+// no later step to fail after this one, but `.step()` still requires a fallback — reuse a no-op
+class NoopUseCase extends BaseUseCase<unknown, void> {
+  async execute() {}
+}
+
+class RegisterUserSaga extends ProcessOrchestrator<RegisterUserContext> {
+  protected build() {
+    this.step(CreateUserUseCase, DeleteUserUseCase).step(
+      SendWelcomeEmailUseCase,
+      NoopUseCase,
+      { retries: 2, retryDelayMs: 500, timeoutMs: 5000 }, // email send: retry twice, 5s/attempt
+    );
+  }
+}
+
+class AuthGraphqlRouter extends GraphqlRouter {
+  get typeDefs() {
+    return `type Mutation { registerUser(email: String!, password: String!, name: String!): User! }`;
+  }
+  get handlers(): GraphqlHandlerMap {
+    return { Mutation: { registerUser: RegisterUserSaga } };
+  }
+}
+```
+
+- **Constructor takes `{ container }`, same awilix PROXY convention as any use case** —
+  `container` is already registered (`asValue`) by `ServerApp`, so a saga is resolved by the
+  router exactly like any other handler; nothing extra needs registering.
+- **Compensation on failure**: if a step's `main` use case fails (after exhausting retries), the
+  `fallback` of every already-*completed* step runs, in reverse order, then the original error is
+  rethrown. The failing step's own fallback never runs — it never committed, so it has nothing to
+  undo.
+- **`options?: { retries?, retryDelayMs?, timeoutMs? }`** (all default off): each attempt races
+  against `timeoutMs` (rejecting with `StepTimeoutError` if it fires first); failed attempts
+  retry up to `retries` more times, waiting `retryDelayMs` between them. Only exhausting every
+  attempt counts as the step failing. A retried step is re-resolved from the container each
+  attempt (fresh transient instance), same as any other use case resolution.
+- **Fallbacks are not retried or timeout-guarded** — if a compensation itself throws, it
+  propagates immediately and stops further compensations from running. Apply the same `options` to
+  a step's own compensating use case by wrapping it, if a saga needs that.
+- Every `main`/`fallback` use case is auto-registered into the container transiently on first
+  resolution — same `lcFirst(ClassName)` token convention as routers.
+
 ### Repositories
 
 ```ts
@@ -726,6 +809,7 @@ single-element array) to `ServerApp.init()` with no gRPC/GraphQL/Kafka driver at
 | `BaseDriver` | Protocol driver — `start(options)` / `stop()` |
 | `BaseRouter` | Route registration — `register(server)` |
 | `BaseUseCase<TIn, TOut>` | Business logic — `execute(input)` |
+| `ProcessOrchestrator<TContext>` | Orchestrated SAGA — `build()` registers `step(main, fallback, options?)` |
 | `BaseRepository<TClient>` | Data access — constructor receives `{ prisma }` |
 | `BaseInterceptor` | Request middleware — `apply(server)` |
 | `BasePlugin` | Infrastructure adapter — `onStart()` / `onStop()` |

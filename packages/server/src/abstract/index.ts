@@ -6,5 +6,7 @@ export { BasePlugin } from './BasePlugin';
 export { BaseRepository } from './BaseRepository';
 export { BaseRouter } from './BaseRouter';
 export { BaseUseCase } from './BaseUseCase';
+export type { StepOptions } from './ProcessOrchestrator';
+export { ProcessOrchestrator, StepTimeoutError } from './ProcessOrchestrator';
 export type { Registrable } from './Registrable';
 export { isRegistrable } from './Registrable';
