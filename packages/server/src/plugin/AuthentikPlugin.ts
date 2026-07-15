@@ -89,6 +89,7 @@ export class AuthentikClient {
   private readonly clientSecret: string;
   private readonly apiToken: string;
 
+  /** Resolves config from args or env vars; throws if any required value is missing. */
   constructor(config: AuthentikClientConfig = {}) {
     const baseUrl = config.baseUrl ?? process.env.AUTHENTIK_URL;
     const clientId = config.clientId ?? process.env.AUTHENTIK_OAUTH_CLIENT_ID;
@@ -108,8 +109,10 @@ export class AuthentikClient {
     this.apiToken = apiToken;
   }
 
-  // Cheap, unauthenticated reachability check — used by AuthentikPlugin.onStart() to fail server
-  // startup fast on a bad AUTHENTIK_URL, same rationale as MeilisearchPlugin's eager .health().
+  /**
+   * Cheap, unauthenticated reachability check — used by AuthentikPlugin.onStart() to fail server
+   * startup fast on a bad AUTHENTIK_URL, same rationale as MeilisearchPlugin's eager .health().
+   */
   async healthCheck(): Promise<void> {
     const response = await fetch(`${this.baseUrl}/-/health/ready/`);
     if (!response.ok) {
@@ -126,6 +129,7 @@ export class AuthentikClient {
   // drives the same path a browser would: the Flow Executor API validates the real password via
   // the authentication flow's stages, then a normal Authorization Code exchange mints real tokens
   // once the resulting session is authenticated. See servers/auth/CLAUDE.md for the full story.
+  /** Real username+password sign-in via the Flow Executor + Authorization Code exchange (see class-level comment for why not the OAuth2 "password" grant). */
   async signIn(
     username: string,
     password: string,
@@ -134,6 +138,7 @@ export class AuthentikClient {
     return this.exchangeAuthorizationCode(cookies);
   }
 
+  /** Sends one Flow Executor request, absorbing any `Set-Cookie` into `cookies` and throwing on a non-2xx response. */
   private async flowStep(
     method: 'GET' | 'POST',
     url: string,
@@ -156,9 +161,11 @@ export class AuthentikClient {
     return (await response.json()) as FlowExecutorChallenge;
   }
 
-  // Drives default-authentication-flow's stages (identification -> password -> an authenticated
-  // session) via the Flow Executor API, returning the resulting session cookies. The flow's stage
-  // order/shape was confirmed empirically against the running instance, not just from docs.
+  /**
+   * Drives default-authentication-flow's stages (identification -> password -> an authenticated
+   * session) via the Flow Executor API, returning the resulting session cookies. The flow's stage
+   * order/shape was confirmed empirically against the running instance, not just from docs.
+   */
   private async runAuthenticationFlow(
     username: string,
     password: string,
@@ -204,11 +211,13 @@ export class AuthentikClient {
     return cookies;
   }
 
-  // Completes the OAuth2 Authorization Code flow against the now-authenticated session — the
-  // standard token-minting mechanism once a user is logged in, unrelated to the "password" grant
-  // this replaced. redirect: 'manual' is required so fetch returns the 302 itself (with a readable
-  // Location header, since this runs server-side with no browser CORS opacity) instead of
-  // following it to a redirect_uri that was never meant to be reachable.
+  /**
+   * Completes the OAuth2 Authorization Code flow against the now-authenticated session — the
+   * standard token-minting mechanism once a user is logged in, unrelated to the "password" grant
+   * this replaced. `redirect: 'manual'` is required so fetch returns the 302 itself (with a
+   * readable Location header, since this runs server-side with no browser CORS opacity) instead
+   * of following it to a redirect_uri that was never meant to be reachable.
+   */
   private async exchangeAuthorizationCode(
     cookies: CookieJar,
   ): Promise<AuthentikTokenResponse> {
@@ -265,9 +274,11 @@ export class AuthentikClient {
     return (await tokenResponse.json()) as AuthentikTokenResponse;
   }
 
-  // RFC 7009 token revocation. Per spec, this endpoint returns 200 for an already-invalid token
-  // too — there's no way (nor need) to distinguish "was live" from "was already dead" here, only
-  // a genuine transport/5xx failure is treated as an error.
+  /**
+   * RFC 7009 token revocation. Per spec, this endpoint returns 200 for an already-invalid token
+   * too — there's no way (nor need) to distinguish "was live" from "was already dead" here, only
+   * a genuine transport/5xx failure is treated as an error.
+   */
   async revokeToken(
     token: string,
     tokenTypeHint?: 'access_token' | 'refresh_token',
@@ -287,9 +298,11 @@ export class AuthentikClient {
     }
   }
 
-  // RFC 7662 token introspection — needed because RFC 7009 revoke (below) always returns 200 for
-  // an already-dead token, so it alone can't tell logout() "this token was already invalid",
-  // which servers/auth's logout mutation must surface as a distinct error (see its CLAUDE.md).
+  /**
+   * RFC 7662 token introspection — needed because RFC 7009 revoke (below) always returns 200 for
+   * an already-dead token, so it alone can't tell logout() "this token was already invalid",
+   * which servers/auth's logout mutation must surface as a distinct error (see its CLAUDE.md).
+   */
   private async introspectToken(
     token: string,
   ): Promise<{ active: boolean; sub?: string }> {
@@ -308,12 +321,13 @@ export class AuthentikClient {
     return (await response.json()) as { active: boolean; sub?: string };
   }
 
-  // Best-effort server-side session termination via Authentik's Admin API, using the service
-  // account token also used by createUser(). Failures here are logged, not thrown — the service
-  // account's RBAC role (provisioned by services/authentik/ansible, see servers/auth/CLAUDE.md)
-  // only grants add_user/view_user/reset_user_password today, not session management, so this is
-  // expected to no-op (403) until that role is widened; a known v1 limitation, not a hard
-  // dependency of logout() actually revoking the token.
+  /**
+   * Best-effort server-side session termination via Authentik's Admin API, using the service
+   * account token also used by createUser(). Failures here are logged, not thrown — the service
+   * account's RBAC role only grants add_user/view_user/reset_user_password today, not session
+   * management, so this is expected to no-op (403) until that role is widened; a known v1
+   * limitation, not a hard dependency of logout() actually revoking the token.
+   */
   private async terminateUserSessions(userPk: string): Promise<void> {
     try {
       const listResponse = await fetch(
@@ -345,10 +359,12 @@ export class AuthentikClient {
     }
   }
 
-  // Full RP-initiated logout: unlike signOut()'s plain revokeToken() call, this first introspects
-  // the access token (so an already-dead token surfaces as a distinct error to the caller — see
-  // introspectToken() above), then revokes it and best-effort terminates the underlying Authentik
-  // session, not just the token. See servers/auth/CLAUDE.md for the full rationale.
+  /**
+   * Full RP-initiated logout: unlike a plain revokeToken() call, this first introspects the
+   * access token (so an already-dead token surfaces as a distinct error to the caller — see
+   * introspectToken() above), then revokes it and best-effort terminates the underlying Authentik
+   * session, not just the token.
+   */
   async logout(accessToken: string): Promise<void> {
     const introspection = await this.introspectToken(accessToken);
     if (!introspection.active) {
@@ -360,20 +376,22 @@ export class AuthentikClient {
     }
   }
 
-  // Self-service registration by email+password — uses the email itself as Authentik's username,
-  // so a duplicate-email registration attempt surfaces as the same username-uniqueness violation
-  // createUser()'s callers already know how to detect (see RegisterUseCase's
-  // looksLikeDuplicateEmail). Thin wrapper over createUser(); still bypasses Authentik's own
-  // enrollment-flow stages (email verification, captcha) — same known v1 limitation as the
-  // signUp() mutation this replaced, see servers/auth/CLAUDE.md.
+  /**
+   * Self-service registration by email+password — uses the email itself as Authentik's username,
+   * so a duplicate-email registration attempt surfaces as the same username-uniqueness violation
+   * createUser()'s callers already know how to detect. Thin wrapper over createUser(); still
+   * bypasses Authentik's own enrollment-flow stages (email verification, captcha) — a known v1
+   * limitation.
+   */
   async enroll(email: string, password: string): Promise<AuthentikCreatedUser> {
     return this.createUser({ username: email, email, password });
   }
 
-  // Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
-  // verification, captcha); see servers/auth/CLAUDE.md's known-limitations section. Two calls: the
-  // user itself, then its initial password (set_password is a separate endpoint in Authentik's
-  // Admin API, not a create-time field).
+  /**
+   * Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
+   * verification, captcha). Two calls: the user itself, then its initial password (set_password
+   * is a separate endpoint in Authentik's Admin API, not a create-time field).
+   */
   async createUser(input: {
     username: string;
     email: string;
@@ -442,6 +460,10 @@ export class AuthentikPlugin extends BasePlugin {
     super();
   }
 
+  /**
+   * Eager reachability check — throws on a bad AUTHENTIK_URL, failing server startup instead of
+   * surfacing later on first sign-in/sign-up request — then registers `authentik` into the container.
+   */
   async onStart(): Promise<void> {
     this.client = this.createClient();
     // eager reachability check — throws on a bad AUTHENTIK_URL, failing server startup instead of
@@ -451,6 +473,7 @@ export class AuthentikPlugin extends BasePlugin {
     this.container.register({ authentik: asValue(this.client) });
   }
 
+  /** No-op — stateless HTTP client, nothing to close, same as MeilisearchPlugin. */
   async onStop(): Promise<void> {
     // stateless HTTP client — nothing to close, same as MeilisearchPlugin
   }

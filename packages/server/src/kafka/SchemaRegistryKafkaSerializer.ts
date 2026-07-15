@@ -37,6 +37,7 @@ export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
 
   // ponytail: factory params allow injection in tests without touching the real Schema Registry
   // client or @bufbuild/protobuf's create() — same testability pattern as KafkaDriver's createKafka.
+  /** Builds the serializer/deserializer pair and pre-registers every configured producer schema. */
   constructor(
     private readonly config: SchemaRegistryKafkaSerializerConfig = {},
     private readonly createMessage: (
@@ -70,6 +71,7 @@ export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
     }
   }
 
+  /** Encodes `value` for `topic` using its registered schema; throws if none is registered. */
   async serialize(topic: string, value: unknown): Promise<Buffer> {
     const schema = this.config.schemas?.[topic];
     if (!schema) {
@@ -82,6 +84,7 @@ export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
     return this.serializer.serialize(topic, message);
   }
 
+  /** Decodes `payload` using whatever schema the producer registered for `topic` — no schema needed here. */
   async deserialize<T>(topic: string, payload: Uint8Array): Promise<T> {
     return this.deserializer.deserialize(
       topic,
@@ -89,8 +92,10 @@ export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
     ) as Promise<T>;
   }
 
-  // Binds this serializer's deserialize() to one topic, matching KafkaMessageType<T> so it drops
-  // straight into a KafkaConsumerRouter's topics map.
+  /**
+   * Binds this serializer's deserialize() to one topic, matching KafkaMessageType<T> so it drops
+   * straight into a KafkaConsumerRouter's topics map.
+   */
   decoder<T>(topic: string): KafkaMessageType<T> {
     return { decode: (payload) => this.deserialize<T>(topic, payload) };
   }

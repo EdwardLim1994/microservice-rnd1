@@ -23,6 +23,10 @@ export class MeilisearchPlugin extends BasePlugin {
     super();
   }
 
+  /**
+   * Eager health check — throws on a bad host/key, failing server startup instead of surfacing
+   * later on first search request — then registers `meilisearch` into the container.
+   */
   async onStart(): Promise<void> {
     this.client = this.createClient();
     // eager health check — throws on a bad host/key, failing server startup instead of
@@ -32,6 +36,7 @@ export class MeilisearchPlugin extends BasePlugin {
     this.container.register({ meilisearch: asValue(this.client) });
   }
 
+  /** No-op — Meilisearch's client is stateless HTTP, nothing to close unlike Redis. */
   async onStop(): Promise<void> {
     // stateless HTTP client — nothing to close, unlike Redis's persistent connection
   }

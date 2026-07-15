@@ -44,17 +44,22 @@ export abstract class KafkaConsumerRouter<
     super();
   }
 
-  // topic name -> generated protobuf message type (e.g. Demo1Demo1eventProto.Demo1Event) — only
-  // used to enumerate topic names and infer each one's decoded type; the object's own decode() is
-  // never called. `topics` (below) always decodes via the resolved KafkaSerializer instead.
+  /**
+   * Topic name -> generated protobuf message type (e.g. Demo1Demo1eventProto.Demo1Event) — only
+   * used to enumerate topic names and infer each one's decoded type; the object's own decode() is
+   * never called. `topics` (below) always decodes via the resolved KafkaSerializer instead.
+   */
   abstract get topicTypes(): TTopicTypes;
+  /** Maps each topic to the use case that handles its decoded messages. */
   abstract get handlers(): KafkaHandlerMap<TTopicTypes>;
 
-  // Concrete — binds the container-registered kafkaSerializer's deserialize() to every topic in
-  // topicTypes. Resolved lazily on each call, not cached from the constructor: KafkaDriver only
-  // registers kafkaSerializer inside its own start(), which runs after every router is already
-  // constructed (ServerApp.run() builds all routers up front) — resolving in the constructor
-  // would throw.
+  /**
+   * Binds the container-registered kafkaSerializer's deserialize() to every topic in
+   * topicTypes. Resolved lazily on each call, not cached from the constructor: KafkaDriver only
+   * registers kafkaSerializer inside its own start(), which runs after every router is already
+   * constructed (ServerApp.run() builds all routers up front) — resolving in the constructor
+   * would throw.
+   */
   get topics(): DecodedTopics<TTopicTypes> {
     const serializer =
       this.container.resolve<KafkaSerializer>('kafkaSerializer');
@@ -69,8 +74,10 @@ export abstract class KafkaConsumerRouter<
     ) as DecodedTopics<TTopicTypes>;
   }
 
-  // topic name -> decode + resolve + execute, closing over this router's container
-  // (same shape as GraphqlRouter.resolvers — auto-registers use cases transiently)
+  /**
+   * Topic name -> decode + resolve + execute, closing over this router's container
+   * (same shape as GraphqlRouter.resolvers — auto-registers use cases transiently).
+   */
   get dispatchers(): Record<string, (payload: Uint8Array) => Promise<void>> {
     const topics = this.topics;
     return Object.fromEntries(

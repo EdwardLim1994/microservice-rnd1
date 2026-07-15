@@ -8,6 +8,7 @@ export interface Registrable {
   register(server: unknown): void;
 }
 
+/** Duck-types a router as `Registrable` (has a `register(server)` function). */
 export function isRegistrable(router: unknown): router is Registrable {
   return (
     typeof router === 'object' &&

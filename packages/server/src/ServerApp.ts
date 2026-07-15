@@ -54,9 +54,11 @@ interface RunningDriver {
   onReady?: (info: DriverReadyInfo) => void;
 }
 
+/** Wraps a class for `.containers()` registration with one shared instance per container. */
 export const singleton = <T>(Class: Constructor<T>) =>
   asClass(Class).setLifetime(Lifetime.SINGLETON);
 
+/** Wraps a class for `.containers()` registration with a new instance per resolution. */
 export const transient = <T>(Class: Constructor<T>) =>
   asClass(Class).setLifetime(Lifetime.TRANSIENT);
 
@@ -92,16 +94,18 @@ export class ServerApp {
     });
   }
 
+  /** Builds a `ServerApp` from either a single bare driver or an array of driver entries. */
   static init(driver: Constructor<BaseDriver>): ServerApp;
   static init(drivers: DriverInit[]): ServerApp;
   static init(drivers: Constructor<BaseDriver> | DriverInit[]): ServerApp {
     return new ServerApp(Array.isArray(drivers) ? drivers : [drivers]);
   }
 
-  // dbAdapter can be a plain sync value (e.g. new PgAdapter(process.env.DATABASE_URL!), for
-  // a manual root-credential testing override) or an async factory (e.g.
-  // VaultPgAdapter.fromEnv(), the generated default) — resolved inside run(), before plugins
-  // start, since a factory needs an awaited Vault round-trip that can't happen synchronously here.
+  /**
+   * Registers the Prisma client class + adapter (or async adapter factory) — resolved inside
+   * `run()`, before plugins start, since a factory (e.g. `VaultPgAdapter.fromEnv()`) needs an
+   * awaited round-trip that can't happen synchronously here.
+   */
   database<TClient extends PrismaLifecycle>(
     Client: PrismaClientConstructor<TClient>,
     dbAdapter: DbAdapter | (() => Promise<DbAdapter>),
@@ -113,37 +117,47 @@ export class ServerApp {
     return this;
   }
 
+  /** Registers additional DI entries (e.g. repositories) into the shared awilix container. */
   containers(registrations: NameAndRegistrationPair<unknown>): this {
     this.container.register(registrations);
     return this;
   }
 
+  /** Sets the routers every driver shares. */
   routers(routers: Constructor<BaseRouter>[]): this {
     this._routers = routers;
     return this;
   }
 
+  /** Sets the request-level interceptors applied across drivers. */
   interceptors(interceptors: Constructor<BaseInterceptor>[]): this {
     this._interceptors = interceptors;
     return this;
   }
 
+  /** Sets the server-level plugins started/stopped alongside the drivers. */
   plugins(plugins: Constructor<BasePlugin>[]): this {
     this._plugins = plugins;
     return this;
   }
 
-  // Fallback port/host for driver entries that don't specify their own.
+  /** Fallback port for driver entries that don't specify their own. */
   port(port: number): this {
     this._port = port;
     return this;
   }
 
+  /** Fallback host for driver entries that don't specify their own. */
   host(host: string): this {
     this._host = host;
     return this;
   }
 
+  /**
+   * Resolves the DB adapter (if any), constructs routers/interceptors/plugins, starts every
+   * plugin then every driver in parallel, firing each driver's own `onReady` plus the shared
+   * `callback` once it's up.
+   */
   async run(callback?: (info: DriverReadyInfo) => void): Promise<void> {
     if (this._database) {
       const { Client, dbAdapterOrFactory } = this._database;
@@ -187,6 +201,7 @@ export class ServerApp {
     );
   }
 
+  /** Stops plugins then drivers (reverse of `run()`'s start order), then closes the DB connection. */
   async stop(): Promise<void> {
     await Promise.all(this._pluginInstances.map((p) => p.onStop()));
     await Promise.all(this.runningDrivers.map((entry) => entry.driver.stop()));

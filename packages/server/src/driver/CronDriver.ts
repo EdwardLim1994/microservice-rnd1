@@ -27,6 +27,7 @@ export class CronDriver extends BaseDriver {
     super();
   }
 
+  /** Schedules a `Bun.cron` job per schedule entry across every `CronRouter`, wrapping each dispatch in try/catch so one failing job can't crash the process. */
   async start({ routers }: DriverStartOptions): Promise<void> {
     const onError =
       this.config.onError ??
@@ -53,11 +54,13 @@ export class CronDriver extends BaseDriver {
     }
   }
 
+  /** Stops every scheduled job. */
   async stop(): Promise<void> {
     for (const job of this.jobs) job.stop();
     this.jobs = [];
   }
 
+  /** Duck-types a router as cron-capable (has `schedules`/`dispatchers`). */
   private isCronRouter(router: unknown): router is CronRouterShape {
     return (
       typeof router === 'object' &&

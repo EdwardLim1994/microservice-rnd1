@@ -122,6 +122,11 @@ export class OtelPlugin extends BasePlugin {
     super();
   }
 
+  /**
+   * Starts the OTel SDK (does not eagerly verify the collector endpoint — a bad endpoint fails
+   * silently on first export instead of failing startup) and registers `otelTracer`/`otelMeter`
+   * into the container.
+   */
   async onStart(): Promise<void> {
     this.handles = await this.createOtel(this.config);
     this.container.register({
@@ -130,6 +135,7 @@ export class OtelPlugin extends BasePlugin {
     });
   }
 
+  /** Flushes any buffered spans/metrics before shutdown. */
   async onStop(): Promise<void> {
     await this.handles?.sdk.shutdown();
   }

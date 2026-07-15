@@ -30,9 +30,12 @@ export abstract class GrpcRouter<TService>
     super();
   }
 
+  /** The generated `*Service` const (not the `*Server` interface) describing this gRPC service. */
   abstract get service(): ServiceDefinition<TService>;
+  /** Maps each service method to the use case that handles it. */
   abstract get handlers(): GrpcHandlerMap<TService>;
 
+  /** Auto-registers each handler's use case into the container (if not already), then adds the service to the gRPC server. */
   register(server: unknown): void {
     const grpcServer = server as Server;
 
@@ -48,6 +51,7 @@ export abstract class GrpcRouter<TService>
     grpcServer.addService(this.service, this._buildImpl());
   }
 
+  /** Builds the gRPC service implementation, resolving and invoking each method's use case from the container per call. */
   private _buildImpl(): UntypedServiceImplementation {
     return Object.fromEntries(
       Object.entries(this.handlers).map(([method, UseCase]) => {
