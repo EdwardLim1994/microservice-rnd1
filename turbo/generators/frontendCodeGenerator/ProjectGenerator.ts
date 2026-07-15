@@ -17,10 +17,12 @@ const FAVICON_SOURCE_PATH = path.join(
 	"favicon.png",
 );
 
-// Shared by all three project roles (host/remote/plain) — their Dockerfiles are identical in
-// runtime shape (single port, `bun run preview`, oven/bun runtime — see
-// frontends/frontend1/terraform/CLAUDE.md), so one generic Helm chart/Terraform module covers
-// all of them, parameterized by name/port/location the same way templates/server's does by name.
+/**
+ * Shared by all three project roles (host/remote/plain) — their Dockerfiles are identical in
+ * runtime shape (single port, `bun run preview`, oven/bun runtime — see
+ * frontends/frontend1/terraform/CLAUDE.md), so one generic Helm chart/Terraform module covers
+ * all of them, parameterized by name/port/location the same way templates/server's does by name.
+ */
 const DEPLOY_TEMPLATES_DIR = path.join(
 	process.cwd(),
 	"turbo",
@@ -35,10 +37,12 @@ function relToRoot(absPath: string): string {
 
 type ProjectType = "regular" | "microfrontend";
 
-// For a microfrontend, role is inferred from location, matching the two real projects already
-// in this repo: apps/portal (a host — consumes remotes, no exposes/Apollo) and
-// frontends/frontend1 (a remote — exposes ./App, has its own Apollo Client). A "regular" app
-// skips Module Federation entirely regardless of location, hence the third "plain" template set.
+/**
+ * For a microfrontend, role is inferred from location, matching the two real projects already
+ * in this repo: apps/portal (a host — consumes remotes, no exposes/Apollo) and
+ * frontends/frontend1 (a remote — exposes ./App, has its own Apollo Client). A "regular" app
+ * skips Module Federation entirely regardless of location, hence the third "plain" template set.
+ */
 function templateRole(type: ProjectType, location: string): "host" | "remote" | "plain" {
 	if (type === "regular") return "plain";
 	return location === "apps" ? "host" : "remote";

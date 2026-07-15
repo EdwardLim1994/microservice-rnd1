@@ -35,15 +35,19 @@ function pascalCase(name: string): string {
 		.join("");
 }
 
-// GraphQL field names can't contain hyphens (unlike server workspace names, which are
-// kebab-case) — camelCase the name for use as the stub Query field.
+/**
+ * GraphQL field names can't contain hyphens (unlike server workspace names, which are
+ * kebab-case) — camelCase the name for use as the stub Query field.
+ */
 function camelCase(name: string): string {
 	const pascal = pascalCase(name);
 	return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-// Merges the GraphQL codegen packages + "gen" script into an existing package.json,
-// preserving that file's own indentation style.
+/**
+ * Merges the GraphQL codegen packages + "gen" script into an existing package.json,
+ * preserving that file's own indentation style.
+ */
 function mergeGraphqlIntoPackageJson(absPackageJsonPath: string): string {
 	const { pkg, indent } = mergePackageJsonDeps(
 		absPackageJsonPath,
@@ -61,8 +65,10 @@ function mergeGraphqlIntoPackageJson(absPackageJsonPath: string): string {
 	return `${relToRoot(absPackageJsonPath)} (+graphql, api, script, @graphql-codegen/*)${genNote}`;
 }
 
-// Appends GRAPHQL_PORT to .env.sample (creating it if somehow missing) and, only if it already
-// exists, to .env too — .env is gitignored and may not exist in a fresh checkout.
+/**
+ * Appends GRAPHQL_PORT to .env.sample (creating it if somehow missing) and, only if it already
+ * exists, to .env too — .env is gitignored and may not exist in a fresh checkout.
+ */
 function appendGraphqlPort(absPath: string, port: number, createIfMissing: boolean): string | null {
 	const line = `GRAPHQL_PORT=${port}`;
 	if (!fs.existsSync(absPath)) {
@@ -79,9 +85,11 @@ function appendGraphqlPort(absPath: string, port: number, createIfMissing: boole
 	return `${relToRoot(absPath)} (+GRAPHQL_PORT)`;
 }
 
-// Scans every servers/*/.env.sample (new GRAPHQL_PORT convention) and servers/*/src/app.ts
-// (demo1/demo2's pre-existing hardcoded `port: N` literal on the ApolloDriver entry) for a
-// port already in use, and returns the lowest one >= DEFAULT_GRAPHQL_PORT not already taken.
+/**
+ * Scans every servers/* /.env.sample (new GRAPHQL_PORT convention) and servers/* /src/app.ts
+ * (demo1/demo2's pre-existing hardcoded `port: N` literal on the ApolloDriver entry) for a
+ * port already in use, and returns the lowest one >= DEFAULT_GRAPHQL_PORT not already taken.
+ */
 function findAvailableGraphqlPort(root: string): number {
 	return findAvailableServerPort(root, "GRAPHQL_PORT", "ApolloDriver", DEFAULT_GRAPHQL_PORT);
 }
@@ -93,10 +101,12 @@ function buildApolloDriverEntry(itemIndent: string): string {
 	);
 }
 
-// Finds the schema/graphql directory a server actually uses. demo1 uses "schemas/graphql"
-// (plural, matching its "schemas/proto" sibling), demo2 uses "schema/graphql" (singular) — a
-// pre-existing naming drift documented in servers/demo1/CLAUDE.md. New servers get the plural
-// "schemas" form to match the repo's more common convention.
+/**
+ * Finds the schema/graphql directory a server actually uses. demo1 uses "schemas/graphql"
+ * (plural, matching its "schemas/proto" sibling), demo2 uses "schema/graphql" (singular) — a
+ * pre-existing naming drift documented in servers/demo1/CLAUDE.md. New servers get the plural
+ * "schemas" form to match the repo's more common convention.
+ */
 function graphqlSchemaDir(location: string): string {
 	const absLocation = path.join(process.cwd(), location);
 	if (fs.existsSync(path.join(absLocation, "src", "schema", "graphql"))) {
@@ -105,8 +115,10 @@ function graphqlSchemaDir(location: string): string {
 	return "schemas";
 }
 
-// Registers this server as a federation subgraph in services/apollo's supergraph.yaml, so
-// `bun run supergraph` picks it up. Skips if the server is already listed.
+/**
+ * Registers this server as a federation subgraph in services/apollo's supergraph.yaml, so
+ * `bun run supergraph` picks it up. Skips if the server is already listed.
+ */
 function appendSupergraphSubgraph(location: string, name: string, port: number): string {
 	if (!fs.existsSync(SUPERGRAPH_YAML_PATH)) {
 		return `${relToRoot(SUPERGRAPH_YAML_PATH)} not found, skipped`;
