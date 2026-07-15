@@ -1,6 +1,0 @@
-apiVersion: v2
-name: mfe1
-description: mfe1 React web app (Rsbuild)
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

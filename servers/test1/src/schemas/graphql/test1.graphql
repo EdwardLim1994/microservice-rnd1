@@ -1,9 +1,0 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key", "@shareable"])
-
-type Query {
-  test1: Test1
-}
-
-type Test1 @key(fields: "id") {
-  id: ID!
-}
