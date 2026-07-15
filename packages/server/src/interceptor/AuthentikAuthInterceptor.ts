@@ -32,6 +32,7 @@ export class AuthentikAuthInterceptor extends AuthInterceptor {
   private readonly audience?: string;
   private readonly jwks: ReturnType<typeof createRemoteJWKSet>;
 
+  /** Resolves issuer/audience from `AUTHENTIK_URL`/`AUTHENTIK_APPLICATION_SLUG`/`AUTHENTIK_JWT_AUDIENCE` and builds the remote JWKS; throws if `AUTHENTIK_URL` is missing. */
   constructor(
     _container?: unknown,
     private readonly verify: Verify = jwtVerify,
@@ -54,6 +55,7 @@ export class AuthentikAuthInterceptor extends AuthInterceptor {
     this.audience = process.env.AUTHENTIK_JWT_AUDIENCE;
   }
 
+  /** Verifies a Bearer token's signature/issuer/audience against Authentik's JWKS — returns false (not the specific reason) on any failure. */
   protected async validateToken(token?: string): Promise<boolean> {
     if (!token) return false;
     const bearerToken = token.startsWith('Bearer ') ? token.slice(7) : token;

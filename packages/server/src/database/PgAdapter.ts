@@ -6,6 +6,7 @@ export class PgAdapter implements DbAdapter {
   readonly adapter: PrismaPg;
   private readonly pool: Pool;
 
+  /** Accepts either a connection string or a full `pg` `PoolConfig` object. */
   constructor(config: PoolConfig | string) {
     this.pool =
       typeof config === 'string'
@@ -14,6 +15,7 @@ export class PgAdapter implements DbAdapter {
     this.adapter = new PrismaPg(this.pool);
   }
 
+  /** Closes the underlying `pg` pool. */
   end(): Promise<void> {
     return this.pool.end();
   }

@@ -63,6 +63,12 @@ export class KafkaDriver extends BaseDriver {
     super();
   }
 
+  /**
+   * Registers the configured serializer, provisions every producer/consumer topic up front
+   * (idempotent — avoids the "topic doesn't exist" race), connects a producer always and a
+   * consumer only if at least one `KafkaConsumerRouter` was passed, and registers
+   * `kafka`/`kafkaProducer` into the container.
+   */
   async start({ routers, container }: DriverStartOptions): Promise<void> {
     const brokers =
       this.config.brokers ??
@@ -149,6 +155,7 @@ export class KafkaDriver extends BaseDriver {
     }
   }
 
+  /** Disconnects the consumer (if any) then the producer. */
   async stop(): Promise<void> {
     await this.consumer?.disconnect();
     await this.producer?.disconnect();

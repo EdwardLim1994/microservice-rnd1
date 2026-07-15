@@ -48,6 +48,11 @@ export interface VaultPgAdapterConfig {
 // long-running server must restart to get a fresh lease. Accepted as out of scope for this
 // prototype; see packages/server/CLAUDE.md's Database section.
 export class VaultPgAdapter {
+  /**
+   * Logs into Vault via AppRole, reads a fresh `database/creds/<dbRole>` credential, and builds a
+   * `PgAdapter` from it. Throws if required config/env vars are missing. The returned adapter's
+   * credential expires at its Vault lease TTL — nothing renews it (see class-level comment).
+   */
   static async fromEnv(config: VaultPgAdapterConfig = {}): Promise<PgAdapter> {
     const vaultAddr =
       config.vaultAddr ?? process.env.VAULT_ADDR ?? 'http://localhost:8200';

@@ -22,12 +22,14 @@ export class RedisPlugin extends BasePlugin {
     super();
   }
 
+  /** Connects eagerly (fails startup on a bad connection instead of surfacing later) and registers `redis` into the container. */
   async onStart(): Promise<void> {
     this.client = await this.createClient();
     await this.client.connect();
     this.container.register({ redis: asValue(this.client) });
   }
 
+  /** Closes the Redis connection. */
   async onStop(): Promise<void> {
     this.client?.close();
   }

@@ -21,12 +21,15 @@ export abstract class CronRouter<
     super();
   }
 
-  // schedule name -> cron expression, used by CronDriver to call Bun.cron
+  /** Schedule name -> cron expression, used by CronDriver to call Bun.cron. */
   abstract get schedules(): TSchedules;
+  /** Maps each schedule to the use case that runs on it (no input, no output). */
   abstract get handlers(): CronHandlerMap<TSchedules>;
 
-  // schedule name -> resolve + execute, closing over this router's container
-  // (same shape as KafkaConsumerRouter.dispatchers — auto-registers use cases transiently)
+  /**
+   * Schedule name -> resolve + execute, closing over this router's container
+   * (same shape as KafkaConsumerRouter.dispatchers — auto-registers use cases transiently).
+   */
   get dispatchers(): Record<string, () => Promise<void>> {
     return Object.fromEntries(
       Object.entries(this.handlers).map(([name, UseCase]) => {

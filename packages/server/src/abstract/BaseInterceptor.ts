@@ -21,18 +21,23 @@ export class InterceptorError extends Error {}
 type UnaryCallback = (error: unknown, ...rest: unknown[]) => void;
 
 export abstract class BaseInterceptor {
-  // Called once per request, given a protocol-agnostic view of the incoming call — the same hook
-  // regardless of whether this interceptor ends up wired to gRPC or GraphQL. Throw an
-  // InterceptorError to reject the call (e.g. an auth failure); return normally to let it continue
-  // — a logging/OTel interceptor, for instance, would just read headers here and never throw.
+  /**
+   * Called once per request, given a protocol-agnostic view of the incoming call — the same hook
+   * regardless of whether this interceptor ends up wired to gRPC or GraphQL. Throw an
+   * InterceptorError to reject the call (e.g. an auth failure); return normally to let it continue
+   * — a logging/OTel interceptor, for instance, would just read headers here and never throw.
+   */
   protected abstract intercept(
     request: InterceptorRequest,
   ): void | Promise<void>;
 
-  // apply(server) is called once at startup (not per request) with whichever raw driver server
-  // this ServerApp is running — duck-typed since there's no shared "middleware" shape across
-  // gRPC/GraphQL to type-check against instead (same technique as ApolloDriver's isGraphqlRouter /
-  // KafkaDriver's isKafkaConsumerRouter).
+  /**
+   * Called once at startup (not per request) with whichever raw driver server this ServerApp is
+   * running — duck-typed since there's no shared "middleware" shape across gRPC/GraphQL to
+   * type-check against instead (same technique as ApolloDriver's isGraphqlRouter /
+   * KafkaDriver's isKafkaConsumerRouter). Wires this interceptor's `intercept()` into whichever
+   * protocol it recognizes.
+   */
   apply(server: unknown): void {
     if (this.isGrpcServer(server)) {
       this.applyToGrpc(server);
@@ -43,6 +48,7 @@ export abstract class BaseInterceptor {
     }
   }
 
+  /** Duck-types `server` as a `@grpc/grpc-js` `Server` (has `addService`). */
   protected isGrpcServer(server: unknown): server is GrpcServer {
     return (
       typeof server === 'object' &&
@@ -51,6 +57,7 @@ export abstract class BaseInterceptor {
     );
   }
 
+  /** Duck-types `server` as an `ApolloServer` (has `addPlugin`). */
   protected isApolloServer(server: unknown): server is ApolloServer {
     return (
       typeof server === 'object' &&
@@ -59,11 +66,13 @@ export abstract class BaseInterceptor {
     );
   }
 
-  // @grpc/grpc-js only supports server interceptors via `new Server({ interceptors })` at
-  // construction time — but GrpcDriver already constructs its Server before apply() runs, so
-  // there's no supported post-construction hook. Wrapping the public addService() instead means
-  // every router's later register() call (which calls addService()) transparently goes through
-  // intercept() first.
+  /**
+   * @grpc/grpc-js only supports server interceptors via `new Server({ interceptors })` at
+   * construction time — but GrpcDriver already constructs its Server before apply() runs, so
+   * there's no supported post-construction hook. Wraps the public addService() instead, so every
+   * router's later register() call (which calls addService()) transparently goes through
+   * intercept() first.
+   */
   private applyToGrpc(server: GrpcServer): void {
     const originalAddService = server.addService.bind(server);
     server.addService = (service, implementation) => {
@@ -71,6 +80,7 @@ export abstract class BaseInterceptor {
     };
   }
 
+  /** Wraps every method on a gRPC service implementation with `wrapGrpcHandler`. */
   private wrapGrpcImplementation(
     implementation: UntypedServiceImplementation,
   ): UntypedServiceImplementation {
@@ -82,6 +92,7 @@ export abstract class BaseInterceptor {
     );
   }
 
+  /** Runs `intercept()` before delegating to `handler`, translating a thrown `InterceptorError` into `status.UNAUTHENTICATED` (any other error into `status.INTERNAL`). */
   private wrapGrpcHandler(handler: UntypedHandleCall): UntypedHandleCall {
     // Only unary/client-streaming calls take a callback as the 2nd arg (server-streaming/bidi
     // handlers take just `call` and write to the stream directly) — GrpcRouter, this framework's
@@ -115,8 +126,12 @@ export abstract class BaseInterceptor {
     }) as UntypedHandleCall;
   }
 
-  // ApolloServer.addPlugin() is a stable, public extension point (unlike gRPC, no monkey-patching
-  // needed) — didResolveOperation runs after parsing/validation but before any resolver executes.
+  /**
+   * ApolloServer.addPlugin() is a stable, public extension point (unlike gRPC, no monkey-patching
+   * needed) — didResolveOperation runs after parsing/validation but before any resolver executes.
+   * Translates a thrown `InterceptorError` into a `GraphQLError` with `extensions.code:
+   * 'UNAUTHENTICATED'`.
+   */
   private applyToApollo(server: ApolloServer): void {
     const plugin: ApolloServerPlugin = {
       requestDidStart: async () => ({

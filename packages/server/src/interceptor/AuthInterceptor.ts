@@ -13,12 +13,14 @@ import {
 // `boolean`) specifically so that override pattern typechecks — a subclass validating against a
 // real network call (e.g. AuthentikAuthInterceptor's JWKS verification) needs to be async.
 export class AuthInterceptor extends BaseInterceptor {
+  /** Placeholder validator — strips an optional `Bearer ` prefix and compares against the static `AUTH_TOKEN` env var. Override for real auth (e.g. `AuthentikAuthInterceptor`). */
   protected validateToken(token?: string): boolean | Promise<boolean> {
     if (!token) return false;
     const bearerToken = token.startsWith('Bearer ') ? token.slice(7) : token;
     return bearerToken === process.env.AUTH_TOKEN;
   }
 
+  /** Rejects the request with `InterceptorError` if the `authorization` header fails `validateToken()`. */
   protected async intercept(request: InterceptorRequest): Promise<void> {
     if (!(await this.validateToken(request.getHeader('authorization')))) {
       throw new InterceptorError('Unauthenticated');

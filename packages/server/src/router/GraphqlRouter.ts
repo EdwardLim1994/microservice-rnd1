@@ -15,9 +15,16 @@ export abstract class GraphqlRouter extends BaseRouter {
     super();
   }
 
+  /** This router's GraphQL SDL — may use federation directives (`@key`, `@external`, etc.). */
   abstract get typeDefs(): string;
+  /** Maps each GraphQL type/field to the use case that resolves it. */
   abstract get handlers(): GraphqlHandlerMap;
 
+  /**
+   * Builds Apollo resolvers from `handlers`, auto-registering each use case into the container
+   * transiently. Root fields (Query/Mutation) receive GraphQL args as input; fields on entity
+   * types (including `__resolveReference`) receive the parent/reference object instead.
+   */
   get resolvers(): Record<string, Record<string, unknown>> {
     return Object.fromEntries(
       Object.entries(this.handlers).map(([typeName, fields]) => {

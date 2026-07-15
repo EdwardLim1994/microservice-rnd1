@@ -13,6 +13,8 @@ export interface DriverStartOptions {
 }
 
 export abstract class BaseDriver {
+  /** Starts this driver's protocol server against the shared routers/interceptors/plugins/container. */
   abstract start(options: DriverStartOptions): Promise<void>;
+  /** Stops this driver's protocol server. */
   abstract stop(): Promise<void>;
 }

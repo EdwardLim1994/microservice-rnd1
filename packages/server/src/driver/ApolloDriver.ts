@@ -34,6 +34,7 @@ export class ApolloDriver extends BaseDriver {
     super();
   }
 
+  /** Builds a federation subgraph schema from every GraphQL router's typeDefs/resolvers (skipping non-GraphQL routers via duck-typing), applies interceptors, then starts the standalone server. */
   async start({
     port,
     host,
@@ -61,6 +62,7 @@ export class ApolloDriver extends BaseDriver {
     await this.startServer(this._server, { listen: { port, host } });
   }
 
+  /** Stops the Apollo server, if it was started. */
   async stop(): Promise<void> {
     await this._server?.stop();
   }
