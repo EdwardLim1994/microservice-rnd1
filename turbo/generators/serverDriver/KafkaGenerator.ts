@@ -16,9 +16,11 @@ function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
 }
 
-// Merges the Kafka packages into an existing package.json, preserving that file's own
-// indentation style. Unlike gRPC/GraphQL, Kafka has no codegen step of its own (topics/schemas
-// are hand-declared in packages/api, not generated), so there's no "gen" script to touch here.
+/**
+ * Merges the Kafka packages into an existing package.json, preserving that file's own
+ * indentation style. Unlike gRPC/GraphQL, Kafka has no codegen step of its own (topics/schemas
+ * are hand-declared in packages/api, not generated), so there's no "gen" script to touch here.
+ */
 function mergeKafkaIntoPackageJson(absPackageJsonPath: string): string {
 	const { pkg, indent } = mergePackageJsonDeps(
 		absPackageJsonPath,
@@ -29,11 +31,13 @@ function mergeKafkaIntoPackageJson(absPackageJsonPath: string): string {
 	return `${relToRoot(absPackageJsonPath)} (+kafkajs, @confluentinc/schemaregistry)`;
 }
 
-// Appends the Kafka/Schema Registry env vars to .env.sample (creating it if somehow missing)
-// and, only if it already exists, to .env too — .env is gitignored and may not exist in a
-// fresh checkout. KAFKA_GROUP_ID is only meaningful for a consumer (see KafkaDriver's
-// `groupId ?? process.env.KAFKA_GROUP_ID ?? 'default-group'` fallback), so "producer" alone
-// skips it — "both" needs it just as much as "consumer" does.
+/**
+ * Appends the Kafka/Schema Registry env vars to .env.sample (creating it if somehow missing)
+ * and, only if it already exists, to .env too — .env is gitignored and may not exist in a
+ * fresh checkout. KAFKA_GROUP_ID is only meaningful for a consumer (see KafkaDriver's
+ * `groupId ?? process.env.KAFKA_GROUP_ID ?? 'default-group'` fallback), so "producer" alone
+ * skips it — "both" needs it just as much as "consumer" does.
+ */
 function appendKafkaEnv(
 	absPath: string,
 	name: string,
@@ -81,15 +85,17 @@ function buildKafkaDriverEntry(itemIndent: string, role: KafkaRole): string {
 	);
 }
 
-// In-cluster Kafka/Schema Registry (services/kafka/helm, deployed via services/terraform into
-// the shared "infra" namespace) — cross-namespace Service FQDN, port 9092 (its single PLAINTEXT
-// listener). This is a fixed, environment-wide address, not server-specific — every server
-// deployed into this same cluster points at the same "infra" namespace. Previously defaulted to
-// host.minikube.internal:29093 (the docker-compose Kafka's minikube-specific listener) — that
-// container isn't guaranteed to stay running once k8s is the primary deploy target, confirmed
-// the hard way on servers/demo1 and servers/demo2 (both crash-looped with ECONNREFUSED after the
-// docker-compose stack died independently of the k8s cluster). See
-// servers/demo1/helm/values.yaml's kafka.brokers comment for the full story.
+/**
+ * In-cluster Kafka/Schema Registry (services/kafka/helm, deployed via services/terraform into
+ * the shared "infra" namespace) — cross-namespace Service FQDN, port 9092 (its single PLAINTEXT
+ * listener). This is a fixed, environment-wide address, not server-specific — every server
+ * deployed into this same cluster points at the same "infra" namespace. Previously defaulted to
+ * host.minikube.internal:29093 (the docker-compose Kafka's minikube-specific listener) — that
+ * container isn't guaranteed to stay running once k8s is the primary deploy target, confirmed
+ * the hard way on servers/demo1 and servers/demo2 (both crash-looped with ECONNREFUSED after the
+ * docker-compose stack died independently of the k8s cluster). See
+ * servers/demo1/helm/values.yaml's kafka.brokers comment for the full story.
+ */
 function helmKafkaValuesBlock(name: string, role: KafkaRole): string {
 	const groupIdLine = role !== "producer" ? `\n  groupId: ${name}-group` : "";
 	return (
@@ -136,11 +142,13 @@ function addKafkaConfigmapEnv(location: string, role: KafkaRole): string {
 	return `${relToRoot(absPath)} (+Kafka/Schema Registry config)`;
 }
 
-// Inserts `snippet` just before the closing brace of the first `{ ... }` block found after
-// `marker` in the file — shared by the two terraform injections below (a helm_release resource's
-// body, a module call's body). Skipped (not an error) if the file doesn't exist — a server
-// scaffolded before this generator enhancement existed won't have one; skipped (idempotent) if
-// `uniqueMarker` is already present, so re-running the generator doesn't duplicate the insert.
+/**
+ * Inserts `snippet` just before the closing brace of the first `{ ... }` block found after
+ * `marker` in the file — shared by the two terraform injections below (a helm_release resource's
+ * body, a module call's body). Skipped (not an error) if the file doesn't exist — a server
+ * scaffolded before this generator enhancement existed won't have one; skipped (idempotent) if
+ * `uniqueMarker` is already present, so re-running the generator doesn't duplicate the insert.
+ */
 function insertBeforeClosingBrace(
 	absPath: string,
 	blockMarker: string,
@@ -163,11 +171,13 @@ function insertBeforeClosingBrace(
 	return `${relToRoot(absPath)} (+${uniqueMarker})`;
 }
 
-// Adds kafka_brokers/schema_registry_url as overridable Terraform variables across all four
-// per-server terraform files — module/{variables,main}.tf (the actual helm_release `set`
-// blocks) and the thin standalone wrapper's {variables,main}.tf (pass-through) — mirroring how
-// app_image_tag already flows through both layers. Lets a future multi-environment terraform
-// config override the Kafka cluster this server points at without editing its Helm chart.
+/**
+ * Adds kafka_brokers/schema_registry_url as overridable Terraform variables across all four
+ * per-server terraform files — module/{variables,main}.tf (the actual helm_release `set`
+ * blocks) and the thin standalone wrapper's {variables,main}.tf (pass-through) — mirroring how
+ * app_image_tag already flows through both layers. Lets a future multi-environment terraform
+ * config override the Kafka cluster this server points at without editing its Helm chart.
+ */
 function addKafkaTerraformVars(location: string, name: string): string {
 	const tfRoot = path.join(process.cwd(), location, "terraform");
 	const tfVarsBlock =

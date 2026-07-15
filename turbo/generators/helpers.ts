@@ -10,7 +10,9 @@ function isServerWorkspace(absDir: string): boolean {
 	return Boolean(deps.server);
 }
 
-// Only servers/<name> that actually depend on the `server` framework package.
+/**
+ * Only servers/<name> that actually depend on the `server` framework package.
+ */
 export function findServerWorkspaces(root: string): string[] {
 	const serversDir = path.join(root, "servers");
 	if (!fs.existsSync(serversDir)) return [];
@@ -21,32 +23,40 @@ export function findServerWorkspaces(root: string): string[] {
 		.filter((rel) => isServerWorkspace(path.join(root, rel)));
 }
 
-// Only servers that have a Prisma schema, i.e. actually have a PrismaClient for
-// BaseRepository<PrismaClient> to be constructed against.
+/**
+ * Only servers that have a Prisma schema, i.e. actually have a PrismaClient for
+ * BaseRepository<PrismaClient> to be constructed against.
+ */
 export function findPrismaServerWorkspaces(root: string): string[] {
 	return findServerWorkspaces(root).filter((rel) =>
 		fs.existsSync(path.join(root, rel, "src", "schemas", "prisma", "schema.prisma")),
 	);
 }
 
-// The inverse: server workspaces that don't have a database yet, i.e. eligible
-// targets for the "database" extension generator.
+/**
+ * The inverse: server workspaces that don't have a database yet, i.e. eligible
+ * targets for the "database" extension generator.
+ */
 export function findServerWorkspacesWithoutPrisma(root: string): string[] {
 	const withPrisma = new Set(findPrismaServerWorkspaces(root));
 	return findServerWorkspaces(root).filter((rel) => !withPrisma.has(rel));
 }
 
-// Whether a server workspace already has the given driver wired up in its app.ts (matched by
-// the driver's export name, e.g. "GrpcDriver"/"ApolloDriver"/"KafkaDriver") — the eligibility
-// check behind the unified "extension" generator's per-server driver choices.
+/**
+ * Whether a server workspace already has the given driver wired up in its app.ts (matched by
+ * the driver's export name, e.g. "GrpcDriver"/"ApolloDriver"/"KafkaDriver") — the eligibility
+ * check behind the unified "extension" generator's per-server driver choices.
+ */
 export function serverHasDriver(root: string, location: string, driverName: string): boolean {
 	const appPath = path.join(root, location, "src", "app.ts");
 	if (!fs.existsSync(appPath)) return false;
 	return fs.readFileSync(appPath, "utf-8").includes(driverName);
 }
 
-// Shared "list" prompt choices for a location prompt, with a disabled placeholder
-// when no eligible workspace was found.
+/**
+ * Shared "list" prompt choices for a location prompt, with a disabled placeholder
+ * when no eligible workspace was found.
+ */
 export function workspaceChoices(
 	workspaces: string[],
 	emptyMessage: string,
@@ -56,15 +66,19 @@ export function workspaceChoices(
 		: [{ name: emptyMessage, value: "", disabled: true }];
 }
 
-// Detects a file's own indentation style (servers are inconsistent: demo1 uses
-// 2-space, demo2 uses tabs), so a JSON/TS rewrite can preserve it instead of clobbering it.
+/**
+ * Detects a file's own indentation style (servers are inconsistent: demo1 uses
+ * 2-space, demo2 uses tabs), so a JSON/TS rewrite can preserve it instead of clobbering it.
+ */
 export function detectIndent(raw: string): string {
 	const match = /\n([ \t]+)\S/.exec(raw);
 	return match ? match[1] : "\t";
 }
 
-// Scans forward from `openIndex` (which must point at `openChar`) counting nested
-// open/close chars, returning the index of the matching close char.
+/**
+ * Scans forward from `openIndex` (which must point at `openChar`) counting nested
+ * open/close chars, returning the index of the matching close char.
+ */
 export function findMatchingBracket(
 	text: string,
 	openIndex: number,
@@ -98,11 +112,13 @@ export function addNamedImport(raw: string, source: string, importName: string):
 	return raw.replace(importRegex, `import { ${names.join(", ")} } from "${source}";`);
 }
 
-// Like addNamedImport, but tolerates `source` not being imported yet — merges into an existing
-// `import { ... } from "<source>"` if one exists, else adds a fresh import statement right after
-// the last top-level import. Useful when the caller can't guarantee the target file already
-// imports from that source (e.g. injecting a new page's import into a router file that may not
-// yet import anything from that page's module).
+/**
+ * Like addNamedImport, but tolerates `source` not being imported yet — merges into an existing
+ * `import { ... } from "<source>"` if one exists, else adds a fresh import statement right after
+ * the last top-level import. Useful when the caller can't guarantee the target file already
+ * imports from that source (e.g. injecting a new page's import into a router file that may not
+ * yet import anything from that page's module).
+ */
 export function addOrMergeNamedImport(raw: string, source: string, importName: string): string {
 	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
 	if (importRegex.test(raw)) {
@@ -129,9 +145,11 @@ export interface PackageJson {
 	[key: string]: unknown;
 }
 
-// Merges devDependencies/dependencies into a package.json, preserving that file's own
-// indentation style (servers are inconsistent: demo1 uses 2-space, demo2 uses tabs). Doesn't
-// write the file — call writePackageJson once all merges (deps + gen script) are applied.
+/**
+ * Merges devDependencies/dependencies into a package.json, preserving that file's own
+ * indentation style (servers are inconsistent: demo1 uses 2-space, demo2 uses tabs). Doesn't
+ * write the file — call writePackageJson once all merges (deps + gen script) are applied.
+ */
 export function mergePackageJsonDeps(
 	absPackageJsonPath: string,
 	devDependencies: Record<string, string>,
@@ -151,10 +169,12 @@ export function mergePackageJsonDeps(
 	return { pkg, indent };
 }
 
-// Sets scripts.gen to the shared `generate_api.sh.ts` entrypoint (proto and/or GraphQL
-// codegen, driven by APIGenerator) unless something else is already there — "gen" is a single
-// named command, not a lifecycle hook, so if it's already set to something else we leave it
-// alone and report it rather than silently overwriting it.
+/**
+ * Sets scripts.gen to the shared `generate_api.sh.ts` entrypoint (proto and/or GraphQL
+ * codegen, driven by APIGenerator) unless something else is already there — "gen" is a single
+ * named command, not a lifecycle hook, so if it's already set to something else we leave it
+ * alone and report it rather than silently overwriting it.
+ */
 export function ensureGenScript(pkg: PackageJson): string {
 	const genScript = "bun ./src/scripts/generate_api.sh.ts";
 	const existingGen = pkg.scripts.gen;
@@ -174,9 +194,11 @@ export function writePackageJson(absPackageJsonPath: string, pkg: PackageJson, i
 
 const SHARED_TEMPLATES_DIR = path.join(process.cwd(), "turbo", "generators", "templates", "shared");
 
-// Writes the shared, protocol-agnostic generate_api.sh.ts script (proto + GraphQL codegen,
-// via APIGenerator) unless one is already there — gRPC and GraphQL extensions both need it,
-// so whichever extension is added first creates it.
+/**
+ * Writes the shared, protocol-agnostic generate_api.sh.ts script (proto + GraphQL codegen,
+ * via APIGenerator) unless one is already there — gRPC and GraphQL extensions both need it,
+ * so whichever extension is added first creates it.
+ */
 export function addApiScript(location: string): string {
 	const name = path.basename(location);
 	const destPath = path.join(process.cwd(), location, "src", "scripts", "generate_api.sh.ts");
@@ -192,14 +214,16 @@ export function addApiScript(location: string): string {
 	return relToRoot(destPath);
 }
 
-// Rewrites `ServerApp.init(...)` to add a driver entry — handling both the bare
-// single-driver form (servers/templates/server's own scaffold, `ServerApp.init(CronDriver)`)
-// and the array-of-entries form (servers/demo1's shape). Converting from the bare form also
-// collapses its now-redundant `.run(() => \`...\`)` callback to a bare `.run()`, since once a
-// driver has its own onReady, a single global "server is running" callback doesn't fit.
-// `buildEntry(itemIndent)` renders the `{ driver: ..., ... }` object literal text (no trailing
-// comma). `extraImports` adds further named imports from "server" alongside the driver itself
-// (e.g. KafkaDriver's entry also references SchemaRegistryKafkaSerializer).
+/**
+ * Rewrites `ServerApp.init(...)` to add a driver entry — handling both the bare
+ * single-driver form (servers/templates/server's own scaffold, `ServerApp.init(CronDriver)`)
+ * and the array-of-entries form (servers/demo1's shape). Converting from the bare form also
+ * collapses its now-redundant `.run(() => \`...\`)` callback to a bare `.run()`, since once a
+ * driver has its own onReady, a single global "server is running" callback doesn't fit.
+ * `buildEntry(itemIndent)` renders the `{ driver: ..., ... }` object literal text (no trailing
+ * comma). `extraImports` adds further named imports from "server" alongside the driver itself
+ * (e.g. KafkaDriver's entry also references SchemaRegistryKafkaSerializer).
+ */
 export function injectDriverEntry(
 	absAppPath: string,
 	driverName: string,
@@ -261,9 +285,11 @@ function appendBarrelExport(absBarrelPath: string, name: string): string {
 	return `${absBarrelPath} (+${name})`;
 }
 
-// Registers the "appendBarrel" custom action, shared by usecase/repository/interceptor/router
-// generators: appends `export { default as <name> } from "./<name>";` to <location>/src/<folder>/index.ts,
-// creating the folder/barrel if it doesn't exist yet.
+/**
+ * Registers the "appendBarrel" custom action, shared by usecase/repository/interceptor/router
+ * generators: appends `export { default as <name> } from "./<name>";` to <location>/src/<folder>/index.ts,
+ * creating the folder/barrel if it doesn't exist yet.
+ */
 export function registerAppendBarrelAction(plop: PlopTypes.NodePlopAPI): void {
 	plop.setActionType("appendBarrel", (answers, config) => {
 		const { location, name } = answers as { location: string; name: string };
@@ -273,17 +299,21 @@ export function registerAppendBarrelAction(plop: PlopTypes.NodePlopAPI): void {
 	});
 }
 
-// "web" (Rsbuild) is matched by rsbuild.config.ts, "native" (Expo/React Native) by
-// metro.config.js — a "react-dom" dependency check isn't reliable since apps/mobile's
-// package.json happens to list one too.
+/**
+ * "web" (Rsbuild) is matched by rsbuild.config.ts, "native" (Expo/React Native) by
+ * metro.config.js — a "react-dom" dependency check isn't reliable since apps/mobile's
+ * package.json happens to list one too.
+ */
 export function frontendPlatform(root: string, location: string): "web" | "native" | null {
 	if (fs.existsSync(path.join(root, location, "rsbuild.config.ts"))) return "web";
 	if (fs.existsSync(path.join(root, location, "metro.config.js"))) return "native";
 	return null;
 }
 
-// React frontend workspaces (web or native) under apps/* and frontends/* — see
-// frontendPlatform for how each is told apart.
+/**
+ * React frontend workspaces (web or native) under apps/* and frontends/* — see
+ * frontendPlatform for how each is told apart.
+ */
 export function findFrontendWorkspaces(root: string): string[] {
 	return ["apps", "frontends"].flatMap((dir) => {
 		const base = path.join(root, dir);
@@ -298,11 +328,13 @@ export function findFrontendWorkspaces(root: string): string[] {
 
 export const DEFAULT_FRONTEND_PORT = 3000;
 
-// Scans every apps/*/rsbuild.config.ts and frontends/*/rsbuild.config.ts for a dev server port
-// already in use (matched within its `server: { ... port: N ... }` block specifically, not the
-// `dev.assetPrefix` string which embeds the same port number in a different spot) and returns
-// the lowest one >= DEFAULT_FRONTEND_PORT not already taken — e.g. apps/portal has 3000 and
-// frontends/frontend1 has 3001, so a third project gets 3002.
+/**
+ * Scans every apps/* /rsbuild.config.ts and frontends/* /rsbuild.config.ts for a dev server port
+ * already in use (matched within its `server: { ... port: N ... }` block specifically, not the
+ * `dev.assetPrefix` string which embeds the same port number in a different spot) and returns
+ * the lowest one >= DEFAULT_FRONTEND_PORT not already taken — e.g. apps/portal has 3000 and
+ * frontends/frontend1 has 3001, so a third project gets 3002.
+ */
 export function findAvailableFrontendPort(root: string): number {
 	const usedPorts = new Set<number>();
 
@@ -325,11 +357,13 @@ export function findAvailableFrontendPort(root: string): number {
 
 const DEFAULT_MOBILE_PORT = 3011;
 
-// Reads a single apps/*/package.json's "dev" script for a `--port N` already in use — the
-// per-workspace half of findAvailableMobilePort's scan, split out to keep that function's
-// cognitive complexity down. Harmless to call for every apps/* workspace, not just Expo ones —
-// an Rsbuild-based app's "dev" script ("rsbuild --open") never matches the `--port` pattern, so
-// it just returns null.
+/**
+ * Reads a single apps/* /package.json's "dev" script for a `--port N` already in use — the
+ * per-workspace half of findAvailableMobilePort's scan, split out to keep that function's
+ * cognitive complexity down. Harmless to call for every apps/* workspace, not just Expo ones —
+ * an Rsbuild-based app's "dev" script ("rsbuild --open") never matches the `--port` pattern, so
+ * it just returns null.
+ */
 function extractMobilePortFromPackageJson(pkgPath: string): number | null {
 	if (!fs.existsSync(pkgPath)) return null;
 	const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
@@ -339,9 +373,11 @@ function extractMobilePortFromPackageJson(pkgPath: string): number | null {
 	return match ? Number(match[1]) : null;
 }
 
-// Scans every apps/*/package.json for a `--port N` already used in its "dev" script (Expo's
-// dev-server/tunnel port — apps/mobile's own is `expo start --host tunnel --port 3011`) and
-// returns the lowest one >= DEFAULT_MOBILE_PORT not already taken.
+/**
+ * Scans every apps/* /package.json for a `--port N` already used in its "dev" script (Expo's
+ * dev-server/tunnel port — apps/mobile's own is `expo start --host tunnel --port 3011`) and
+ * returns the lowest one >= DEFAULT_MOBILE_PORT not already taken.
+ */
 export function findAvailableMobilePort(root: string): number {
 	const usedPorts = new Set<number>();
 
@@ -359,8 +395,10 @@ export function findAvailableMobilePort(root: string): number {
 	return port;
 }
 
-// Existing modules (each a directory) under <location>/src/modules — the eligible targets for
-// the page/viewmodel/component generators, which add into a module rather than create one.
+/**
+ * Existing modules (each a directory) under <location>/src/modules — the eligible targets for
+ * the page/viewmodel/component generators, which add into a module rather than create one.
+ */
 export function findFrontendModules(root: string, location: string): string[] {
 	const modulesDir = path.join(root, location, "src", "modules");
 	if (!fs.existsSync(modulesDir)) return [];
@@ -370,11 +408,13 @@ export function findFrontendModules(root: string, location: string): string[] {
 		.map((entry) => entry.name);
 }
 
-// Appends a raw export line to a barrel file (creating the folder/file if missing) — the
-// frontend module convention uses both named re-exports (pages: `export { X } from './X';`,
-// matching frontend1's src/modules/demo1/pages/index.ts) and wildcard re-exports (viewmodel/
-// types: `export * from './x';`), so this takes the fully-formed line rather than assuming one
-// style, unlike the backend's appendBarrelExport.
+/**
+ * Appends a raw export line to a barrel file (creating the folder/file if missing) — the
+ * frontend module convention uses both named re-exports (pages: `export { X } from './X';`,
+ * matching frontend1's src/modules/demo1/pages/index.ts) and wildcard re-exports (viewmodel/
+ * types: `export * from './x';`), so this takes the fully-formed line rather than assuming one
+ * style, unlike the backend's appendBarrelExport.
+ */
 export function appendBarrelLine(absBarrelPath: string, line: string): string {
 	fs.mkdirSync(path.dirname(absBarrelPath), { recursive: true });
 	const existing = fs.existsSync(absBarrelPath) ? fs.readFileSync(absBarrelPath, "utf-8") : "";
@@ -386,23 +426,27 @@ export function appendBarrelLine(absBarrelPath: string, line: string): string {
 	return `${relToRoot(absBarrelPath)} (+${line})`;
 }
 
-// Collapses one-or-more trailing newlines in `raw` down to exactly `count` newlines — a
-// non-regex equivalent of `raw.replace(/\n+$/, "\n".repeat(count))`. Written this way (rather
-// than the regex) because SonarCloud's regex-super-linear-backtracking check (typescript:S8786)
-// flagged that pattern repeated across this file/DatabaseGenerator.ts/GraphqlGenerator.ts; a
-// plain scan-backwards loop sidesteps the check entirely instead of trying to appease its
-// heuristic. Same "leave `raw` untouched if it has no trailing newline at all" behavior as the
-// `+`-quantified regex it replaces (`raw.replace(/\n+$/, ...)` only fires on 1+ matches).
+/**
+ * Collapses one-or-more trailing newlines in `raw` down to exactly `count` newlines — a
+ * non-regex equivalent of `raw.replace(/\n+$/, "\n".repeat(count))`. Written this way (rather
+ * than the regex) because SonarCloud's regex-super-linear-backtracking check (typescript:S8786)
+ * flagged that pattern repeated across this file/DatabaseGenerator.ts/GraphqlGenerator.ts; a
+ * plain scan-backwards loop sidesteps the check entirely instead of trying to appease its
+ * heuristic. Same "leave `raw` untouched if it has no trailing newline at all" behavior as the
+ * `+`-quantified regex it replaces (`raw.replace(/\n+$/, ...)` only fires on 1+ matches).
+ */
 export function collapseTrailingNewlines(raw: string, count = 1): string {
 	let end = raw.length;
 	while (end > 0 && raw[end - 1] === "\n") end--;
 	return end === raw.length ? raw : `${raw.slice(0, end)}${"\n".repeat(count)}`;
 }
 
-// Registers a newly-scaffolded <location>/<name>/docker-compose.yml in the root
-// docker-compose.yml's `include:` list, so `docker compose up` from repo root actually brings
-// it up — shared by the "server" and "web" project generators, both of which scaffold their own
-// docker-compose.yml but otherwise had no way to wire it into the root project.
+/**
+ * Registers a newly-scaffolded <location>/<name>/docker-compose.yml in the root
+ * docker-compose.yml's `include:` list, so `docker compose up` from repo root actually brings
+ * it up — shared by the "server" and "web" project generators, both of which scaffold their own
+ * docker-compose.yml but otherwise had no way to wire it into the root project.
+ */
 export function appendRootComposeInclude(root: string, location: string, name: string): string {
 	const rootComposePath = path.join(root, "docker-compose.yml");
 	if (!fs.existsSync(rootComposePath)) {
@@ -417,15 +461,17 @@ export function appendRootComposeInclude(root: string, location: string, name: s
 	return `${path.relative(root, rootComposePath)} (+${location}/${name})`;
 }
 
-// Recursively copies srcDir to destDir, substituting every `{{ key }}` (whitespace-tolerant)
-// with its value from `replacements` — a plain, targeted string substitution, NOT Handlebars
-// compilation. Used for helm/terraform deploy scaffolding (servers/demo1/helm's own
-// `{{ include "server.fullname" . | nindent 4 }}`-style Go-template syntax, and every
-// terraform/*.tf file's HCL `${ }` interpolation) that must survive verbatim into the generated
-// output — running these through plop's addMany (full Handlebars compilation) would try, and
-// fail, to parse `{{ include ... }}` as a Handlebars expression. This only ever touches the
-// literal text `{{ <key> }}` for keys actually passed in `replacements`, leaving every other
-// `{{ ... }}`/`${ ... }` alone — safe regardless of what other template syntax a file contains.
+/**
+ * Recursively copies srcDir to destDir, substituting every `{{ key }}` (whitespace-tolerant)
+ * with its value from `replacements` — a plain, targeted string substitution, NOT Handlebars
+ * compilation. Used for helm/terraform deploy scaffolding (servers/demo1/helm's own
+ * `{{ include "server.fullname" . | nindent 4 }}`-style Go-template syntax, and every
+ * terraform/*.tf file's HCL `${ }` interpolation) that must survive verbatim into the generated
+ * output — running these through plop's addMany (full Handlebars compilation) would try, and
+ * fail, to parse `{{ include ... }}` as a Handlebars expression. This only ever touches the
+ * literal text `{{ <key> }}` for keys actually passed in `replacements`, leaving every other
+ * `{{ ... }}`/`${ ... }` alone — safe regardless of what other template syntax a file contains.
+ */
 export function copyWithSubstitutions(
 	srcDir: string,
 	destDir: string,
@@ -448,13 +494,15 @@ export function copyWithSubstitutions(
 	}
 }
 
-// Keeps <location>/helm/values.yaml's ports.<key> in sync with whatever port
-// GraphqlGenerator/GrpcGenerator actually assigned (findAvailableGraphqlPort/
-// findAvailableGrpcPort auto-increment past ports already used by other servers, so the
-// assigned port won't always match the chart's 4001/5001 defaults) — shared by both generators
-// since they only differ in which values.yaml key and .env.sample var they're syncing from.
-// Skipped (not an error) if helm/values.yaml doesn't exist (a server predating this generator
-// enhancement) or has no "ports.<key>:" entry to update.
+/**
+ * Keeps <location>/helm/values.yaml's ports.<key> in sync with whatever port
+ * GraphqlGenerator/GrpcGenerator actually assigned (findAvailableGraphqlPort/
+ * findAvailableGrpcPort auto-increment past ports already used by other servers, so the
+ * assigned port won't always match the chart's 4001/5001 defaults) — shared by both generators
+ * since they only differ in which values.yaml key and .env.sample var they're syncing from.
+ * Skipped (not an error) if helm/values.yaml doesn't exist (a server predating this generator
+ * enhancement) or has no "ports.<key>:" entry to update.
+ */
 export function syncHelmPort(location: string, key: "graphql" | "grpc", port: number): string {
 	const absPath = path.join(process.cwd(), location, "helm", "values.yaml");
 	if (!fs.existsSync(absPath)) {
@@ -469,10 +517,12 @@ export function syncHelmPort(location: string, key: "graphql" | "grpc", port: nu
 	return `${relToRoot(absPath)} (ports.${key} -> ${port})`;
 }
 
-// Reads one servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
-// (demo1/demo2's pre-existing hardcoded `port: N` literal on the matching driver entry) for a
-// port already in use, adding whatever it finds to `usedPorts` — the per-server half of
-// findAvailableServerPort's scan, split out to keep that function's cognitive complexity down.
+/**
+ * Reads one servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
+ * (demo1/demo2's pre-existing hardcoded `port: N` literal on the matching driver entry) for a
+ * port already in use, adding whatever it finds to `usedPorts` — the per-server half of
+ * findAvailableServerPort's scan, split out to keep that function's cognitive complexity down.
+ */
 function collectServerPortUsage(
 	serverDir: string,
 	envVar: string,
@@ -494,11 +544,13 @@ function collectServerPortUsage(
 	}
 }
 
-// Scans every servers/*/.env.sample and servers/*/src/app.ts for a port already in use (see
-// collectServerPortUsage) and returns the lowest one >= defaultPort not already taken — shared by
-// GraphqlGenerator's findAvailableGraphqlPort (`envVar: "GRAPHQL_PORT"`, `driverName:
-// "ApolloDriver"`) and GrpcGenerator's findAvailableGrpcPort (`"GRPC_PORT"`, `"GrpcDriver"`),
-// which were otherwise identical aside from those three values.
+/**
+ * Scans every servers/* /.env.sample and servers/* /src/app.ts for a port already in use (see
+ * collectServerPortUsage) and returns the lowest one >= defaultPort not already taken — shared by
+ * GraphqlGenerator's findAvailableGraphqlPort (`envVar: "GRAPHQL_PORT"`, `driverName:
+ * "ApolloDriver"`) and GrpcGenerator's findAvailableGrpcPort (`"GRPC_PORT"`, `"GrpcDriver"`),
+ * which were otherwise identical aside from those three values.
+ */
 export function findAvailableServerPort(
 	root: string,
 	envVar: string,
@@ -530,10 +582,12 @@ export function findAvailableServerPort(
 // All of the below assumes this repo's consistent 2-space YAML indentation (service names at 2
 // spaces, service body keys at 4, list items/map entries under those at 6, and so on).
 
-// Scans forward from immediately after `headerEndIndex` (the position right after a header
-// line's own newline) for the first non-blank line whose indentation is less than `bodyIndent`
-// spaces — i.e. the end of that header's indented body — or EOF. Shared primitive behind every
-// "find or create a nested block" helper below.
+/**
+ * Scans forward from immediately after `headerEndIndex` (the position right after a header
+ * line's own newline) for the first non-blank line whose indentation is less than `bodyIndent`
+ * spaces — i.e. the end of that header's indented body — or EOF. Shared primitive behind every
+ * "find or create a nested block" helper below.
+ */
 function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: number): number {
 	const lines = raw.slice(headerEndIndex).split("\n");
 	let offset = headerEndIndex;
@@ -547,9 +601,11 @@ function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: nu
 	return raw.length;
 }
 
-// Finds a top-level `services:` entry's own body range (everything indented under `  <name>:`),
-// e.g. for locating servers/<name>/docker-compose.yml's main app service. Returns null if that
-// service isn't declared in the file at all.
+/**
+ * Finds a top-level `services:` entry's own body range (everything indented under `  <name>:`),
+ * e.g. for locating servers/<name>/docker-compose.yml's main app service. Returns null if that
+ * service isn't declared in the file at all.
+ */
 function findComposeServiceBody(raw: string, serviceName: string): { start: number; end: number } | null {
 	const header = new RegExp(String.raw`^  ${serviceName}:[ \t]*\n`, "m").exec(raw);
 	if (!header) return null;
@@ -557,30 +613,36 @@ function findComposeServiceBody(raw: string, serviceName: string): { start: numb
 	return { start, end: findIndentedBodyEnd(raw, start, 4) };
 }
 
-// Returns the offset of the end of the last non-blank line within raw.slice(start, end) — i.e.
-// `end` pulled back before any trailing blank-line run. Insertion points are computed from a
-// block's full dedent boundary (findIndentedBodyEnd), which can land after a blank line some
-// earlier edit left as a section separator (e.g. ensureComposeNetworkDeclared's blank line before
-// the top-level `networks:` section) — inserting new content there would land the new lines
-// *after* that separator, visually detached from the block they actually belong to.
+/**
+ * Returns the offset of the end of the last non-blank line within raw.slice(start, end) — i.e.
+ * `end` pulled back before any trailing blank-line run. Insertion points are computed from a
+ * block's full dedent boundary (findIndentedBodyEnd), which can land after a blank line some
+ * earlier edit left as a section separator (e.g. ensureComposeNetworkDeclared's blank line before
+ * the top-level `networks:` section) — inserting new content there would land the new lines
+ * *after* that separator, visually detached from the block they actually belong to.
+ */
 function trimTrailingBlankLines(raw: string, start: number, end: number): number {
 	const trimmedLength = collapseTrailingNewlines(raw.slice(start, end)).length;
 	return start + trimmedLength;
 }
 
-// Renders one `key: value` map entry line — plain `key: value` for a scalar, or `key:` (no
-// trailing space) followed by `value`'s own already-indented continuation lines when `value`
-// itself starts with a newline (a nested map, e.g. depends_on's per-service `condition:` block).
+/**
+ * Renders one `key: value` map entry line — plain `key: value` for a scalar, or `key:` (no
+ * trailing space) followed by `value`'s own already-indented continuation lines when `value`
+ * itself starts with a newline (a nested map, e.g. depends_on's per-service `condition:` block).
+ */
 function renderMapEntryLine(key: string, value: string): string {
 	return value.startsWith("\n") ? `${key}:${value}` : `${key}: ${value}`;
 }
 
-// Ensures `  <serviceName>:` has a `    <mapKey>:` sub-block (creating an empty one at the end
-// of the service body if missing) containing every `entries` pair not already present as a
-// `      <key>: ...` line — used for both `environment:` (mapKey="environment", entries are
-// plain `KEY: value`) and a `depends_on:` map whose values are themselves nested maps (pass
-// pre-rendered multi-line entries, e.g. `kafka:\n    condition: service_healthy`, indented for
-// the depends_on map's own entry level by the caller).
+/**
+ * Ensures `  <serviceName>:` has a `    <mapKey>:` sub-block (creating an empty one at the end
+ * of the service body if missing) containing every `entries` pair not already present as a
+ * `      <key>: ...` line — used for both `environment:` (mapKey="environment", entries are
+ * plain `KEY: value`) and a `depends_on:` map whose values are themselves nested maps (pass
+ * pre-rendered multi-line entries, e.g. `kafka:\n    condition: service_healthy`, indented for
+ * the depends_on map's own entry level by the caller).
+ */
 function ensureComposeServiceMapEntries(
 	raw: string,
 	serviceName: string,
@@ -613,8 +675,10 @@ function ensureComposeServiceMapEntries(
 	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
 }
 
-// Same idea as ensureComposeServiceMapEntries, but for a `    networks:` YAML list (`      -
-// item`) instead of a map.
+/**
+ * Same idea as ensureComposeServiceMapEntries, but for a `    networks:` YAML list (`      -
+ * item`) instead of a map.
+ */
 function ensureComposeServiceListItems(
 	raw: string,
 	serviceName: string,
@@ -645,12 +709,14 @@ function ensureComposeServiceListItems(
 	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
 }
 
-// Ensures the top-level `networks:` stanza declares `<networkName>:` with an empty body — the
-// "real" definition (driver: bridge) lives wherever that network actually originates (e.g.
-// services/kafka/docker-compose.yml for "kafka"); Compose merges same-named top-level networks
-// across every file pulled in by the root docker-compose.yml's `include:`, so an empty
-// re-declaration here is enough. Creates the whole `networks:` section if the file doesn't have
-// one yet.
+/**
+ * Ensures the top-level `networks:` stanza declares `<networkName>:` with an empty body — the
+ * "real" definition (driver: bridge) lives wherever that network actually originates (e.g.
+ * services/kafka/docker-compose.yml for "kafka"); Compose merges same-named top-level networks
+ * across every file pulled in by the root docker-compose.yml's `include:`, so an empty
+ * re-declaration here is enough. Creates the whole `networks:` section if the file doesn't have
+ * one yet.
+ */
 export function ensureComposeNetworkDeclared(absComposePath: string, networkName: string): string {
 	if (!fs.existsSync(absComposePath)) {
 		return `${relToRoot(absComposePath)} not found, skipped`;
@@ -671,12 +737,14 @@ export function ensureComposeNetworkDeclared(absComposePath: string, networkName
 	return `${relToRoot(absComposePath)} (+${networkName} network)`;
 }
 
-// Wires an existing service in docker-compose.yml onto a Docker network, with `environment:`
-// overrides (for env vars that otherwise come from .env — written for host-based `bun run dev`
-// and meaningless inside a container, see servers/auth/docker-compose.yml's comments for the
-// full story) and `depends_on:` entries for startup ordering. Skips (returns a "not found"
-// message) if the target service doesn't exist in the file — same "skip, don't error" convention
-// as syncHelmPort/addKafkaHelmValues for a server predating whatever's calling this.
+/**
+ * Wires an existing service in docker-compose.yml onto a Docker network, with `environment:`
+ * overrides (for env vars that otherwise come from .env — written for host-based `bun run dev`
+ * and meaningless inside a container, see servers/auth/docker-compose.yml's comments for the
+ * full story) and `depends_on:` entries for startup ordering. Skips (returns a "not found"
+ * message) if the target service doesn't exist in the file — same "skip, don't error" convention
+ * as syncHelmPort/addKafkaHelmValues for a server predating whatever's calling this.
+ */
 export function wireComposeService(
 	location: string,
 	serviceName: string,

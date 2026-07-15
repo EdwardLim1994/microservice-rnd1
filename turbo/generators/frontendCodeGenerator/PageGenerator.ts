@@ -14,8 +14,10 @@ function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
 }
 
-// PascalCase (page names are validated as PascalCase ending in "Page", e.g. "Test1DetailPage")
-// -> kebab-case route path, stripping the "Page" suffix: "Test1DetailPage" -> "/test1-detail".
+/**
+ * PascalCase (page names are validated as PascalCase ending in "Page", e.g. "Test1DetailPage")
+ * -> kebab-case route path, stripping the "Page" suffix: "Test1DetailPage" -> "/test1-detail".
+ */
 function pageNameToRoutePath(name: string): string {
 	const withoutSuffix = name.replace(/Page$/, "");
 	const kebab = withoutSuffix.replace(/([A-Z])/g, (letter, _match, index) =>
@@ -24,13 +26,15 @@ function pageNameToRoutePath(name: string): string {
 	return `/${kebab}`;
 }
 
-// Wires a newly generated page into an existing src/router.tsx: merges an import for the page
-// from its module barrel, inserts a new
-// `createRoute({...})` declaration right before `const routeTree = ...`, and adds the new route
-// to the `rootRoute.addChildren([...])` array. A frontend with no src/router.tsx yet (native
-// platforms, or a web frontend that hasn't set one up) is left untouched — bootstrapping routing
-// infrastructure from scratch is a separate concern from wiring an individual page into one that
-// already exists.
+/**
+ * Wires a newly generated page into an existing src/router.tsx: merges an import for the page
+ * from its module barrel, inserts a new
+ * `createRoute({...})` declaration right before `const routeTree = ...`, and adds the new route
+ * to the `rootRoute.addChildren([...])` array. A frontend with no src/router.tsx yet (native
+ * platforms, or a web frontend that hasn't set one up) is left untouched — bootstrapping routing
+ * infrastructure from scratch is a separate concern from wiring an individual page into one that
+ * already exists.
+ */
 function injectPageIntoRouter(location: string, module: string, name: string): string {
 	const absRouterPath = path.join(process.cwd(), location, "src", "router.tsx");
 	if (!fs.existsSync(absRouterPath)) {

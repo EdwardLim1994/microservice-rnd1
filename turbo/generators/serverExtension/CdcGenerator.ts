@@ -18,11 +18,13 @@ function schemaPathFor(location: string): string {
 	);
 }
 
-// Parses `model Foo { ... }` blocks out of a server's own schema.prisma to drive the table-choice
-// prompt below — returns [] for a freshly-scaffolded server (turbo/generators/templates/database/
-// schema.prisma.hbs has no models yet, since the developer hasn't defined any). Respects `@@map`
-// (the actual Postgres table name, when a model's mapped away from its own name), since that's
-// what Debezium's table.include.list needs to match, not the Prisma model name.
+/**
+ * Parses `model Foo { ... }` blocks out of a server's own schema.prisma to drive the table-choice
+ * prompt below — returns [] for a freshly-scaffolded server (turbo/generators/templates/database/
+ * schema.prisma.hbs has no models yet, since the developer hasn't defined any). Respects `@@map`
+ * (the actual Postgres table name, when a model's mapped away from its own name), since that's
+ * what Debezium's table.include.list needs to match, not the Prisma model name.
+ */
 function parsePrismaModels(
 	schemaPath: string,
 ): { model: string; table: string }[] {
@@ -42,21 +44,25 @@ function parsePrismaModels(
 	return results;
 }
 
-// Renders cdc_tables as a YAML flow sequence (e.g. `cdc_tables: ["public.Foo", "public.Bar"]`) —
-// a real list, not a comma-joined string, so services/debezium/ansible/roles/provision-server-cdc
-// can diff it against a publication's actual current membership with Jinja's `difference()`
-// filter directly, no string-splitting.
+/**
+ * Renders cdc_tables as a YAML flow sequence (e.g. `cdc_tables: ["public.Foo", "public.Bar"]`) —
+ * a real list, not a comma-joined string, so services/debezium/ansible/roles/provision-server-cdc
+ * can diff it against a publication's actual current membership with Jinja's `difference()`
+ * filter directly, no string-splitting.
+ */
 function renderCdcTablesLine(tables: string[]): string {
 	return `cdc_tables: [${tables.map((table) => JSON.stringify(table)).join(", ")}]`;
 }
 
-// Appends kafka_connect_addr/schema_registry_addr/cdc_tables to a server's own ansible/vars.yml
-// (created by services/vault's DatabaseGenerator when the database extension was added) the first
-// time this runs. kafka_connect_addr/schema_registry_addr never change once set, so they're
-// skipped on a later run — but cdc_tables is expected to change every time a table is added or
-// removed, so it's kept in sync in place on every run instead of being skipped alongside the rest
-// (services/debezium/ansible's reconciliation tasks depend on cdc_tables actually reflecting the
-// latest choice, not whatever was selected the first time `turbo gen cdc` ran).
+/**
+ * Appends kafka_connect_addr/schema_registry_addr/cdc_tables to a server's own ansible/vars.yml
+ * (created by services/vault's DatabaseGenerator when the database extension was added) the first
+ * time this runs. kafka_connect_addr/schema_registry_addr never change once set, so they're
+ * skipped on a later run — but cdc_tables is expected to change every time a table is added or
+ * removed, so it's kept in sync in place on every run instead of being skipped alongside the rest
+ * (services/debezium/ansible's reconciliation tasks depend on cdc_tables actually reflecting the
+ * latest choice, not whatever was selected the first time `turbo gen cdc` ran).
+ */
 function appendCdcVars(
 	absVarsPath: string,
 	serverName: string,
@@ -117,10 +123,12 @@ function appendCdcVars(
 	return `${relToRoot(absVarsPath)} (+cdc_tables)`;
 }
 
-// Inserts `command: ["postgres", "-c", "wal_level=logical"]` into a server's own <name>-db
-// Postgres service, right after its POSTGRES_DB line and before `ports:` — the exact position
-// turbo/generators/templates/database/docker-compose-snippet.hbs's own POSTGRES_DB/ports
-// adjacency uses, so this anchor holds for every server DatabaseGenerator has scaffolded.
+/**
+ * Inserts `command: ["postgres", "-c", "wal_level=logical"]` into a server's own <name>-db
+ * Postgres service, right after its POSTGRES_DB line and before `ports:` — the exact position
+ * turbo/generators/templates/database/docker-compose-snippet.hbs's own POSTGRES_DB/ports
+ * adjacency uses, so this anchor holds for every server DatabaseGenerator has scaffolded.
+ */
 function injectWalLevelLogical(absComposePath: string, name: string): string {
 	const raw = fs.readFileSync(absComposePath, "utf-8");
 	if (raw.includes("wal_level=logical")) {

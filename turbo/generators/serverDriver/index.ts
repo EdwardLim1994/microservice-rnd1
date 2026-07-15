@@ -17,8 +17,10 @@ const EXTENSIONS: ServerDriverExtension[] = [
 	CronGenerator,
 ];
 
-// Extensions not yet installed on `location` — both what the "driver" prompt offers
-// interactively and what a non-interactive `--args` invocation is validated against.
+/**
+ * Extensions not yet installed on `location` — both what the "driver" prompt offers
+ * interactively and what a non-interactive `--args` invocation is validated against.
+ */
 function availableExtensions(
 	root: string,
 	location: string,

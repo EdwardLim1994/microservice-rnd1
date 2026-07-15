@@ -1,8 +1,10 @@
 import type { PlopTypes } from "@turbo/gen";
 
-// One entry in the unified "extension" generator's driver choices. `driverName` is the
-// export name matched against a server's src/app.ts (e.g. "GrpcDriver") to tell whether it's
-// already installed there — see helpers.ts's serverHasDriver.
+/**
+ * One entry in the unified "extension" generator's driver choices. `driverName` is the
+ * export name matched against a server's src/app.ts (e.g. "GrpcDriver") to tell whether it's
+ * already installed there — see helpers.ts's serverHasDriver.
+ */
 export interface ServerDriverExtension {
 	value: string;
 	label: string;

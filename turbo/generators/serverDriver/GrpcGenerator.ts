@@ -26,14 +26,18 @@ function pascalCase(name: string): string {
 		.join("");
 }
 
-// Proto package names can't contain hyphens (unlike server workspace names, which are
-// kebab-case) — underscore-join the name for use as the stub's `package` declaration.
+/**
+ * Proto package names can't contain hyphens (unlike server workspace names, which are
+ * kebab-case) — underscore-join the name for use as the stub's `package` declaration.
+ */
 function protoPackage(name: string): string {
 	return name.replaceAll("-", "_");
 }
 
-// Merges the gRPC packages + "gen" script into an existing package.json, preserving that
-// file's own indentation style.
+/**
+ * Merges the gRPC packages + "gen" script into an existing package.json, preserving that
+ * file's own indentation style.
+ */
 function mergeGrpcIntoPackageJson(absPackageJsonPath: string): string {
 	const { pkg, indent } = mergePackageJsonDeps(
 		absPackageJsonPath,
@@ -45,8 +49,10 @@ function mergeGrpcIntoPackageJson(absPackageJsonPath: string): string {
 	return `${relToRoot(absPackageJsonPath)} (+@grpc/grpc-js, ts-proto, api, script, buf/protoc)${genNote}`;
 }
 
-// Appends GRPC_PORT to .env.sample (creating it if somehow missing) and, only if it already
-// exists, to .env too — .env is gitignored and may not exist in a fresh checkout.
+/**
+ * Appends GRPC_PORT to .env.sample (creating it if somehow missing) and, only if it already
+ * exists, to .env too — .env is gitignored and may not exist in a fresh checkout.
+ */
 function appendGrpcPort(absPath: string, port: number, createIfMissing: boolean): string | null {
 	const line = `GRPC_PORT=${port}`;
 	if (!fs.existsSync(absPath)) {
@@ -63,9 +69,11 @@ function appendGrpcPort(absPath: string, port: number, createIfMissing: boolean)
 	return `${relToRoot(absPath)} (+GRPC_PORT)`;
 }
 
-// Scans every servers/*/.env.sample (new GRPC_PORT convention) and servers/*/src/app.ts
-// (demo1/demo2's pre-existing hardcoded `port: N` literal on the GrpcDriver entry) for a
-// port already in use, and returns the lowest one >= DEFAULT_GRPC_PORT not already taken.
+/**
+ * Scans every servers/* /.env.sample (new GRPC_PORT convention) and servers/* /src/app.ts
+ * (demo1/demo2's pre-existing hardcoded `port: N` literal on the GrpcDriver entry) for a
+ * port already in use, and returns the lowest one >= DEFAULT_GRPC_PORT not already taken.
+ */
 function findAvailableGrpcPort(root: string): number {
 	return findAvailableServerPort(root, "GRPC_PORT", "GrpcDriver", DEFAULT_GRPC_PORT);
 }

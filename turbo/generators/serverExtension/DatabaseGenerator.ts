@@ -18,10 +18,12 @@ function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
 }
 
-// Adds `import { PrismaClient } from "../generated/prisma";` right after the last existing
-// top-level import statement — a fresh import source, not a named import merged into an
-// existing one, so addNamedImport (which requires a pre-existing `from "<source>"` line)
-// doesn't apply here.
+/**
+ * Adds `import { PrismaClient } from "../generated/prisma";` right after the last existing
+ * top-level import statement — a fresh import source, not a named import merged into an
+ * existing one, so addNamedImport (which requires a pre-existing `from "<source>"` line)
+ * doesn't apply here.
+ */
 function addPrismaClientImport(raw: string): string {
 	const importLine = 'import { PrismaClient } from "../generated/prisma";';
 	if (raw.includes(importLine)) return raw;
@@ -35,11 +37,13 @@ function addPrismaClientImport(raw: string): string {
 	return `${raw.slice(0, insertAt)}\n${importLine}${raw.slice(insertAt)}`;
 }
 
-// Inserts a chained builder call (e.g. `.database(PrismaClient, new PgAdapter(...))`) right
-// after `ServerApp.init(...)`'s closing paren, before whatever chained call already follows it
-// (`.containers(`, `.routers(`, `.run(`, ...) — same "find init(), locate its matching close
-// paren" approach as helpers.ts's injectDriverEntry, but inserting a chained call rather than
-// a driver array entry. Idempotent: skips if `marker` (e.g. "database") is already chained on.
+/**
+ * Inserts a chained builder call (e.g. `.database(PrismaClient, new PgAdapter(...))`) right
+ * after `ServerApp.init(...)`'s closing paren, before whatever chained call already follows it
+ * (`.containers(`, `.routers(`, `.run(`, ...) — same "find init(), locate its matching close
+ * paren" approach as helpers.ts's injectDriverEntry, but inserting a chained call rather than
+ * a driver array entry. Idempotent: skips if `marker` (e.g. "database") is already chained on.
+ */
 function injectServerAppChainCall(absAppPath: string, marker: string, callText: string): string {
 	let raw = fs.readFileSync(absAppPath, "utf-8");
 	if (raw.includes(`.${marker}(`)) {
@@ -76,9 +80,11 @@ function injectServerAppChainCall(absAppPath: string, marker: string, callText: 
 	return `${relToRoot(absAppPath)} (+.${marker}(...))`;
 }
 
-// Merges the prisma/@prisma packages + postinstall script into an existing package.json,
-// preserving that file's own indentation style (servers are inconsistent: demo1 uses 2-space,
-// demo2 uses tabs) and without clobbering an existing postinstall script.
+/**
+ * Merges the prisma/@prisma packages + postinstall script into an existing package.json,
+ * preserving that file's own indentation style (servers are inconsistent: demo1 uses 2-space,
+ * demo2 uses tabs) and without clobbering an existing postinstall script.
+ */
 function mergePrismaIntoPackageJson(absPackageJsonPath: string): string {
 	const raw = fs.readFileSync(absPackageJsonPath, "utf-8");
 	const indent = detectIndent(raw);
@@ -103,15 +109,17 @@ function mergePrismaIntoPackageJson(absPackageJsonPath: string): string {
 	return `${relToRoot(absPackageJsonPath)} (+prisma, @prisma/client, @prisma/client-runtime-utils, postinstall)`;
 }
 
-// VaultPgAdapter.fromEnv() needs the pieces to build a connection string around Vault's returned
-// username/password (DB_HOST/DB_PORT/DB_NAME) plus how to reach/authenticate to Vault itself
-// (VAULT_ADDR/VAULT_DB_ROLE — VAULT_ROLE_ID/VAULT_SECRET_ID are written separately by
-// services/vault/ansible's provisioning role once it's actually been run, not by this generator).
-// DATABASE_URL is still required alongside these — prisma.config.ts (createPrismaConfig()) reads
-// it directly for Prisma CLI operations (generate/migrate), which need a static connection
-// regardless of Vault. It's the same static superuser already scaffolded for <name>-db, and also
-// the value to pass into `new PgAdapter(process.env.DATABASE_URL!)` for the manual "switch to
-// root for testing" override documented in packages/server/CLAUDE.md's Database section.
+/**
+ * VaultPgAdapter.fromEnv() needs the pieces to build a connection string around Vault's returned
+ * username/password (DB_HOST/DB_PORT/DB_NAME) plus how to reach/authenticate to Vault itself
+ * (VAULT_ADDR/VAULT_DB_ROLE — VAULT_ROLE_ID/VAULT_SECRET_ID are written separately by
+ * services/vault/ansible's provisioning role once it's actually been run, not by this generator).
+ * DATABASE_URL is still required alongside these — prisma.config.ts (createPrismaConfig()) reads
+ * it directly for Prisma CLI operations (generate/migrate), which need a static connection
+ * regardless of Vault. It's the same static superuser already scaffolded for <name>-db, and also
+ * the value to pass into `new PgAdapter(process.env.DATABASE_URL!)` for the manual "switch to
+ * root for testing" override documented in packages/server/CLAUDE.md's Database section.
+ */
 function buildDatabaseEnvBlock(name: string, port: number): string {
 	return (
 		`# Database (Vault-backed at runtime — see packages/server/CLAUDE.md's Database section).\n` +
@@ -125,9 +133,11 @@ function buildDatabaseEnvBlock(name: string, port: number): string {
 	);
 }
 
-// Appends the Vault-backed database env block to .env.sample (creating it if somehow missing)
-// and, only if it already exists, to .env too — .env is gitignored and may not exist in a fresh
-// checkout.
+/**
+ * Appends the Vault-backed database env block to .env.sample (creating it if somehow missing)
+ * and, only if it already exists, to .env too — .env is gitignored and may not exist in a fresh
+ * checkout.
+ */
 function appendDatabaseEnvBlock(absPath: string, block: string, createIfMissing: boolean): string | null {
 	if (!fs.existsSync(absPath)) {
 		if (!createIfMissing) return null;
@@ -143,9 +153,11 @@ function appendDatabaseEnvBlock(absPath: string, block: string, createIfMissing:
 	return `${relToRoot(absPath)} (+DB_HOST/DB_PORT/DB_NAME/VAULT_ADDR/VAULT_DB_ROLE)`;
 }
 
-// Scans every servers/*/docker-compose.yml for a host port already bound to Postgres's
-// container port (5432) and returns the lowest port >= DEFAULT_DB_PORT not already taken —
-// e.g. demo1 has "5101:5432", so a second DB-enabled server gets 5102, not another 5101.
+/**
+ * Scans every servers/* /docker-compose.yml for a host port already bound to Postgres's
+ * container port (5432) and returns the lowest port >= DEFAULT_DB_PORT not already taken —
+ * e.g. demo1 has "5101:5432", so a second DB-enabled server gets 5102, not another 5101.
+ */
 function findAvailableDbPort(root: string): number {
 	const serversDir = path.join(root, "servers");
 	const usedPorts = new Set<number>();
@@ -175,8 +187,10 @@ function ensureAdminerNetworkDeclared(raw: string): string {
 	return `${collapseTrailingNewlines(raw)}networks:\n  adminer:\n`;
 }
 
-// Injects the <name>-migrate/<name>-db services before the top-level `networks:` key if one
-// exists, else appends them (plus a fresh `networks:` section) at the end of the file.
+/**
+ * Injects the <name>-migrate/<name>-db services before the top-level `networks:` key if one
+ * exists, else appends them (plus a fresh `networks:` section) at the end of the file.
+ */
 function injectDockerComposeServices(absComposePath: string, snippet: string, name: string): string {
 	const raw = fs.readFileSync(absComposePath, "utf-8");
 	if (raw.includes(`${name}-migrate:`)) {
@@ -197,8 +211,10 @@ function injectDockerComposeServices(absComposePath: string, snippet: string, na
 	return `${relToRoot(absComposePath)} (+${name}-migrate, +${name}-db)`;
 }
 
-// Injects the "migrate" build stage right before the "# ── runtime" stage marker, matching
-// its position in servers/demo1/Dockerfile.
+/**
+ * Injects the "migrate" build stage right before the "# ── runtime" stage marker, matching
+ * its position in servers/demo1/Dockerfile.
+ */
 function injectDockerfileMigrateStage(absDockerfilePath: string, snippet: string): string {
 	const raw = fs.readFileSync(absDockerfilePath, "utf-8");
 	if (raw.includes("AS migrate")) {
@@ -226,12 +242,14 @@ const POSTGRES_HELM_FILES = [
 	"migration-job.yaml",
 ];
 
-// Copies the postgres-deployment/-pvc/-service.yaml + migration-job.yaml templates into
-// <location>/helm/templates/ verbatim — real Helm Go-template syntax (`{{ .Values... }}`,
-// `{{ include ... }}`), not Handlebars, so a plain file copy (not plop's "add"/Handlebars
-// compilation, which would choke on it — see helpers.ts's copyWithSubstitutions doc comment for
-// the same gotcha) — and no `{{ name }}` substitution needed either, since every resource name
-// in these files is derived from Helm's own "server.fullname" (the release name), not hardcoded.
+/**
+ * Copies the postgres-deployment/-pvc/-service.yaml + migration-job.yaml templates into
+ * <location>/helm/templates/ verbatim — real Helm Go-template syntax (`{{ .Values... }}`,
+ * `{{ include ... }}`), not Handlebars, so a plain file copy (not plop's "add"/Handlebars
+ * compilation, which would choke on it — see helpers.ts's copyWithSubstitutions doc comment for
+ * the same gotcha) — and no `{{ name }}` substitution needed either, since every resource name
+ * in these files is derived from Helm's own "server.fullname" (the release name), not hardcoded.
+ */
 function copyPostgresHelmTemplates(location: string): string {
 	const destDir = path.join(process.cwd(), location, "helm", "templates");
 	const results = POSTGRES_HELM_FILES.map((file) => {
@@ -250,12 +268,14 @@ function copyPostgresHelmTemplates(location: string): string {
 	return `${relToRoot(destDir)} (+${results.join(", +")})`;
 }
 
-// Inserts a `migrate:` sibling of `image.app` in helm/values.yaml — the separate image
-// migration-job.yaml's Job runs (built from the Dockerfile's "migrate" stage, see
-// injectMigrateImageBuildStep below), distinct from the app Deployment's own `image.app`.
-// Anchored on `  pullPolicy:` (image's other fixed sibling key in the base server template) since
-// that's simpler than computing the `image:` block's own indented-body boundary just for one
-// insertion point.
+/**
+ * Inserts a `migrate:` sibling of `image.app` in helm/values.yaml — the separate image
+ * migration-job.yaml's Job runs (built from the Dockerfile's "migrate" stage, see
+ * injectMigrateImageBuildStep below), distinct from the app Deployment's own `image.app`.
+ * Anchored on `  pullPolicy:` (image's other fixed sibling key in the base server template) since
+ * that's simpler than computing the `image:` block's own indented-body boundary just for one
+ * insertion point.
+ */
 function addDatabaseImageMigrateValue(raw: string, name: string): string {
 	if (/^\s{2}migrate:/m.test(raw)) return raw;
 	const marker = /^(\s{2}pullPolicy:.*\n)/m;
@@ -263,11 +283,13 @@ function addDatabaseImageMigrateValue(raw: string, name: string): string {
 	return raw.replace(marker, `  migrate:\n    repository: ${name}-migrate\n    tag: local\n$1`);
 }
 
-// Appends `postgres:`/`vault:` blocks (image/credentials/storage for postgres-deployment.yaml,
-// and the in-cluster Vault address/role for VaultPgAdapter.fromEnv()) to helm/values.yaml — both
-// brand-new top-level keys, so (unlike image.migrate above) just append at the end of the file,
-// same pattern as KafkaGenerator's addKafkaHelmValues. `postgres:`'s user/password doubles as
-// Vault's own DB-admin credential (see services/vault/CLAUDE.md) — no separate identity.
+/**
+ * Appends `postgres:`/`vault:` blocks (image/credentials/storage for postgres-deployment.yaml,
+ * and the in-cluster Vault address/role for VaultPgAdapter.fromEnv()) to helm/values.yaml — both
+ * brand-new top-level keys, so (unlike image.migrate above) just append at the end of the file,
+ * same pattern as KafkaGenerator's addKafkaHelmValues. `postgres:`'s user/password doubles as
+ * Vault's own DB-admin credential (see services/vault/CLAUDE.md) — no separate identity.
+ */
 function addDatabaseHelmValues(location: string, name: string): string {
 	const absPath = path.join(process.cwd(), location, "helm", "values.yaml");
 	if (!fs.existsSync(absPath)) {
@@ -303,10 +325,12 @@ function addDatabaseHelmValues(location: string, name: string): string {
 	return `${relToRoot(absPath)} (+image.migrate, +postgres, +vault)`;
 }
 
-// Appends DB_HOST/DB_PORT/DB_NAME (pointing at postgres-service.yaml's Service) and
-// VAULT_ADDR/VAULT_DB_ROLE to helm/templates/configmap.yaml — VaultPgAdapter.fromEnv()'s
-// non-sensitive config. VAULT_ROLE_ID/VAULT_SECRET_ID are Vault-issued secrets and go into
-// vault-secret.yaml instead (see addVaultHelmSecret), not this ConfigMap.
+/**
+ * Appends DB_HOST/DB_PORT/DB_NAME (pointing at postgres-service.yaml's Service) and
+ * VAULT_ADDR/VAULT_DB_ROLE to helm/templates/configmap.yaml — VaultPgAdapter.fromEnv()'s
+ * non-sensitive config. VAULT_ROLE_ID/VAULT_SECRET_ID are Vault-issued secrets and go into
+ * vault-secret.yaml instead (see addVaultHelmSecret), not this ConfigMap.
+ */
 function addDatabaseConfigmapEnv(location: string): string {
 	const absPath = path.join(process.cwd(), location, "helm", "templates", "configmap.yaml");
 	if (!fs.existsSync(absPath)) {
@@ -329,9 +353,11 @@ function addDatabaseConfigmapEnv(location: string): string {
 	return `${relToRoot(absPath)} (+DB_HOST, +DB_PORT, +DB_NAME, +VAULT_ADDR, +VAULT_DB_ROLE)`;
 }
 
-// Copies the vault-secret.yaml template (VAULT_ROLE_ID/VAULT_SECRET_ID from values.yaml's
-// vault.roleId/vault.secretId) into helm/templates/ verbatim — same "real Helm Go-template
-// syntax, plain file copy" reasoning as copyPostgresHelmTemplates.
+/**
+ * Copies the vault-secret.yaml template (VAULT_ROLE_ID/VAULT_SECRET_ID from values.yaml's
+ * vault.roleId/vault.secretId) into helm/templates/ verbatim — same "real Helm Go-template
+ * syntax, plain file copy" reasoning as copyPostgresHelmTemplates.
+ */
 function copyVaultHelmSecret(location: string): string {
 	const destPath = path.join(process.cwd(), location, "helm", "templates", "vault-secret.yaml");
 	if (fs.existsSync(destPath)) {
@@ -342,9 +368,11 @@ function copyVaultHelmSecret(location: string): string {
 	return relToRoot(destPath);
 }
 
-// Adds a `secretRef` entry to deployment.yaml's `envFrom` list (alongside the existing
-// `configMapRef`) so the app container picks up VAULT_ROLE_ID/VAULT_SECRET_ID from
-// vault-secret.yaml at runtime.
+/**
+ * Adds a `secretRef` entry to deployment.yaml's `envFrom` list (alongside the existing
+ * `configMapRef`) so the app container picks up VAULT_ROLE_ID/VAULT_SECRET_ID from
+ * vault-secret.yaml at runtime.
+ */
 function injectVaultSecretEnvFrom(location: string): string {
 	const absPath = path.join(process.cwd(), location, "helm", "templates", "deployment.yaml");
 	if (!fs.existsSync(absPath)) {
@@ -375,9 +403,11 @@ function injectVaultSecretEnvFrom(location: string): string {
 	return `${relToRoot(absPath)} (+vault secretRef)`;
 }
 
-// Appends a second `docker build --target migrate` invocation to package.json's "k8s:build"
-// script — the app image and the migration Job's image are two separate builds from the same
-// Dockerfile.
+/**
+ * Appends a second `docker build --target migrate` invocation to package.json's "k8s:build"
+ * script — the app image and the migration Job's image are two separate builds from the same
+ * Dockerfile.
+ */
 function addMigrateImageBuildStep(absPackageJsonPath: string, location: string, name: string): string {
 	const raw = fs.readFileSync(absPackageJsonPath, "utf-8");
 	const indent = detectIndent(raw);

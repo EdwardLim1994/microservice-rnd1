@@ -3,8 +3,10 @@ import type { PlopTypes } from "@turbo/gen";
 import { injectDriverEntry } from "../helpers";
 import type { ServerDriverExtension } from "./types";
 
-// Unlike gRPC/GraphQL/Kafka, CronDriver needs no package.json deps (Bun.cron is built in), no
-// port, and no env vars — it's just a driver entry in app.ts.
+/**
+ * Unlike gRPC/GraphQL/Kafka, CronDriver needs no package.json deps (Bun.cron is built in), no
+ * port, and no env vars — it's just a driver entry in app.ts.
+ */
 function buildCronDriverEntry(itemIndent: string): string {
 	return (
 		`{\n${itemIndent}\tdriver: CronDriver,\n` +
