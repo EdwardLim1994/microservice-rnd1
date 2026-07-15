@@ -30,17 +30,10 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      # Same two-phase install as ci-verify.yml — see that file's own comment for why a single
-      # `bun install` fails here (servers/test1's postinstall needs the `script` workspace built
-      # first, not just installed).
       - run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build --filter=script
-
-      - name: Run deferred postinstall scripts (skipped above via --ignore-scripts)
-        run: cd servers/test1 && DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" bun run postinstall
 
       - name: Test every package (unfiltered — main's own analysis needs full coverage, not just what one PR touched)
-        run: bun run test --filter="!web1"
+        run: bun run test
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8

@@ -6,7 +6,7 @@ other servers can import them without owning a copy of the `.proto`/schema files
 There is no hand-written business logic here: everything under `src/generated/` is produced by
 `APIGenerator` (see `packages/script/CLAUDE.md`) and committed to the repo — no CI regeneration step.
 Treat `src/generated/**` as read-only; edit the source server's proto/GraphQL schema instead and
-regenerate. `src/kafka/` is the one exception — see its own section below.
+regenerate.
 
 ## Layout
 
@@ -25,16 +25,6 @@ regenerate. `src/kafka/` is the one exception — see its own section below.
 `src/generated/index.ts` — top-level barrel, grouping exports by server name and type, e.g.
 `Demo1Graphql`, `Demo1Demo1Proto`, `Demo1ProtobufEs`. This is the file other packages actually
 import from (`import { Demo1Demo1Proto } from 'api'`).
-
-`src/kafka/` — **hand-written**, unlike everything under `src/generated/`. Pairs a Kafka topic
-name with its generated message/schema types (e.g. `topics.ts`'s `demo1EventsTopics`,
-`demo1EventsSchemas`) so every server that produces or consumes a topic imports the same
-declaration instead of each re-declaring the `{ topicName: ... }` literal locally — see
-`packages/server/CLAUDE.md`'s Kafka serialization section for how `demo1`/`demo2` actually use it. A
-topic name isn't derivable from a `.proto` file itself (topic naming is a messaging-topology
-concern, not part of the wire schema — `buf`/`protoc-gen-ts_proto` has no notion of "Kafka
-topic"), so this mapping is maintained by hand here rather than generated. Exported from
-`src/index.ts` (`export * from './kafka/topics'`) alongside `src/generated`.
 
 ## Regenerating
 

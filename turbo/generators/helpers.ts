@@ -526,7 +526,7 @@ export function findAvailableServerPort(
 // action in this file (e.g. injectDockerComposeServices/ensureAdminerNetworkDeclared in
 // DatabaseGenerator.ts) and deliberately so: a full YAML round-trip would silently drop every
 // hand-written comment elsewhere in the file (docker-compose.yml files in this repo routinely
-// have them — see servers/test1/docker-compose.yml), not just in whatever block is being edited.
+// have them — see servers/auth/docker-compose.yml), not just in whatever block is being edited.
 // All of the below assumes this repo's consistent 2-space YAML indentation (service names at 2
 // spaces, service body keys at 4, list items/map entries under those at 6, and so on).
 
@@ -673,7 +673,7 @@ export function ensureComposeNetworkDeclared(absComposePath: string, networkName
 
 // Wires an existing service in docker-compose.yml onto a Docker network, with `environment:`
 // overrides (for env vars that otherwise come from .env — written for host-based `bun run dev`
-// and meaningless inside a container, see servers/test1/docker-compose.yml's comments for the
+// and meaningless inside a container, see servers/auth/docker-compose.yml's comments for the
 // full story) and `depends_on:` entries for startup ordering. Skips (returns a "not found"
 // message) if the target service doesn't exist in the file — same "skip, don't error" convention
 // as syncHelmPort/addKafkaHelmValues for a server predating whatever's calling this.

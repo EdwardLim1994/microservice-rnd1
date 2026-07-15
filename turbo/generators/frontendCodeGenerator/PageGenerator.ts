@@ -24,8 +24,8 @@ function pageNameToRoutePath(name: string): string {
 	return `/${kebab}`;
 }
 
-// Wires a newly generated page into an existing src/router.tsx (see frontends/mfe1's, the
-// convention this follows): merges an import for the page from its module barrel, inserts a new
+// Wires a newly generated page into an existing src/router.tsx: merges an import for the page
+// from its module barrel, inserts a new
 // `createRoute({...})` declaration right before `const routeTree = ...`, and adds the new route
 // to the `rootRoute.addChildren([...])` array. A frontend with no src/router.tsx yet (native
 // platforms, or a web frontend that hasn't set one up) is left untouched — bootstrapping routing

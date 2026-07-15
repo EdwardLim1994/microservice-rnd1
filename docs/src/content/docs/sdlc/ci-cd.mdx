@@ -93,16 +93,12 @@ manually-applied, always-on shared root for now.
 
 - **No package defines a `"lint"` script anywhere in the repo**, despite `turbo.json` declaring a
   `lint` task — `turbo run lint` is currently a silent no-op everywhere. `ci-verify.yml` uses
-  `check` (Biome's combined lint+format) instead, which every `packages/*`/`apps/web1`/
-  `frontends/mfe1` package does define.
+  `check` (Biome's combined lint+format) instead, which every `packages/*`/`apps/*`/
+  `frontends/*` package does define.
 - **`check`/`format` scripts run Biome in `--write` mode** (fine for local dev, auto-fixing on
   save) — there's no separate non-mutating variant. `ci-verify.yml` works around this by running
   `check` and then failing the job if `git diff --exit-code` finds anything the `--write` step
   changed, rather than needing a new script per package.
-- **`servers/test1`/`servers/test2` have no `test` script**, and `servers/test2` has no
-  `Dockerfile` yet (`demo2` isn't deployed to k8s per `services/terraform/CLAUDE.md`) — the CD
-  workflows' Dockerfile-existence check skips image build/push gracefully for such apps rather
-  than failing the whole release, but they also get **no UAT/prod deploy** until that catches up.
 - **DockerHub namespace, SonarCloud project visibility, and the terraform backend's cloud/bucket
   are all still open decisions** — this pass scaffolded around placeholders for all three; fill
   in the actual values (secrets/vars above, `providers.tf` backend blocks) before relying on any
