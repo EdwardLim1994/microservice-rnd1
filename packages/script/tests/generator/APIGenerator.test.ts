@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { afterEach, beforeEach, expect, test } from '@rstest/core';
 import APIGenerator from '../../src/generator/APIGenerator';
 
@@ -36,6 +36,18 @@ test('init() returns a chainable builder', () => {
   expect(generator.apiLocation('../../packages/api')).toBe(generator);
   expect(generator.path('src/generated')).toBe(generator);
   expect(generator.withBarrel('/tmp/whatever')).toBe(generator);
+});
+
+test('init() with no arg infers the project name from cwd, so one shared script works for every server', () => {
+  const originalCwd = process.cwd();
+  const dir = mkdtempSync(join(tmpdir(), 'my-service-'));
+  try {
+    process.chdir(dir);
+    const generator = APIGenerator.init() as unknown as { _projectName: string };
+    expect(generator._projectName).toBe(basename(dir));
+  } finally {
+    process.chdir(originalCwd);
+  }
 });
 
 test('generate() logs the default apiLocation/path before generating', async () => {

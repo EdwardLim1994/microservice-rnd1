@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 import {
-	addApiScript,
 	collapseTrailingNewlines,
 	ensureGenScript,
 	findAvailableServerPort,
@@ -147,11 +146,6 @@ function appendSupergraphSubgraph(location: string, name: string, port: number):
 }
 
 function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
-	plop.setActionType("addGraphqlApiScript", (answers) => {
-		const { location } = answers as { location: string };
-		return addApiScript(location);
-	});
-
 	plop.setActionType("addGraphqlCodegenConfig", (answers, _config, plopApi) => {
 		const { location } = answers as { location: string };
 		const name = path.basename(location);
@@ -251,7 +245,6 @@ const GraphqlGenerator: ServerDriverExtension = {
 	driverName: "ApolloDriver",
 	registerActionTypes,
 	actions: [
-		{ type: "addGraphqlApiScript" },
 		{ type: "addGraphqlSchemaFile" },
 		{ type: "addGraphqlCodegenConfig" },
 		{ type: "addGraphqlPackageJson" },

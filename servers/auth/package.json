@@ -23,7 +23,7 @@
   "scripts": {
     "dev": "bun run index.ts --watch --verbose",
     "k8s:build": "cd ../.. && docker build -f servers/auth/Dockerfile -t auth:local .",
-    "gen": "bun ./src/scripts/generate_api.sh.ts",
+    "gen": "bun ../../packages/script/src/bin/generate-api.ts",
     "test": "rstest",
     "auth:provision": "cd ../.. && docker compose run --rm authentik-ansible ansible-playbook services/authentik/ansible/provision.yml -e @servers/auth/ansible/vars.yml"
   }

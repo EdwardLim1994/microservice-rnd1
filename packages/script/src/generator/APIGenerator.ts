@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import capitalize from 'lodash/capitalize';
 import { collectSubDirExports, writeSubDirBarrels } from '../helper/barrel';
 import { checkDependency, log } from '../helper/common';
@@ -14,7 +14,12 @@ export default class APIGenerator {
     this._barrelRoot = `${this._apiPath}/${this._path}`;
   }
 
-  public static init(projectName: string) {
+  /**
+   * `projectName` defaults to the invoking server's own directory name (`bun run gen` always
+   * runs with cwd set to that server's workspace) — lets one shared script drive every server's
+   * codegen instead of each server needing its own wrapper file just to supply this string.
+   */
+  public static init(projectName: string = basename(process.cwd())) {
     return new APIGenerator(projectName);
   }
 

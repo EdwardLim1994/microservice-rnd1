@@ -12,8 +12,8 @@ package (`packages/api`), backed by Docker Compose infra services.
 - `packages/api/` — generated-only shared types (proto + GraphQL codegen output per server),
   committed to the repo, never hand-edited. See `packages/api/CLAUDE.md`.
 - `packages/script/` — standalone tooling package, currently just `APIGenerator` (drives codegen
-  into `packages/api`, wrapped by each server's `src/scripts/generate_api.sh.ts`). See
-  `packages/script/CLAUDE.md`.
+  into `packages/api`, run via every server's `"gen"` script pointing at the one shared
+  `src/bin/generate-api.ts` entrypoint — no per-server wrapper file). See `packages/script/CLAUDE.md`.
 - `servers/<name>/` — one server per microservice. Currently just `auth` (GraphQL-only, no DB —
   `signIn`/`signUp`/`signOut` mutations backed by `services/authentik/`, see
   `servers/auth/CLAUDE.md`); a fuller example combining gRPC + GraphQL + Kafka + Postgres

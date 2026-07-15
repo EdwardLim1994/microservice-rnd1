@@ -170,13 +170,15 @@ export function mergePackageJsonDeps(
 }
 
 /**
- * Sets scripts.gen to the shared `generate_api.sh.ts` entrypoint (proto and/or GraphQL
- * codegen, driven by APIGenerator) unless something else is already there — "gen" is a single
- * named command, not a lifecycle hook, so if it's already set to something else we leave it
- * alone and report it rather than silently overwriting it.
+ * Sets scripts.gen to `packages/script`'s shared generate-api.ts entrypoint (proto and/or
+ * GraphQL codegen, driven by APIGenerator, which infers the project name from cwd) unless
+ * something else is already there — "gen" is a single named command, not a lifecycle hook, so
+ * if it's already set to something else we leave it alone and report it rather than silently
+ * overwriting it. One shared script for every server means no per-server wrapper file to
+ * generate at all.
  */
 export function ensureGenScript(pkg: PackageJson): string {
-	const genScript = "bun ./src/scripts/generate_api.sh.ts";
+	const genScript = "bun ../../packages/script/src/bin/generate-api.ts";
 	const existingGen = pkg.scripts.gen;
 	if (!existingGen) {
 		pkg.scripts.gen = genScript;
@@ -190,28 +192,6 @@ export function ensureGenScript(pkg: PackageJson): string {
 
 export function writePackageJson(absPackageJsonPath: string, pkg: PackageJson, indent: string): void {
 	fs.writeFileSync(absPackageJsonPath, `${JSON.stringify(pkg, null, indent)}\n`);
-}
-
-const SHARED_TEMPLATES_DIR = path.join(process.cwd(), "turbo", "generators", "templates", "shared");
-
-/**
- * Writes the shared, protocol-agnostic generate_api.sh.ts script (proto + GraphQL codegen,
- * via APIGenerator) unless one is already there — gRPC and GraphQL extensions both need it,
- * so whichever extension is added first creates it.
- */
-export function addApiScript(location: string): string {
-	const name = path.basename(location);
-	const destPath = path.join(process.cwd(), location, "src", "scripts", "generate_api.sh.ts");
-	if (fs.existsSync(destPath)) {
-		return `${relToRoot(destPath)} already exists`;
-	}
-	const template = fs.readFileSync(
-		path.join(SHARED_TEMPLATES_DIR, "generate_api.sh.ts.hbs"),
-		"utf-8",
-	);
-	fs.mkdirSync(path.dirname(destPath), { recursive: true });
-	fs.writeFileSync(destPath, template.replace(/\{\{\s*name\s*\}\}/g, name));
-	return relToRoot(destPath);
 }
 
 /**

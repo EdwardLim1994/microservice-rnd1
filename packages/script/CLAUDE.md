@@ -7,27 +7,61 @@ runtime framework servers depend on.
 ## APIGenerator
 
 `APIGenerator` is a fluent builder for generating proto and GraphQL API types into `packages/api`.
-Each server's `src/scripts/generate_api.sh.ts` wraps it and is run via `bun run gen`:
+Every server's `"gen"` script (added by the `grpc`/`graphql` `turbo gen server` extensions) runs
+the same shared entrypoint, `packages/script/src/bin/generate-api.ts`:
 
 ```ts
-import { APIGenerator } from 'script';
+// packages/script/src/bin/generate-api.ts — identical for every server, no per-server wrapper
+import APIGenerator from '../generator/APIGenerator';
 
-APIGenerator.init('demo1')
-  .apiLocation('../../packages/api')
-  .path('src/generated')
-  .generate();
+await APIGenerator.init().withBarrel('../../packages/api/src/generated').generate();
+
+process.exit();
 ```
 
+```json
+// any server's package.json
+"scripts": { "gen": "bun ../../packages/script/src/bin/generate-api.ts" }
+```
+
+- `APIGenerator.init(projectName?)` — `projectName` defaults to `basename(process.cwd())`, i.e.
+  the invoking server's own directory name (`bun run gen` always runs with cwd set to that
+  server's workspace). This is what lets one script file serve every server: there's no name to
+  hand-supply, so no per-server file is needed just to close over it. Still accepts an explicit
+  name for direct/test use (`APIGenerator.init('demo1')`).
 - Checks for `graphql-codegen.exe` and `protoc.exe` in `node_modules/.bin` before running — skips gracefully if not found
 - After proto generation, writes `index.ts` barrel files recursively into each proto subdirectory
 - Writes a top-level `index.ts` barrel grouping exports by server name and type (e.g. `Demo1Graphql`, `Demo1Demo1Proto`)
 - Uses `chalk` for coloured log output (`log.info`, `log.warn`, `log.error`, `log.success`)
 - Helper utilities also exported: `writeSubDirBarrels`, `collectSubDirExports`, `createFolder`, `checkDependency`, `log`
 
+## ReleaseManager
+
+`ReleaseManager` drives this repo's release branching/tagging (cut-release, bump-rc, promote,
+hotfix, touched-apps — see the root `CLAUDE.md`'s Branch/Tag Strategy). The root `package.json`'s
+`release:*` scripts all run the same shared entrypoint, `packages/script/src/bin/release-manager.ts`:
+
+```json
+// root package.json
+"release:cut": "bun ./packages/script/src/bin/release-manager.ts cut-release",
+```
+
+`release-manager.ts` parses `process.argv` into a command + args, dispatches to the matching
+`ReleaseManager` method, and prints the result as JSON to stdout (errors go to stderr via `log.error`
+and exit 1) — `.github/workflows/cd-hotfix.yml` captures that stdout JSON directly
+(`result=$(bun ./packages/script/src/bin/release-manager.ts hotfix "$app")`, piped into `jq`).
+Like `generate-api.ts` below, it imports `ReleaseManager`/`log` by relative path (not as `script`'s
+package export), so no `bun run build --filter=script` step is needed before running it.
+
 ## Layout
 
 - `src/generator/` — `APIGenerator.ts` (the class above), `index.ts` (barrel, `export { default as
   APIGenerator } from './APIGenerator'`).
+- `src/release/` — `ReleaseManager.ts` (the class above) plus `apps.ts`/`manifest.ts`/`version.ts`
+  helpers, `index.ts` (barrel).
+- `src/bin/` — CLI entrypoints run directly via `bun` by relative path (never imported as `script`'s
+  package export, never built to `dist`): `generate-api.ts` (every server's `"gen"` script) and
+  `release-manager.ts` (the root `release:*` scripts).
 - `src/helper/` — `barrel.ts` (`writeSubDirBarrels`, `collectSubDirExports`), `common.ts` (`log`,
   `createFolder`, `checkDependency`), `index.ts` (barrel for this directory).
 - `src/index.ts` — package's top-level barrel (`export * from './generator'; export * from

@@ -33,16 +33,15 @@ jobs:
           bun-version: 1.3.14
 
       - run: bun install --frozen-lockfile --ignore-scripts
-      - run: bun run build --filter=script
 
       - name: Identify the touched apps
         id: touched
         run: |
-          # -c (compact) matters: release_manager.sh.ts pretty-prints its JSON output (multi-line),
+          # -c (compact) matters: release-manager.ts pretty-prints its JSON output (multi-line),
           # and $GITHUB_OUTPUT's own file-command format rejects a multi-line value written as
           # "key=$multilineValue" — every line after the first gets parsed as its own malformed
           # "key=value" pair instead of being part of the value.
-          apps=$(bun ./scripts/release_manager.sh.ts touched-apps origin/main | jq -c '.')
+          apps=$(bun ./packages/script/src/bin/release-manager.ts touched-apps origin/main | jq -c '.')
           count=$(echo "$apps" | jq 'length')
           if [ "$count" -eq 0 ]; then
             echo "::error::Expected at least one deployable app touched by this hotfix, found 0"
@@ -57,7 +56,7 @@ jobs:
         run: |
           results="[]"
           for app in $(echo "$TOUCHED_APPS" | jq -r '.[]'); do
-            result=$(bun ./scripts/release_manager.sh.ts hotfix "$app")
+            result=$(bun ./packages/script/src/bin/release-manager.ts hotfix "$app")
             results=$(echo "$results" | jq --argjson r "$result" '. + [$r]')
           done
           echo "apps=$(echo "$results" | jq -c '.')" >> "$GITHUB_OUTPUT"

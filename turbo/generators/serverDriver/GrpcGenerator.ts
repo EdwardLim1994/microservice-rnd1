@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 import {
-	addApiScript,
 	ensureGenScript,
 	findAvailableServerPort,
 	injectDriverEntry,
@@ -42,11 +41,11 @@ function mergeGrpcIntoPackageJson(absPackageJsonPath: string): string {
 	const { pkg, indent } = mergePackageJsonDeps(
 		absPackageJsonPath,
 		{ "@bufbuild/buf": "^1.70.0", protoc: "^35.1.0" },
-		{ "@grpc/grpc-js": "^1.14.4", "ts-proto": "^2.11.8", api: "workspace:*", script: "workspace:*" },
+		{ "@grpc/grpc-js": "^1.14.4", "ts-proto": "^2.11.8", api: "workspace:*" },
 	);
 	const genNote = ensureGenScript(pkg);
 	writePackageJson(absPackageJsonPath, pkg, indent);
-	return `${relToRoot(absPackageJsonPath)} (+@grpc/grpc-js, ts-proto, api, script, buf/protoc)${genNote}`;
+	return `${relToRoot(absPackageJsonPath)} (+@grpc/grpc-js, ts-proto, api, buf/protoc)${genNote}`;
 }
 
 /**
@@ -124,11 +123,6 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 		);
 	});
 
-	plop.setActionType("addGrpcApiScript", (answers) => {
-		const { location } = answers as { location: string };
-		return addApiScript(location);
-	});
-
 	plop.setActionType("addGrpcProtoFile", (answers, _config, plopApi) => {
 		const { location } = answers as { location: string };
 		const name = path.basename(location);
@@ -162,7 +156,6 @@ const GrpcGenerator: ServerDriverExtension = {
 	driverName: "GrpcDriver",
 	registerActionTypes,
 	actions: [
-		{ type: "addGrpcApiScript" },
 		{ type: "addGrpcProtoFile" },
 		{ type: "addGrpcBufGenYaml" },
 		{ type: "addGrpcPackageJson" },

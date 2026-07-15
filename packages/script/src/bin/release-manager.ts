@@ -1,4 +1,5 @@
-import { log, ReleaseManager } from 'script';
+import { log } from '../helper/common';
+import ReleaseManager from '../release/ReleaseManager';
 
 const [command, ...args] = process.argv.slice(2);
 const manager = ReleaseManager.init(process.cwd());
