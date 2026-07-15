@@ -2,15 +2,17 @@
 
 Docker Compose stack: `kafka-connect` (Kafka Connect worker, image built from `kafka-connect/
 Dockerfile` — `confluentinc/cp-kafka-connect` plus the Debezium Postgres connector plugin
-installed via `confluent-hub`), running Change Data Capture for servers with their own Postgres
-(currently just `test1`). No application code here — just the Compose stack and the `ansible/`
-provisioning role, same shape as `services/vault`/`services/kafka`.
+installed via `confluent-hub`), running Change Data Capture for servers with their own Postgres.
+No server currently has CDC provisioned (the prototype example this was verified against,
+`servers/test1`, has since been removed — see `turbo gen cdc` below for wiring up a new one). No
+application code here — just the Compose stack and the `ansible/` provisioning role, same shape as
+`services/vault`/`services/kafka`.
 
 ## How it fits together
 
 CDC here means: Debezium's Postgres connector, running inside `kafka-connect`, reads a server's
 Postgres write-ahead log via logical replication and emits one Kafka topic per table
-(`<server_name>.<schema>.<table>`, e.g. `test1.public.<table>`) — Avro-encoded through the same
+(`<server_name>.<schema>.<table>`, e.g. `demo1.public.<table>`) — Avro-encoded through the same
 `schema-registry` (`services/kafka`) every other topic in this repo uses (see
 `packages/server/CLAUDE.md`'s `SchemaRegistryKafkaSerializer`). It's a separate write path from a
 server's own `KafkaDriver` producer calls — CDC topics are named with a dot-separated
@@ -18,11 +20,11 @@ server's own `KafkaDriver` producer calls — CDC topics are named with a dot-se
 app produces to directly.
 
 - **A server's Postgres must run with `wal_level=logical`** — the `postgres:15.3-alpine` image
-  (used by `test1-db` etc.) defaults to `replica`, enough for physical replication/backups but not
-  logical decoding. Each server's own `docker-compose.yml` sets this via
-  `command: ["postgres", "-c", "wal_level=logical"]` on its Postgres service — see
-  `servers/test1/docker-compose.yml`. Only takes effect from container start; a running container
-  with this unset needs a restart (a plain config reload isn't enough for `wal_level`).
+  (used by `<server_name>-db`) defaults to `replica`, enough for physical replication/backups but
+  not logical decoding. Each server's own `docker-compose.yml` sets this via
+  `command: ["postgres", "-c", "wal_level=logical"]` on its Postgres service (added by `turbo gen
+  cdc`, see below). Only takes effect from container start; a running container with this unset
+  needs a restart (a plain config reload isn't enough for `wal_level`).
 - **The connector uses each server's existing static superuser** (`myuser`/`mypassword`, same
   credential already scaffolded for that server's own Postgres and reused by Vault's
   `database/config/<name>-db` admin connection — see `services/vault/CLAUDE.md`) — not a
@@ -54,7 +56,7 @@ app produces to directly.
   `ALTER PUBLICATION ... ADD/DROP TABLE` outright against a `FOR ALL TABLES` publication).
 - `kafka-connect` joins both the `kafka` network (its own Kafka traffic, and REST API access from
   the `debezium-ansible` tool container) and the `adminer` network (to reach a server's Postgres
-  container directly by hostname, e.g. `test1-db` — same reason `services/vault`'s container joins
+  container directly by hostname, e.g. `<server_name>-db` — same reason `services/vault`'s container joins
   `adminer` for its own DB connection). `debezium-ansible` joins both networks too, for the same
   reason — the publication reconciliation above talks to Postgres directly, not just to
   `kafka-connect`'s REST API.
@@ -77,8 +79,7 @@ lists servers `findPrismaServerWorkspaces` finds). It:
   whenever the set of tables to capture changes, and it'll update just that value, not skip the
   whole thing the way a first-glance idempotent-append might.
 - Sets `wal_level=logical` on that server's `<name>-db` Postgres service in its own
-  `docker-compose.yml`, same as `servers/test1/docker-compose.yml`'s hand-added line — skipped if
-  already present.
+  `docker-compose.yml` — skipped if already present.
 - Adds a `cdc:provision` script to that server's `package.json` — skipped if already present.
 - Prompts for which tables to capture: a checkbox of that server's own `schema.prisma` models
   (respecting `@@map`, since that's the real Postgres table name) if any exist yet, or a free-text
@@ -98,8 +99,9 @@ containers may not even be running at `turbo gen` time). That's still a separate
 **Registering the connector is not automatic** — no server currently registers a Debezium
 connector on its own startup, so `kafka-connect` coming up healthy doesn't mean CDC is flowing yet.
 Run `bun run cdc:provision` inside a server's own directory (after `docker compose up` brings up
-`kafka`, `schema-registry`, `kafka-connect`, and that server's own Postgres) — see
-`servers/test1/package.json`'s `cdc:provision` script and `ansible/provision.yml`.
+`kafka`, `schema-registry`, `kafka-connect`, and that server's own Postgres) — see the
+`cdc:provision` script `turbo gen cdc` adds to that server's `package.json` (above) and
+`ansible/provision.yml`.
 
 - **Provisioning runs in a container, not on the host** — same pattern as
   `services/vault/ansible/`. The `debezium-ansible` service (`services/debezium/docker-compose.yml`,
@@ -163,15 +165,15 @@ confirmed working in-cluster deployment yet.
   (`services/debezium/kafka-connect/Dockerfile`, same one `docker-compose.yml`'s own `kafka-connect`
   service builds). `services/debezium/package.json`'s `k8s:build` script
   (`docker build -f services/debezium/kafka-connect/Dockerfile -t debezium-kafka-connect:local
-  services/debezium/kafka-connect`) plugs into the root `bun run k8s:build` the same way
-  `servers/test1/package.json`'s own `k8s:build` does — run it (against minikube's own Docker
-  daemon, via the root script's `eval "$(minikube docker-env)"`) before `terraform apply`, same as
-  any server's own image. Unlike a server's Dockerfile, this one's build context is
+  services/debezium/kafka-connect`) plugs into the root `bun run k8s:build` the same way any
+  server's own `k8s:build` script does — run it (against minikube's own Docker daemon, via the
+  root script's `eval "$(minikube docker-env)"`) before `terraform apply`, same as any server's own
+  image. Unlike a server's Dockerfile, this one's build context is
   `services/debezium/kafka-connect` itself, not the repo root — it copies nothing from the
   monorepo, so there's nothing to gain from the wider context.
 - **Provisioning against an in-cluster `kafka-connect` isn't solved yet.** `debezium-ansible`
   (the provisioning tool container) is a Docker Compose-only concept — there's no in-cluster
   equivalent (a Job, a port-forwarded host run, etc.) yet. This is the same acknowledged gap as
-  Vault's own k8s story (`servers/demo1`'s Helm values still point at docker-compose-based
+  Vault's own k8s story (a gRPC-driven server's Helm values still pointing at docker-compose-based
   addresses per `services/terraform/CLAUDE.md`) — a deliberate, separate follow-up, not attempted
   here.
