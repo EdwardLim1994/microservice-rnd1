@@ -6,149 +6,208 @@ Read this file at the start of every session before taking any action.
 
 ```
 [monorepo root]
-├── .claude/                               ← Claude Code operational config
-│   ├── CLAUDE.md                          ← this file (auto-read every session)
+├── .claude/
+│   ├── CLAUDE.md                          ← this file
+│   ├── commands/
+│   │   ├── pr.md                          ← /pr command
+│   │   ├── e2e.md                         ← /e2e command
+│   │   ├── dev.md                         ← /dev command
+│   │   └── review.md                      ← /review command
 │   └── SOP/
-│       ├── handoff.md                     ← shared handoff rules
-│       ├── project-management.md          ← /pm role
-│       ├── qa.md                          ← /qa role
-│       ├── development.md                 ← /dev role
-│       └── devops.md                      ← /devops role
+│       ├── handoff.md
+│       ├── project-management.md          ← bugfix/hotfix issue creation reference
+│       ├── qa.md                          ← integration test authoring
+│       └── devops.md                      ← CI/CD and deployment
 │
-├── .openspec/                             ← requirements store
+├── .openspec/
 │   └── requirements/
-│       ├── release/
-│       │   └── [version]/
-│       │       ├── requirements.yaml      ← user stories, features, test plans
-│       │       └── [domain]-subgraph.api.graphql  ← federation SDL (if graphqlChanges)
-│       └── hotfix/
-│           └── [version]/
-│               ├── requirements.yaml
-│               └── [domain]-subgraph.api.graphql
+│       ├── release/[version]/
+│       │   ├── requirements.yaml
+│       │   ├── deployment.yaml            ← service deployment manifest
+│       │   └── [domain]-subgraph.api.graphql
+│       └── hotfix/[version]/
+│           ├── requirements.yaml
+│           ├── deployment.yaml
+│           └── [domain]-subgraph.api.graphql
 │
-├── ./docs/                                ← Astro Starlight documentation site
-│   ├── astro.config.ts
-│   ├── package.json
-│   └── src/
-│       └── content/
-│           └── docs/
-│               ├── business-logic/        ← /pm writes once per release
-│               ├── api/                   ← /dev writes after each endpoint
-│               ├── architecture/          ← /dev writes after user story PR
-│               ├── data-flows/            ← /dev writes after user story PR
-│               └── sdlc/                  ← /pm writes once per project setup
+├── .github/workflows/
+│   ├── integration-tests.yml              ← feat/**, bugfix/**
+│   ├── e2e-tests.yml                      ← PR targeting release/**
+│   ├── sonarqube.yml                      ← feat/**, us/**, bugfix/**, hotfix/**
+│   ├── deploy-uat.yml                     ← tag: v*-rc*
+│   └── deploy-production.yml              ← tag: v[0-9]*.[0-9]*.[0-9]* (stable only)
 │
-├── ./e2e/                                 ← Bun project: Vitest API + Cypress browser tests
-├── ./servers/                             ← backend services
-│   └── [domain]-subgraph/                 ← gRPC + GraphQL subgraph per domain
-└── [frontend projects]
+├── ./docs/                                ← Astro Starlight
+├── ./e2e/                                 ← Bun: Vitest API + Cypress
+├── ./servers/
+│   ├── [domain]/                          ← gRPC server (primary deployable)
+│   └── [domain]-subgraph/                 ← GraphQL subgraph SDL (travels with gRPC server)
+├── ./frontends/
+│   └── [app]/                             ← microfrontend web apps
+└── ./apps/
+    ├── [web-app]/                         ← full webpages
+    └── [mobile-app]/                      ← mobile apps (React Native Expo — placeholder)
 ```
 
 ## Subgraph Naming Convention
-Format: `[domain]-subgraph`
-Derive domain name from `./servers/[domain]-subgraph/` folder structure.
-Never invent subgraph names — always derive from the monorepo.
-
-## Shared Rules (All Roles)
-- Never branch from `main` directly
-- Never create release branches — developer creates these manually
-- Merge is always triggered by the developer — never merge autonomously
-- Always read `.openspec/requirements/[release|hotfix]/[version]/requirements.yaml` as the source of truth
-- Stop and notify the developer via GitHub issue comment if a blocking condition is met
-- Always read the relevant role SOP before acting
+- Subgraph: `[domain]-subgraph` (e.g. `auth-subgraph`)
+- gRPC server: `[domain]` (e.g. `auth`)
+- Both live alongside each other in `./servers/`
+- Deployment targets the gRPC server — subgraph SDL travels with it
 
 ## Branch Strategy
+
 ```
 main
-└── release/[version]                         🧑 Developer
-    └── us/[issue-number]-[short-title]       🤖 /pm
-        └── feat/[issue-number]-[short-title] 🤖 /pm
+├── release/[version]                          ← /pr creates
+│   └── us/[issue-number]-[short-title]        ← /pr creates
+│       └── feat/[issue-number]-[short-title]  ← /pr creates
+└── hotfix/[version]-[desc]                    ← /pr creates (same level as release)
+    └── bugfix/[hotfix-sub-issue-number]-[desc] ← /pr creates
 ```
 
-## Branch Naming Convention
-| Type | Format | Example |
-|---|---|---|
-| Release | `release/[version]` | `release/v1.0.0` |
-| User Story | `us/[issue-number]-[short-title]` | `us/42-sso-login` |
-| Feature | `feat/[issue-number]-[short-title]` | `feat/47-oauth-token-exchange` |
-| Bugfix (release) | `bugfix/[us-issue-number]-[desc]` | `bugfix/42-auth-token-null-pointer` |
-| Hotfix | `hotfix/[new-version]-[desc]` | `hotfix/1.0.1-payment-crash` |
-| Bugfix (hotfix) | `bugfix/[hotfix-sub-issue-number]-[desc]` | `bugfix/88-null-token-checkout` |
+| Branch | Format | Created from | Merged into | Deleted after |
+|---|---|---|---|---|
+| `release/` | `release/[version]` | `main` | `main` | Never |
+| `us/` | `us/[number]-[title]` | `release/` | `release/` | After merge |
+| `feat/` | `feat/[number]-[title]` | `us/` | `us/` | After merge |
+| `bugfix/` (us branch) | `bugfix/[us-number]-[desc]` | `us/` | `us/` | After us/ merges |
+| `bugfix/` (release branch) | `bugfix/[release-ver]-[desc]` | `release/` | `release/` | After stable tag |
+| `hotfix/` | `hotfix/[version]-[desc]` | `main` | `main` | Never |
+| `bugfix/` (hotfix) | `bugfix/[hotfix-sub-number]-[desc]` | `hotfix/` | `hotfix/` | After hotfix merge |
 
-## Commit Message Convention
+**No local merges ever. Every branch transition goes through a PR. Developer merges all PRs.**
+
+## Tag Strategy
+
+| Tag | Format | Trigger | Deploys to |
+|---|---|---|---|
+| RC | `v[version]-rc[n]` | `/pr tag rc [version]` | UAT environment |
+| Stable | `v[version]` | `/pr tag stable [version]` | Production environment |
+| Hotfix RC | `v[version]-rc[n]` | `/pr tag hotfix-rc [version]` | UAT environment |
+| Hotfix stable | `v[version]` | `/pr tag hotfix-stable [version]` | Production environment |
+
+RC tags increment: `v1.0.0-rc1`, `v1.0.0-rc2` etc. if UAT fixes are needed.
+
+## Selective Deployment
+
+CI reads `deployment.yaml` from `.openspec/` to determine which services to build and deploy.
+
+| Service type | Path | Deploy condition |
+|---|---|---|
+| `grpc` | `./servers/[domain]/` | `deploy: true` in deployment.yaml |
+| `microfrontend` | `./frontends/[app]/` | `deploy: true` in deployment.yaml |
+| `webapp` | `./apps/[app]/` | `deploy: true` in deployment.yaml |
+| `mobile` | `./apps/[app]/` | Always `deploy: false` — Expo pipeline placeholder |
+| `chore: true` | any | Skip all deployments |
+
+## Commit Convention
 Format: `type(scope): description`
 
-| Type | When to use |
+| Type | When |
 |---|---|
-| `feat:` | New feature implementation |
-| `test:` | Adding or updating tests |
+| `feat:` | New feature |
+| `test:` | Tests |
 | `fix:` | Bug fix |
-| `refactor:` | Code change with no behaviour change |
-| `chore:` | Config, tooling, or dependency changes |
-| `docs:` | Documentation only |
+| `refactor:` | No behaviour change |
+| `chore:` | Config, tooling, openspec, ci |
+| `docs:` | Documentation |
+
+## CI Quality Gates
+Claude Code waits for CI before opening any PR. Max 3 fix cycles then `/blocked`.
+
+| Workflow | Triggers on | Runs |
+|---|---|---|
+| `integration-tests.yml` | push `feat/**`, `bugfix/**` | Integration tests |
+| `e2e-tests.yml` | PR targeting `release/**` | kind cluster + Vitest + Cypress |
+| `sonarqube.yml` | push `feat/**`, `us/**`, `bugfix/**`, `hotfix/**` | SonarQube Cloud |
+| `deploy-uat.yml` | tag `v*-rc*` | Selective service deploy to UAT |
+| `deploy-production.yml` | tag `v[0-9]*.[0-9]*.[0-9]*` (stable) | Selective service deploy to production |
+
+Claude Code never runs SonarQube locally. CI owns all scanning.
 
 ---
 
-## Session Start — Detect Mode
+## Session Start
 
-At the start of every session, before taking any action, check in this order:
+Check in this order at the start of every session:
 
-### Mode A — Run state exists (.claude/run-state.json present and phase != done)
-A `/run` session is already in progress. Do not ask what to do — report status:
+### 1 — OpenSpec files present in .openspec/?
+Prompt:
 ```
-Run in progress: [mode] [version]
-Current phase: [phase]
-Paused at: [pauseReason]
-Type /run continue to resume, or /run status for full details.
+OpenSpec found for [version].
+What would you like to do?
+  /pr [version]                    — create release branch, issues, branches
+  /pr tag rc [version]             — create RC tag → UAT deploy
+  /pr tag stable [version]         — create stable tag → production deploy + release PR
+  /pr uat-fix [version]            — read release PR comments, create UAT fix
+  /e2e [us-number]                 — write e2e tests for a user story
+  /dev [us-number]                 — implement all features for a user story
+  /dev feat [number]               — implement one specific feature
+  /dev us [us-number]              — open user story PR
+  /dev bugfix [number]             — fix a bugfix branch
+  /dev hotfix [version]            — implement all hotfix bugfixes
+  /review [us-number]              — review all features for a user story
+  /review feat [number]            — review one specific feature
 ```
 
-### Mode B — OpenSpec files already in .openspec/ (bootstrap script was run)
-If `.openspec/requirements/[release|hotfix]/[version]/requirements.yaml` exists
-but no `run-state.json` exists — the bootstrap script has been run and files are
-ready. Do not ask which role to use. Prompt the developer:
+### 2 — No OpenSpec and no command given
+Ask:
 ```
-OpenSpec files found for [version]. Ready to begin.
-Run /run release [version] for the full automated SDLC,
-or /run release [version] --checkpoint for role-by-role review,
-or /pm to run project management only.
+No OpenSpec files found. Run the bootstrap script from the Claude Project alignment chat first:
+  bash bootstrap-[version].sh
+
+Then use /pr [version] to begin.
+
+If starting mid-SDLC, which command would you like to run?
 ```
 
-### Mode C — No OpenSpec files and no run state (fresh session)
-If no files are attached, do not take any action until a command is given.
+### Hotfix session
+If developer mentions a production bug:
+```
+Starting a hotfix. Please provide:
+  - Current production version (e.g. 1.0.0)
+  - Short description of the production problem
+  - New patch version (e.g. 1.0.1)
 
-**Orchestrator command (runs all roles in sequence):**
+Run the bootstrap script then: /pr hotfix [new-version]
+```
 
-| Command | Description | Reads |
+---
+
+## Available Commands
+
+| Command | Reads | Does |
 |---|---|---|
-| `/run release [version]` | Full release cycle | `.claude/commands/run.md` |
-| `/run release [version] --checkpoint` | Release with role review pauses | `.claude/commands/run.md` |
-| `/run hotfix [version]` | Full hotfix cycle | `.claude/commands/run.md` |
-| `/run hotfix [version] --checkpoint` | Hotfix with role review pauses | `.claude/commands/run.md` |
-| `/run continue` | Resume after a pause | `.claude/commands/run.md` |
-| `/run status` | Show current run position | `.claude/commands/run.md` |
-| `/run reset` | Clear run state | `.claude/commands/run.md` |
+| `/pr [version]` | `.claude/commands/pr.md` | Creates release branch, OpenSpec commit, labels, milestone, issues, branches, deployment.yaml validation, business logic docs |
+| `/pr hotfix [version]` | `.claude/commands/pr.md` | Creates hotfix branch, issues, bugfix branches |
+| `/pr tag rc [version]` | `.claude/commands/pr.md` | Creates RC tag → triggers UAT deployment |
+| `/pr tag stable [version]` | `.claude/commands/pr.md` | Creates stable tag → triggers production deployment + opens release→main PR |
+| `/pr tag hotfix-rc [version]` | `.claude/commands/pr.md` | Creates hotfix RC tag |
+| `/pr tag hotfix-stable [version]` | `.claude/commands/pr.md` | Creates hotfix stable tag + opens hotfix→main PR |
+| `/pr uat-fix [version]` | `.claude/commands/pr.md` | Reads release PR comments, creates UAT bugfix issue and branch |
+| `/e2e [us-number]` | `.claude/commands/e2e.md` | Vitest API + Cypress e2e tests for one user story |
+| `/dev [us-number]` | `.claude/commands/dev.md` | All features sequentially, integration tests, CI gate, feature PRs |
+| `/dev feat [number]` | `.claude/commands/dev.md` | One specific feature |
+| `/dev us [us-number]` | `.claude/commands/dev.md` | Opens user story PR |
+| `/dev bugfix [number]` | `.claude/commands/dev.md` | Fixes bugfix branch, opens PR |
+| `/dev hotfix [version]` | `.claude/commands/dev.md` | All bugfix branches under hotfix |
+| `/review [us-number]` | `.claude/commands/review.md` | Reviews all features, fixes inline, pushes |
+| `/review feat [number]` | `.claude/commands/review.md` | Reviews one specific feature |
+| `/devops` | `.claude/SOP/devops.md` | CI/CD pipeline setup or release deployment |
 
-**Individual role commands:**
+When any command is given — read the corresponding file before acting.
 
-| Command | Role | Reads |
-|---|---|---|
-| `/pm` | Project Management | `.claude/SOP/project-management.md` |
-| `/qa` | QA | `.claude/SOP/qa.md` |
-| `/dev` | Development | `.claude/SOP/development.md` |
-| `/devops` | DevOps | `.claude/SOP/devops.md` |
+---
 
-If a `/run` command is given — read `.claude/commands/run.md` before acting.
-If a role command is given — read the corresponding SOP before acting.
-If neither is given, ask:
-> "How would you like to proceed? Use /run [release|hotfix] [version] to run the full SDLC, or /pm, /qa, /dev, /devops for a specific role."
+## Shared Rules
 
-### Hotfix Session
-If the developer mentions a production bug or hotfix with no files attached, confirm:
-> "Starting a hotfix session. Please provide: the current production version (e.g. 1.0.0) and a short description of the production problem. Then attach the OpenSpec files from the Claude.ai chat, or type /run hotfix [version] if files are already in .openspec/."
-
-Then read `.claude/commands/run.md` or `.claude/SOP/project-management.md` depending on the chosen command.
-
-### Run State
-`.claude/run-state.json` persists the current run position between sessions.
-If this file exists and `phase != done`, a run is in progress.
-Always check for this file at session start before asking the developer what to do.
+- Never merge locally — every branch transition goes through a PR
+- Developer merges all PRs — Claude Code only opens them
+- Developer creates all tags via `/pr tag` commands — Claude Code executes the git tag commands
+- Always read `.openspec/` as the source of truth
+- `deployment.yaml` determines which services CI builds and deploys
+- Mobile (`type: mobile`) always has `deploy: false` — Expo pipeline is a placeholder
+- Chore releases (`chore: true`) skip all service deployments
+- Post `/blocked` on the relevant GitHub issue when a stopping condition is hit
+- CI must pass before any PR is opened — max 3 fix cycles then `/blocked`

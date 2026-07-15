@@ -122,6 +122,53 @@ Status: Infrastructure ready. UAT can proceed.
 
 ---
 
+## Tag and UAT Handoff Comments
+
+### /pr tag rc → Developer (RC tag created)
+```
+RC tag created: v[version]-rc[n]
+UAT deployment triggered via GitHub Actions deploy-uat.yml
+Monitor: GitHub Actions → deploy-uat workflow
+
+When UAT is complete:
+  Passed  → tell Claude Code: "UAT sign off [version]"
+  Failed  → leave a comment on the release PR describing the issue
+            then run: /pr uat-fix [version]
+```
+
+### /pr uat-fix → Developer (UAT fix ready)
+```
+UAT fix issue created: #[issue-number]
+Bugfix branch: bugfix/[release-version]-[short-description]
+
+Run: /dev bugfix [issue-number]
+
+After fix merged into release/[version]:
+Run: /pr tag rc [version]   → creates v[version]-rc[n+1]
+```
+
+### /pr tag stable → Developer (stable tag and release PR)
+```
+Stable tag created: v[version]
+Production deployment triggered via GitHub Actions deploy-production.yml
+Release PR opened: #[pr-number] (release/[version] → main)
+
+Please verify production using the checklist in the PR body.
+When satisfied, merge PR #[pr-number] to complete the release.
+```
+
+### /pr tag hotfix-stable → Developer (hotfix stable tag and PR)
+```
+Hotfix stable tag created: v[version]
+Production deployment triggered
+Hotfix PR opened: #[pr-number] (hotfix/[version]-[desc] → main)
+
+Note: This is a patch version bump [prev-version] → [version]
+Verify production using checklist in PR body, then merge.
+```
+
+---
+
 ## Bugfix Handoff Comments
 
 ### PM → Dev (CI failure on feature branch — Scenario A)
