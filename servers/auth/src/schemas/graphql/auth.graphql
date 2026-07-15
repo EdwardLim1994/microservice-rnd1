@@ -17,6 +17,10 @@ type LogoutPayload {
 	message: String!
 }
 
+type Query {
+	health: Boolean!
+}
+
 type Mutation {
 	login(email: String!, password: String!): AuthPayload!
 	register(email: String!, password: String!): RegisterPayload!

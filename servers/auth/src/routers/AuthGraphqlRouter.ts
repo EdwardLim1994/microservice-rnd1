@@ -11,6 +11,9 @@ export default class AuthGraphqlRouter extends GraphqlRouter {
 
 	get handlers(): GraphqlHandlerMap {
 		return {
+			Query: {
+				health: () => true,
+			},
 			Mutation: {
 				login: LoginUseCase,
 				register: RegisterUseCase,
