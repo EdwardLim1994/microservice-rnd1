@@ -142,9 +142,9 @@ backing pod change; re-run the `kubectl port-forward` command for that Service.
 
 **Alternative to step 5's three port-forwards: one to Traefik instead.** `services/terraform` also
 deploys Traefik (see `services/traefik/CLAUDE.md`'s Kubernetes section), fronting Apollo Router/
-`web1`/`mfe1`/Grafana/Authentik via `Ingress` objects keyed on the same `*.localhost` hostnames as
+Grafana/Authentik via `Ingress` objects keyed on the same `*.localhost` hostnames as
 the docker-compose stack. `kubectl port-forward -n infra svc/traefik 80:80`, then hit
-`http://portal.localhost`/`http://mfe1.localhost`/`http://graphql.localhost` etc. (with a
+`http://graphql.localhost` etc. (with a
 `Host` header, or directly if your resolver honors `*.localhost` — most modern browsers do)
 instead of the three separate per-Service port-forwards above. Confirmed working end-to-end
 against a real cluster.

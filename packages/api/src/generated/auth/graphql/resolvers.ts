@@ -49,6 +49,11 @@ export type MutationRegisterArgs = {
   password: Scalars['String']['input'];
 };
 
+export type Query = {
+  __typename?: 'Query';
+  health: Scalars['Boolean']['output'];
+};
+
 export type RegisterPayload = {
   __typename?: 'RegisterPayload';
   message: Scalars['String']['output'];
@@ -182,6 +187,7 @@ export type ResolversTypes = ResolversObject<{
   LogoutPayload: ResolverTypeWrapper<LogoutPayload>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
+  Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
 }>;
 
@@ -192,6 +198,7 @@ export type ResolversParentTypes = ResolversObject<{
   LogoutPayload: LogoutPayload;
   Boolean: Scalars['Boolean']['output'];
   Mutation: Record<PropertyKey, never>;
+  Query: Record<PropertyKey, never>;
   RegisterPayload: RegisterPayload;
 }>;
 
@@ -239,6 +246,14 @@ export type MutationResolvers<
   >;
 }>;
 
+export type QueryResolvers<
+  ContextType = AuthContextType,
+  ParentType extends
+    ResolversParentTypes['Query'] = ResolversParentTypes['Query'],
+> = ResolversObject<{
+  health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+}>;
+
 export type RegisterPayloadResolvers<
   ContextType = AuthContextType,
   ParentType extends
@@ -252,5 +267,6 @@ export type Resolvers<ContextType = AuthContextType> = ResolversObject<{
   AuthPayload?: AuthPayloadResolvers<ContextType>;
   LogoutPayload?: LogoutPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  Query?: QueryResolvers<ContextType>;
   RegisterPayload?: RegisterPayloadResolvers<ContextType>;
 }>;

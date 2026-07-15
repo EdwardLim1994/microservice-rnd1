@@ -9,8 +9,4 @@ include:
   - ./services/redis/docker-compose.yml
   - ./services/traefik/docker-compose.yml
   - ./services/vault/docker-compose.yml
-  - ./servers/test1/docker-compose.yml
-  - ./servers/test2/docker-compose.yml
-  - ./apps/web1/docker-compose.yml
-  - ./frontends/mfe1/docker-compose.yml
   - ./servers/auth/docker-compose.yml

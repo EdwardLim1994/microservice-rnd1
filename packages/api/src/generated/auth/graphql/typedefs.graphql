@@ -1,4 +1,5 @@
 schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: []) {
+  query: Query
   mutation: Mutation
 }
 
@@ -17,6 +18,10 @@ type Mutation {
   login(email: String!, password: String!): AuthPayload!
   logout(accessToken: String!): LogoutPayload!
   register(email: String!, password: String!): RegisterPayload!
+}
+
+type Query {
+  health: Boolean!
 }
 
 type RegisterPayload {

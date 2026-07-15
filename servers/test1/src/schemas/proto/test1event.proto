@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package test1event;
-
-message Test1Event {
-  string id = 1;
-  string name = 2;
-}

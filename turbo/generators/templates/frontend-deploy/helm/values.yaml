@@ -32,6 +32,6 @@ ingress:
   # NodePort above, not instead of it — same "additive, not a replacement" rule
   # services/traefik/CLAUDE.md documents for the docker-compose side. Defaults to the project
   # name; override in this app's own values.yaml if its public hostname should read differently
-  # (e.g. apps/web1 overrides this to "portal.localhost" to match its docker-compose route).
+  # to match its docker-compose route.
   host: {{ name }}.localhost
 

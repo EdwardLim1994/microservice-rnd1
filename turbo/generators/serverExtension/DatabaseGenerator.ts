@@ -377,8 +377,7 @@ function injectVaultSecretEnvFrom(location: string): string {
 
 // Appends a second `docker build --target migrate` invocation to package.json's "k8s:build"
 // script — the app image and the migration Job's image are two separate builds from the same
-// Dockerfile (see servers/test1/package.json's k8s:build for the concrete two-build shape this
-// follows).
+// Dockerfile.
 function addMigrateImageBuildStep(absPackageJsonPath: string, location: string, name: string): string {
 	const raw = fs.readFileSync(absPackageJsonPath, "utf-8");
 	const indent = detectIndent(raw);
@@ -447,8 +446,8 @@ export default class DatabaseGenerator {
 			const pkg = JSON.parse(raw);
 			pkg.scripts ??= {};
 			if (!pkg.scripts["vault:provision"]) {
-				// `cd ../..` first (same convention as every "k8s:build" script — see
-				// servers/test1/package.json) since `docker compose run` must run from wherever
+				// `cd ../..` first (same convention as every "k8s:build" script) since
+				// `docker compose run` must run from wherever
 				// docker-compose.yml's `include:` resolves from (repo root), not this server's own
 				// directory — the "ansible" runner container (services/vault/docker-compose.yml)
 				// mounts the repo root at /workspace, so paths below are relative to that, not to

@@ -119,9 +119,8 @@ function appendCdcVars(
 
 // Inserts `command: ["postgres", "-c", "wal_level=logical"]` into a server's own <name>-db
 // Postgres service, right after its POSTGRES_DB line and before `ports:` — the exact position
-// servers/test1/docker-compose.yml uses, which itself matches
 // turbo/generators/templates/database/docker-compose-snippet.hbs's own POSTGRES_DB/ports
-// adjacency, so this anchor holds for every server DatabaseGenerator has scaffolded.
+// adjacency uses, so this anchor holds for every server DatabaseGenerator has scaffolded.
 function injectWalLevelLogical(absComposePath: string, name: string): string {
 	const raw = fs.readFileSync(absComposePath, "utf-8");
 	if (raw.includes("wal_level=logical")) {
@@ -157,9 +156,8 @@ function addCdcProvisionScript(
 	if (pkg.scripts["cdc:provision"]) {
 		return `${relToRoot(absPackageJsonPath)} already has cdc:provision script`;
 	}
-	// `cd ../..` first — same convention as vault:provision (see
-	// servers/test1/package.json) and every "k8s:build" script, since `docker compose run` must
-	// run from wherever docker-compose.yml's `include:` resolves from (repo root), not this
+	// `cd ../..` first — same convention as vault:provision and every "k8s:build" script, since
+	// `docker compose run` must run from wherever docker-compose.yml's `include:` resolves from (repo root), not this
 	// server's own directory. The "debezium-ansible" runner container
 	// (services/debezium/docker-compose.yml) mounts the repo root at /workspace.
 	pkg.scripts["cdc:provision"] =

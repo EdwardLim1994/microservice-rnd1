@@ -1,4 +1,0 @@
-{
-  "extends": "config/src/typescript/tsconfig.frontend.json",
-  "include": ["src"]
-}

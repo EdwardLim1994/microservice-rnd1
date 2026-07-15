@@ -7,7 +7,7 @@ const DEPLOYABLE_ROOTS = ['servers', 'frontends', 'apps'];
 
 export type DeployableApp = {
   name: string;
-  /** Path relative to the repo root, e.g. "servers/test1". */
+  /** Path relative to the repo root, e.g. "servers/auth". */
   path: string;
 };
 
