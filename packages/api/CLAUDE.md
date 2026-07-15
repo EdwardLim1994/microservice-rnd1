@@ -10,13 +10,17 @@ regenerate.
 
 ## Layout
 
-`src/generated/<serverName>/` — one folder per server that publishes types, e.g. `demo1`, `demo2`:
+`src/generated/<serverName>/` — one folder per server that publishes types, e.g. `auth` (GraphQL
+only today — see `servers/auth/CLAUDE.md`) or a hypothetical gRPC+Kafka server like `demo1`:
 - `proto/` — `ts-proto` output for that server's `.proto` file(s), plus `google/` well-known types
-  and `typeRegistry.ts`, each with barrel `index.ts` files.
+  and `typeRegistry.ts`, each with barrel `index.ts` files. Only present for a server with a gRPC
+  driver — `auth` has none today.
 - `graphql/` — codegen output (`typedefs.ts`/`.graphql`, `resolvers.ts`, `context.ts`).
 - `protobufes/` — only present when a server also needs `@bufbuild/protobuf` (protobuf-es)
-  descriptors, e.g. `demo1/protobufes/demo1_pb.ts` + `demo1event_pb.ts` for Confluent Schema
-  Registry serialization (see `servers/demo1/CLAUDE.md`). **Not** picked up by `APIGenerator`'s
+  descriptors, e.g. a Kafka-producing server's `demo1/protobufes/demo1_pb.ts` +
+  `demo1event_pb.ts` for Confluent Schema Registry serialization (see
+  `packages/server/CLAUDE.md`'s `SchemaRegistryKafkaSerializer` section). **Not** picked up by
+  `APIGenerator`'s
   barrel step (which only scans `graphql/`/`proto/` per server) — every export from here in
   `src/generated/index.ts` (`Demo1ProtobufEs`, `Demo1EventProtobufEs`, one per `_pb.ts` file) is
   hand-added and must be re-added if the top-level barrel is ever regenerated from scratch (running
@@ -29,9 +33,10 @@ import from (`import { Demo1Demo1Proto } from 'api'`).
 ## Regenerating
 
 Run `APIGenerator` from the owning server (not from here) — see `packages/script/CLAUDE.md`'s
-APIGenerator section, or the regeneration command in the relevant `servers/<name>/CLAUDE.md`
-(e.g. `servers/demo1/CLAUDE.md` documents the `buf generate` invocation and the barrel-recovery
-caveat if subdirectory barrels go missing after a regen).
+APIGenerator section, or the regeneration command in the relevant `servers/<name>/CLAUDE.md` (a
+gRPC-driven server's own CLAUDE.md is the place to document any `buf generate` invocation gotchas
+and the barrel-recovery caveat if subdirectory barrels go missing after a regen — `servers/auth`
+has no gRPC driver, so none of that applies there today).
 
 ## Dependencies
 

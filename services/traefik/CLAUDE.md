@@ -38,12 +38,13 @@ this repo carries its own `traefik.http.routers.<name>.rule=Host(...)` +
 `docker-compose.yml` (not centralized here). This keeps a service's routing config next to the
 service itself, same locality principle as every other per-stack `CLAUDE.md` in this repo.
 
-Current routes:
+Current routes (no `apps/*`/`frontends/*` project exists right now — the prototype examples this
+was verified against, `apps/web1`/`frontends/mfe1`, have since been removed; a future `turbo gen
+web` project picks up an `Ingress`/route automatically, see the Kubernetes section's routed-set
+table below for how):
 
 | Host | Service | Gated by `admin-auth`? |
 |---|---|---|
-| `portal.localhost` | `apps/web1` (`:3000`) | no |
-| `mfe1.localhost` | `frontends/mfe1` (`:3001`) | no |
 | `graphql.localhost` | `services/apollo`'s router (`:4000`) | no |
 | `auth.localhost` | `services/authentik`'s `authentik-server` (`:9000`) | no (has its own login) |
 | `adminer.localhost` | `services/adminer` (`:8080`) | yes |
@@ -56,10 +57,10 @@ Current routes:
 
 Every routed service **keeps** its existing host-port publish (`ports:` in its own
 `docker-compose.yml`) — Traefik is additive, not a replacement for direct `localhost:<port>`
-access. This is deliberate: it avoids touching every consumer of a fixed port today (e.g.
-`frontends/mfe1`'s `PUBLIC_GRAPHQL_URL` build-arg baking in `http://localhost:4000/graphql`, see
-that file's own comment) while still giving a single, memorable entry point per service. Direct
-port access and the `*.localhost` Traefik route both work simultaneously.
+access. This is deliberate: it avoids touching every consumer of a fixed port today (e.g. a
+frontend's own `PUBLIC_GRAPHQL_URL` build-arg baking in `http://localhost:4000/graphql` directly)
+while still giving a single, memorable entry point per service. Direct port access and the
+`*.localhost` Traefik route both work simultaneously.
 
 ## `admin-auth` — one shared basic-auth middleware, not per-service
 
@@ -143,18 +144,16 @@ before.
 
 | Host | Chart | Ingress file |
 |---|---|---|
-| `portal.localhost` | `apps/web1` | `helm/templates/ingress.yaml` |
-| `mfe1.localhost` | `frontends/mfe1` | `helm/templates/ingress.yaml` |
 | `graphql.localhost` | `services/apollo` | `helm/templates/ingress.yaml` |
 | `grafana.localhost` | `services/monitoring` | `helm/templates/grafana-ingress.yaml` |
 | `auth.localhost` | `services/authentik` | `helm/templates/server-ingress.yaml` |
 
-`frontends/mfe1`/`apps/web1`'s `Ingress` is defined once in the shared generator template
+No `apps/*`/`frontends/*` project exists right now (see the docker-compose routes note above) — a
+frontend's `Ingress` is defined once in the shared generator template
 (`turbo/generators/templates/frontend-deploy/helm/templates/ingress.yaml`, driven by a new
 `values.yaml` key, `ingress.host`, defaulting to `{{ name }}.localhost`) so every future
-`turbo gen web` project gets one automatically — `apps/web1/helm/values.yaml` overrides it to
-`portal.localhost` to match its docker-compose route (its directory name is `web1`, its public
-role is "portal"); `frontends/mfe1/helm/values.yaml` keeps the default (`mfe1.localhost`).
+`turbo gen web` project gets one automatically, overridable per-project via its own
+`helm/values.yaml`.
 
 Every routed Service **keeps** its existing access path unchanged — a frontend's `NodePort`,
 `apollo-router`/`grafana`/`authentik-server`'s `ClusterIP` reachable via `kubectl port-forward`
@@ -205,9 +204,11 @@ public NodePort).
 
 ### Verified end-to-end against a live minikube cluster
 
-Confirmed working: `bun run k8s:build` → `services/terraform` apply → root `terraform/` apply →
-`kubectl port-forward -n infra svc/traefik 80:80`, then, for each `Host`, a real response through
-Traefik:
+Confirmed working (historical run, against the `apps/web1`/`frontends/mfe1`/`servers/test1`
+prototype examples that have since been removed — the underlying RBAC finding below still applies
+to whatever's routed today): `bun run k8s:build` → `services/terraform` apply → root `terraform/`
+apply → `kubectl port-forward -n infra svc/traefik 80:80`, then, for each `Host`, a real response
+through Traefik:
 
 - `portal.localhost` / `mfe1.localhost` → `200` (web1 / mfe1)
 - `grafana.localhost` / `auth.localhost` → `302` (redirect to each app's own login, as expected)

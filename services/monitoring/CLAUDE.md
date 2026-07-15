@@ -10,8 +10,9 @@ project/Helm chart for the whole pipeline, per user direction.
 
 ## Ports
 
-- Grafana is on `3002`, not the default `3000` — `apps/web1` already owns `3000` and
-  `frontends/mfe1` already owns `3001` (see their own `docker-compose.yml`s).
+- Grafana is on `3002`, not the default `3000` — reserved for a future `apps/*`/`frontends/*`
+  project's dev server (the repo's convention is `3000`/`3001` for the first two, see
+  `services/traefik/CLAUDE.md`'s routing table for the currently-registered hostnames).
 - `otel-collector` owns the standard OTLP ports, `4317` (grpc) / `4318` (http) — this is
   `OtelPlugin`'s own default `OTEL_EXPORTER_OTLP_ENDPOINT` (`http://localhost:4317`), so a server
   using `OtelPlugin` with no config needs nothing beyond this stack being up.
