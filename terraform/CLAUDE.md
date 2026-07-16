@@ -3,14 +3,14 @@
 
 Root Terraform config that aggregates every app's Kubernetes deployment into one `terraform
 apply`. Contains **no resource logic of its own** — each `module "<app>"` block here points at
-that app's own `servers/<app>/terraform/module` (e.g. `module "demo1"` → `servers/demo1/terraform/module`),
-the same module `servers/<app>/terraform`'s own thin per-app wrapper calls for standalone use. See
-that module's `main.tf` for the actual `kubernetes_namespace`/`helm_release` resources. No
-`servers/**`/`frontends/**`/`apps/**` app currently exists in this repo to aggregate — this
-`main.tf` is empty until one does; the rest of this doc describes the pattern a new one follows,
-illustrated with the prototype example (`demo1`/`frontend1`/`portal`, later renamed
-`test1`/`mfe1`/`web1`) that was scaffolded, deployed, and verified against this config before being
-removed.
+that app's own `<location>/<app>/terraform/module` (e.g. `module "auth"` →
+`servers/auth/terraform/module`, `module "docs"` → `apps/docs/terraform/module`), the same module
+that app's own `<location>/<app>/terraform`'s thin per-app wrapper calls for standalone use. See
+that module's `main.tf` for the actual `kubernetes_namespace`/`helm_release` resources. Currently
+registers `auth` (`servers/auth`) and `docs` (`apps/docs`) — the rest of this doc describes the
+pattern a new one follows, also illustrated with a since-removed prototype example
+(`demo1`/`frontend1`/`portal`, later renamed `test1`/`mfe1`/`web1`) that was scaffolded, deployed,
+and verified against this config before being removed.
 
 ## Adding a new app
 

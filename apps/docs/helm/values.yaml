@@ -1,0 +1,30 @@
+replicaCount: 1
+
+image:
+  app:
+    repository: docs
+    tag: local
+  pullPolicy: IfNotPresent
+
+# Astro's own default port (4321) — docs isn't scaffolded by `turbo gen web`, so there's no
+# PUBLIC_GRAPHQL_URL/dev-port collision with another frontend to avoid (see
+# turbo/generators/templates/frontend-deploy/helm/values.yaml's own port comment for that story).
+port: 4321
+
+service:
+  # NodePort, not ClusterIP: unlike a backend API (accessed indirectly through a router/gateway),
+  # this app is loaded directly by a browser. Reachable at `minikube ip`:nodePort from a browser
+  # on the same machine/network as minikube.
+  type: NodePort
+  # 30000 + (4321 - 3000): same collision-free numbering scheme every generator-created frontend
+  # follows (see turbo/generators/templates/frontend-deploy/helm/values.yaml) — chosen by hand
+  # here since docs isn't scaffolded by `turbo gen web`. Kubernetes' valid NodePort range is
+  # 30000-32767.
+  nodePort: 31321
+
+ingress:
+  # Routed through the cluster's shared Traefik (services/traefik/helm) in addition to the
+  # NodePort above, not instead of it — same "additive, not a replacement" rule
+  # services/traefik/CLAUDE.md documents for the docker-compose side. Matches this app's
+  # docker-compose route (apps/docs/docker-compose.yml's Host(`docs.localhost`) label).
+  host: docs.localhost

@@ -10,3 +10,10 @@ module "auth" {
   namespace     = var.auth_namespace
   app_image_tag = var.auth_app_image_tag
 }
+
+module "docs" {
+  source = "../apps/docs/terraform/module"
+
+  namespace     = var.docs_namespace
+  app_image_tag = var.docs_app_image_tag
+}

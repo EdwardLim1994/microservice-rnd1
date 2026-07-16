@@ -1,1 +1,2 @@
-include: []
+include:
+  - ./docs/docker-compose.yml

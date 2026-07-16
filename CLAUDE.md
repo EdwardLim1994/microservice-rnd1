@@ -69,9 +69,10 @@ own directory's centralized file automatically (`appendRootComposeInclude` in
 `turbo/generators/helpers.ts`) — `turbo gen mobile` doesn't, since mobile apps (Expo) have no
 Dockerfile/docker-compose.yml at all (see `.claude/CLAUDE.md`'s Selective Deployment section —
 mobile is always `deploy: false`, an Expo pipeline placeholder). `frontends/` and
-`apps/` currently have no projects with a `docker-compose.yml` yet (only `apps/docs`, a plain
-Astro static site with none), so their centralized files start as `include: []` until the first
-`turbo gen web` run appends an entry.
+`frontends/` currently has no projects at all, so `frontends/docker-compose.yml` starts as
+`include: []` until the first `turbo gen web` run appends an entry — `apps/` has one,
+`apps/docs` (an Astro Starlight site, hand-wired rather than `turbo gen web`-scaffolded, since
+that generator only produces Rsbuild/React projects), registered into `apps/docker-compose.yml`.
 
 ## Commands (Turborepo, run from repo root)
 
