@@ -1,13 +1,5 @@
 include:
-  - ./services/adminer/docker-compose.yml
-  - ./services/apollo/docker-compose.yml
-  - ./services/authentik/docker-compose.yml
-  - ./services/debezium/docker-compose.yml
-  - ./services/kafka/docker-compose.yml
-  - ./services/meilisearch/docker-compose.yml
-  - ./services/minio/docker-compose.yml
-  - ./services/monitoring/docker-compose.yml
-  - ./services/redis/docker-compose.yml
-  - ./services/traefik/docker-compose.yml
-  - ./services/vault/docker-compose.yml
-  - ./servers/auth/docker-compose.yml
+  - ./services/docker-compose.yml
+  - ./servers/docker-compose.yml
+  - ./frontends/docker-compose.yml
+  - ./apps/docker-compose.yml

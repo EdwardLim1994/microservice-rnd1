@@ -58,8 +58,20 @@ package (`packages/api`), backed by Docker Compose infra services.
   strategy (per-app semver + `-rcN` during UAT, a release-bundle version on `main`). See
   `docs/ci-cd.md` for the full workflow-to-branch map, required secrets, and known gaps.
 
-Root `docker-compose.yml` just `include`s every `services/*/docker-compose.yml` and
-`servers/*/docker-compose.yml` — there's no compose config at the root itself.
+Root `docker-compose.yml` just `include`s four centralized files — `services/docker-compose.yml`,
+`servers/docker-compose.yml`, `frontends/docker-compose.yml`, `apps/docker-compose.yml` — there's
+no compose config at the root itself. Each of those in turn `include`s every project's own
+`<project>/docker-compose.yml` directly beneath it (e.g. `services/docker-compose.yml` includes
+`./adminer/docker-compose.yml`, `./apollo/docker-compose.yml`, ...), so each of the four
+directories manages its own compose membership independently instead of every project being listed
+flat at the root. `turbo gen server`/`turbo gen web` register a newly-scaffolded project into its
+own directory's centralized file automatically (`appendRootComposeInclude` in
+`turbo/generators/helpers.ts`) — `turbo gen mobile` doesn't, since mobile apps (Expo) have no
+Dockerfile/docker-compose.yml at all (see `.claude/CLAUDE.md`'s Selective Deployment section —
+mobile is always `deploy: false`, an Expo pipeline placeholder). `frontends/` and
+`apps/` currently have no projects with a `docker-compose.yml` yet (only `apps/docs`, a plain
+Astro static site with none), so their centralized files start as `include: []` until the first
+`turbo gen web` run appends an entry.
 
 ## Commands (Turborepo, run from repo root)
 

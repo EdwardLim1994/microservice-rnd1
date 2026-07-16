@@ -7,8 +7,9 @@ const TEMPLATES_DIR = path.join(process.cwd(), "turbo", "generators", "templates
 
 export default class ServerGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI) {
-		// Registers the new server's docker-compose.yml in the root docker-compose.yml's
-		// `include:` list, so `docker compose up` from repo root actually brings it up.
+		// Registers the new server's docker-compose.yml in servers/docker-compose.yml's own
+		// `include:` list (itself included by the root docker-compose.yml — see root CLAUDE.md's
+		// Layout section), so `docker compose up` from repo root actually brings it up.
 		// Named distinctly from any other generator's action of a similar purpose —
 		// plop.setActionType is a single global registry keyed by name, not scoped per
 		// generator, so a same-named registration elsewhere would silently overwrite this one
@@ -29,7 +30,7 @@ export default class ServerGenerator {
 
 		plop.setGenerator("server", {
 			description:
-				"Create a new server under servers/<name>, from the templates/server plop template. Registers its docker-compose.yml into the root docker-compose.yml's include: list",
+				"Create a new server under servers/<name>, from the templates/server plop template. Registers its docker-compose.yml into servers/docker-compose.yml's include: list",
 			prompts: [
 				{
 					type: "input",

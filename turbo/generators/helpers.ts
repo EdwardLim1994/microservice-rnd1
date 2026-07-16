@@ -422,23 +422,28 @@ export function collapseTrailingNewlines(raw: string, count = 1): string {
 }
 
 /**
- * Registers a newly-scaffolded <location>/<name>/docker-compose.yml in the root
- * docker-compose.yml's `include:` list, so `docker compose up` from repo root actually brings
- * it up — shared by the "server" and "web" project generators, both of which scaffold their own
- * docker-compose.yml but otherwise had no way to wire it into the root project.
+ * Registers a newly-scaffolded <location>/<name>/docker-compose.yml in <location>'s own
+ * centralized docker-compose.yml (services/servers/frontends/apps each own one, included by the
+ * root docker-compose.yml — see root CLAUDE.md's Layout section), so `docker compose up` from
+ * repo root actually brings it up. Shared by the "server" and "web" project generators, both of
+ * which scaffold their own docker-compose.yml but otherwise had no way to wire it in.
  */
 export function appendRootComposeInclude(root: string, location: string, name: string): string {
-	const rootComposePath = path.join(root, "docker-compose.yml");
-	if (!fs.existsSync(rootComposePath)) {
-		return `${path.relative(root, rootComposePath)} not found, skipped`;
+	const locationComposePath = path.join(root, location, "docker-compose.yml");
+	if (!fs.existsSync(locationComposePath)) {
+		return `${path.relative(root, locationComposePath)} not found, skipped`;
 	}
-	const line = `  - ./${location}/${name}/docker-compose.yml`;
-	const raw = fs.readFileSync(rootComposePath, "utf-8");
+	const line = `  - ./${name}/docker-compose.yml`;
+	const raw = fs.readFileSync(locationComposePath, "utf-8");
 	if (raw.includes(line)) {
-		return `${path.relative(root, rootComposePath)} already includes ${location}/${name}`;
+		return `${path.relative(root, locationComposePath)} already includes ${name}`;
 	}
-	fs.writeFileSync(rootComposePath, `${collapseTrailingNewlines(raw)}${line}\n`);
-	return `${path.relative(root, rootComposePath)} (+${location}/${name})`;
+	const withoutEmptyInclude = raw.trim() === "include: []" ? "include:\n" : raw;
+	fs.writeFileSync(
+		locationComposePath,
+		`${collapseTrailingNewlines(withoutEmptyInclude)}${line}\n`,
+	);
+	return `${path.relative(root, locationComposePath)} (+${name})`;
 }
 
 /**

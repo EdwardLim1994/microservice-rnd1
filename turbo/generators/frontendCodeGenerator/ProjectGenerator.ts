@@ -105,9 +105,10 @@ export default class ProjectGenerator {
 			return `${location}/${name}/{helm,terraform} (NodePort ${nodePort})`;
 		});
 
-		// Registers the new project's docker-compose.yml in the root docker-compose.yml's
-		// `include:` list, so `docker compose up` from repo root actually brings it up. Named
-		// distinctly from ServerGenerator's equivalent — plop.setActionType is a single global
+		// Registers the new project's docker-compose.yml in <location>'s own docker-compose.yml
+		// (frontends/ or apps/, itself included by the root docker-compose.yml — see root
+		// CLAUDE.md's Layout section), so `docker compose up` from repo root actually brings it
+		// up. Named distinctly from ServerGenerator's equivalent — plop.setActionType is a single global
 		// registry keyed by name, not scoped per generator, so a same-named registration there
 		// would silently overwrite this one (or vice versa, depending on apply() order).
 		plop.setActionType("appendFrontendComposeInclude", (answers) => {
@@ -117,7 +118,7 @@ export default class ProjectGenerator {
 
 		plop.setGenerator("web", {
 			description:
-				"Create a new React web app under apps/<name> or frontends/<name>, either a regular standalone app or a Module Federation microfrontend (role — host vs remote — inferred from location: apps/ scaffolds a host modeled on portal, frontends/ scaffolds a remote modeled on frontend1). Includes a Dockerfile + docker-compose.yml (registered into the root docker-compose.yml's include: list). No src/modules either way — add those with the 'module' generator",
+				"Create a new React web app under apps/<name> or frontends/<name>, either a regular standalone app or a Module Federation microfrontend (role — host vs remote — inferred from location: apps/ scaffolds a host modeled on portal, frontends/ scaffolds a remote modeled on frontend1). Includes a Dockerfile + docker-compose.yml (registered into <location>'s own docker-compose.yml's include: list). No src/modules either way — add those with the 'module' generator",
 			prompts: [
 				{
 					type: "list",
