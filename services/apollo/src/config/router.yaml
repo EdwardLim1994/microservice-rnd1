@@ -3,6 +3,21 @@ supergraph:
   path: /graphql
   introspection: true
 
+# mTLS to the auth subgraph (routing_url in supergraph.yaml is https://) — CA + this Router's own
+# Vault-issued client cert, written by `bun run tls:provision` (see package.json /
+# src/scripts/provision_tls.sh.ts) into dist/, mounted below by docker-compose.yml.
+# NOTE: verify this block's exact keys against the ghcr.io/apollographql/router:v2.15.0 TLS
+# reference before relying on it in anything beyond local dev — written from Apollo Router's
+# documented subgraph TLS config shape, not confirmed against a live Router yet.
+tls:
+  subgraph:
+    subgraphs:
+      auth:
+        certificate_authorities: "${file:/etc/tls/ca.pem}"
+        client_authentication:
+          certificate_chain: "${file:/etc/tls/cert.pem}"
+          key: "${file:/etc/tls/key.pem}"
+
 cors:
   policies:
     # Local dev frontends: frontend1's own dev server (3001) and portal (3000),

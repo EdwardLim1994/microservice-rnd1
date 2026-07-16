@@ -25,6 +25,7 @@
     "k8s:build": "cd ../.. && docker build -f servers/auth/Dockerfile -t auth:local .",
     "gen": "bun ../../packages/script/src/bin/generate-api.ts",
     "test": "rstest",
-    "auth:provision": "cd ../.. && docker compose run --rm authentik-ansible ansible-playbook services/authentik/ansible/provision.yml -e @servers/auth/ansible/vars.yml"
+    "auth:provision": "cd ../.. && docker compose run --rm authentik-ansible ansible-playbook services/authentik/ansible/provision.yml -e @servers/auth/ansible/vars.yml",
+    "vault:provision": "cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @servers/auth/ansible/vars.yml"
   }
 }

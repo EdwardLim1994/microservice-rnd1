@@ -1,8 +1,14 @@
 import { ApolloServer } from '@apollo/server';
-import { startStandaloneServer } from '@apollo/server/standalone';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { parse } from 'graphql';
 import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
+import type { TlsConfig } from '../database/VaultTlsAdapter';
+import { startStandaloneServerTls } from './startStandaloneServerTls';
+
+export interface ApolloDriverConfig {
+  /** When set, serves over https.createServer with mTLS (requestCert + rejectUnauthorized) instead of plain http. */
+  tls?: TlsConfig;
+}
 
 interface GraphqlRouterShape {
   typeDefs: unknown;
@@ -18,7 +24,7 @@ function isGraphqlRouter(router: unknown): router is GraphqlRouterShape {
   );
 }
 
-type StandaloneServerFn = typeof startStandaloneServer;
+type StandaloneServerFn = typeof startStandaloneServerTls;
 type BuildSubgraphSchemaFn = typeof buildSubgraphSchema;
 
 export class ApolloDriver extends BaseDriver {
@@ -26,9 +32,10 @@ export class ApolloDriver extends BaseDriver {
 
   // ponytail: factory params allow injection in tests without module mocking
   constructor(
+    private readonly config: ApolloDriverConfig = {},
     private readonly createServer: (options: any) => ApolloServer = (o) =>
       new ApolloServer(o),
-    private readonly startServer: StandaloneServerFn = startStandaloneServer,
+    private readonly startServer: StandaloneServerFn = startStandaloneServerTls,
     private readonly buildSchema: BuildSubgraphSchemaFn = buildSubgraphSchema,
   ) {
     super();
@@ -59,7 +66,9 @@ export class ApolloDriver extends BaseDriver {
       interceptor.apply(this._server);
     }
 
-    await this.startServer(this._server, { listen: { port, host } });
+    await this.startServer(this._server, {
+      listen: { port, host, tls: this.config.tls },
+    });
   }
 
   /** Stops the Apollo server, if it was started. */

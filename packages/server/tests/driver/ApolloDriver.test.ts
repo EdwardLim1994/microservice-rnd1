@@ -65,6 +65,7 @@ test('start() builds a subgraph schema from graphql routers and passes it to the
   const mock = makeMockApollo();
   const router = new GraphqlStubRouter({});
   const driver = new ApolloDriver(
+    {},
     mock.createServer,
     mock.startServer as any,
     mock.buildSchema as any,
@@ -80,6 +81,7 @@ test('start() builds a subgraph schema from graphql routers and passes it to the
 test('start() skips routers without typeDefs/resolvers', async () => {
   const mock = makeMockApollo();
   const driver = new ApolloDriver(
+    {},
     mock.createServer,
     mock.startServer as any,
     mock.buildSchema as any,
@@ -92,6 +94,7 @@ test('start() skips routers without typeDefs/resolvers', async () => {
 test('start() calls startServer with correct listen options', async () => {
   const mock = makeMockApollo();
   const driver = new ApolloDriver(
+    {},
     mock.createServer,
     mock.startServer as any,
     mock.buildSchema as any,
@@ -99,13 +102,14 @@ test('start() calls startServer with correct listen options', async () => {
   await driver.start(defaultOptions);
 
   expect(mock.startCalls[0].options).toEqual({
-    listen: { port: 4000, host: '0.0.0.0' },
+    listen: { port: 4000, host: '0.0.0.0', tls: undefined },
   });
 });
 
 test('stop() calls server.stop()', async () => {
   const mock = makeMockApollo();
   const driver = new ApolloDriver(
+    {},
     mock.createServer,
     mock.startServer as any,
     mock.buildSchema as any,
@@ -129,6 +133,7 @@ test('start() builds a real federation subgraph schema with @key directives', as
     register() {}
   }
   const driver = new ApolloDriver(
+    {},
     mock.createServer,
     mock.startServer as any,
     buildSubgraphSchema,

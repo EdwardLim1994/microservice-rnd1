@@ -907,6 +907,47 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
 - `@prisma/client-runtime-utils` — required by Prisma 7 (install explicitly if missing)
 - `PrismaAdapter` class is deleted — logic lives directly in `ServerApp.database()`
 
+## TLS (mTLS for internal service-to-service traffic)
+
+`GrpcDriver` and `ApolloDriver` both accept an optional `tls: TlsConfig` (`{ ca, cert, key }`,
+`packages/server/src/database/VaultTlsAdapter.ts`) as part of their constructor's `config` — the
+same object `ServerApp.init([{ driver, config }])` passes through. When set:
+
+- `GrpcDriver` binds with `ServerCredentials.createSsl(ca, [{cert_chain, private_key}], true)` —
+  the trailing `true` requires and verifies the connecting client's own certificate (mTLS, not
+  just server-side TLS). Omit `tls` and it falls back to `createInsecure()`, unchanged from before.
+- `ApolloDriver` no longer uses `@apollo/server/standalone`'s `startStandaloneServer` — that
+  function hardcodes `http.createServer` internally with no TLS hook (confirmed by reading its
+  source). Its default `startServer` is now `startStandaloneServerTls`
+  (`packages/server/src/driver/startStandaloneServerTls.ts`), a local fork of the same
+  request-handling logic that picks `https.createServer({ca, cert, key, requestCert: true,
+  rejectUnauthorized: true}, ...)` when `tls` is set, `http.createServer(...)` otherwise.
+  **ponytail**: this fork skips `startStandaloneServer`'s cors/body-parser middleware (no new
+  `cors`/`body-parser` dependency) — it's only ever hit server-to-server (Apollo Router →
+  subgraph), never directly by a browser, so there's no preflight/cross-origin case to cover. Add
+  proper CORS handling if that ever changes.
+
+`TlsConfig` is normally sourced from `VaultTlsAdapter.fromEnv()` (same shape/known-gap story as
+`VaultPgAdapter.fromEnv()` — see the Database section above — reusing the same AppRole login
+plumbing, now factored into `database/vaultClient.ts`), fetching a short-lived leaf cert from
+Vault's PKI secrets engine:
+
+```ts
+const tls = await VaultTlsAdapter.fromEnv(); // VAULT_ADDR/VAULT_ROLE_ID/VAULT_SECRET_ID/VAULT_TLS_ROLE
+await ServerApp.init([{ driver: ApolloDriver, port, config: { tls } }]).run();
+```
+
+See `services/vault/CLAUDE.md`'s PKI section for how `VAULT_TLS_ROLE`'s underlying Vault role gets
+provisioned, and `servers/auth/src/app.ts` / `services/apollo/src/scripts/provision_tls.sh.ts` for
+the two real consumers of this today.
+
+**Reality check**: only `servers/auth` (GraphQL-only) + the Apollo Router exist as real, running
+mTLS peers in this repo right now — that leg is genuinely wired and tested end-to-end. `GrpcDriver`'s
+mTLS has no live caller anywhere in the repo yet (no gRPC-driven server has been scaffolded) — it's
+framework capability for whenever `turbo gen server` produces one, verified by a self-contained
+round-trip test (`packages/server/tests/driver/GrpcDriver.mtls.test.ts` — a real `@grpc/grpc-js`
+client/server pair over openssl-generated certs, not a mock) rather than a live integration.
+
 ## GraphQL federation
 
 `ApolloDriver` builds an Apollo Federation **subgraph** schema (`buildSubgraphSchema` from `@apollo/subgraph`)

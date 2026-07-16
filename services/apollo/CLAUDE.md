@@ -43,6 +43,30 @@ kubectl rollout restart deployment apollo-router -n infra` (ConfigMap volume mou
 hot-reload, and Terraform's `helm_release` won't see the file diff at all — see
 `services/terraform/CLAUDE.md`). `demo2` isn't deployed to k8s, so its URL is left unpatched.
 
+## mTLS to subgraphs
+
+Every subgraph in `src/config/supergraph.yaml` is reached over `https://`, with the Router
+presenting its own Vault-issued client cert (mutual TLS — see `packages/server/CLAUDE.md`'s TLS
+section and `services/vault/CLAUDE.md`'s PKI section for the full story). `src/config/router.yaml`'s
+`tls.subgraph.subgraphs.<name>.*` keys point at `/etc/tls/{ca,cert,key}.pem`, written by
+`bun run tls:provision` (`src/scripts/provision_tls.sh.ts`, using the same `VaultTlsAdapter` a
+server's own boot code calls) — run this **before** `docker compose up`, same "spawn a script
+before the real thing starts" ordering as `bun run supergraph`. Needs `services/apollo/ansible/
+vars.yml` provisioned first (`bun run vault:provision`) — the Router has its own AppRole/TLS role
+(`apollo-router-tls-role`), it isn't a `servers/*` project so it doesn't share one with any server.
+
+In Kubernetes, there's no host-side pre-start step to run this from, so `helm/templates/
+deployment.yaml`'s `vault-tls-init` initContainer does the equivalent Vault PKI issue call
+(`curl` + `grep`/`sed` JSON extraction, not `jq` — `curlimages/curl` doesn't bundle it, see that
+file's own `ponytail:` comment for the ceiling) directly against Vault's HTTP API, writing into an
+`emptyDir` the main container mounts read-only at `/etc/tls`.
+
+**Router config schema not yet verified against a live Router.** The `tls.subgraph.*` keys in both
+`src/config/router.yaml` and `helm/files/router.yaml` are written from Apollo Router's documented
+subgraph-TLS shape, not confirmed by actually booting `ghcr.io/apollographql/router:v2.15.0` with
+them — verify (`docker compose up`, watch for a config-parse error) before relying on this beyond
+local dev.
+
 ## Dependencies
 
 - `@apollo/rover` — the `rover` CLI used by `compose_supergraph.sh.ts` (`--elv2-license=accept`

@@ -1,16 +1,26 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
 import { isRegistrable } from '../abstract/Registrable';
+import type { TlsConfig } from '../database/VaultTlsAdapter';
+
+export interface GrpcDriverConfig {
+  /** When set, binds with mTLS (ServerCredentials.createSsl, requiring a verified client cert) instead of createInsecure(). */
+  tls?: TlsConfig;
+}
 
 export class GrpcDriver extends BaseDriver {
   private readonly _server: Server;
 
-  constructor(server?: Server) {
+  // ponytail: server param allows injection in tests without module mocking
+  constructor(
+    private readonly config: GrpcDriverConfig = {},
+    server?: Server,
+  ) {
     super();
     this._server = server ?? new Server();
   }
 
-  /** Applies interceptors, registers every gRPC-registrable router, then binds and starts the server insecurely on `host:port`. */
+  /** Applies interceptors, registers every gRPC-registrable router, then binds and starts the server on `host:port` — mTLS if `config.tls` is set, insecure otherwise. */
   async start({
     port,
     host,
@@ -26,11 +36,18 @@ export class GrpcDriver extends BaseDriver {
       router.register(this._server);
     }
 
+    const { tls } = this.config;
+    const credentials = tls
+      ? ServerCredentials.createSsl(
+          tls.ca,
+          [{ cert_chain: tls.cert, private_key: tls.key }],
+          true, // require + verify the client's certificate (mTLS)
+        )
+      : ServerCredentials.createInsecure();
+
     await new Promise<void>((resolve, reject) => {
-      this._server.bindAsync(
-        `${host}:${port}`,
-        ServerCredentials.createInsecure(),
-        (err) => (err ? reject(err) : resolve()),
+      this._server.bindAsync(`${host}:${port}`, credentials, (err) =>
+        err ? reject(err) : resolve(),
       );
     });
   }

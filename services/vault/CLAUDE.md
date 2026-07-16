@@ -49,3 +49,32 @@ server's `VaultPgAdapter.fromEnv()` starts failing to authenticate or fetch cred
 There is no application code in this folder — just the Docker Compose stack, Helm chart,
 Terraform module, and the `ansible/` provisioning role, same as `services/redis`/
 `services/meilisearch`.
+
+## PKI secrets engine — TLS leaf certs for internal mTLS
+
+`services/vault/ansible/roles/provision-server-vault` provisions two independent things per
+server, both idempotent and both wiped on every dev-mode restart same as the database engine
+above: `database/*` (only when the server's `ansible/vars.yml` defines `db_name`) and `pki_int/*`
+(controlled by `provision_tls`, defaulting to `true` — see `roles/provision-server-vault/defaults/
+main.yml`), a single self-signed-root PKI mount issuing short-lived leaf certs
+(`pki_int/roles/<server>-tls-role`). Both land on the **same** AppRole/policy as the server's
+existing database role — one credential pair, however many secrets engines it's allowed to touch.
+See `packages/server/CLAUDE.md`'s TLS section for how a server consumes the resulting cert
+(`VaultTlsAdapter.fromEnv()`).
+
+- A TLS-only server (no DB — e.g. `servers/auth`) still gets provisioned via this same role;
+  `db_name` is simply left undefined in its `ansible/vars.yml`, which skips every `database/*` task
+  and only runs the `pki_int/*` ones.
+- Non-`servers/*` peers (e.g. Apollo Router, a pure mTLS *client* rather than a "server" in this
+  repo's per-server convention) get their own `ansible/vars.yml` + `vault:provision` script too —
+  see `services/apollo/ansible/vars.yml` and its `server_env_dir: services/apollo` override (the
+  role's default `.env` write path assumes `servers/<name>`, so anything outside that directory
+  needs to say where its own `.env` actually lives).
+- Same lease-TTL gap as the database credential: nothing renews a leaf cert (`pki_int/roles/
+  <name>-tls-role`'s `default_ttl`/`max_ttl`, `services/vault/ansible/roles/provision-server-vault/
+  defaults/main.yml`) — a restart re-fetches via `VaultTlsAdapter.fromEnv()`, same accepted gap as
+  `VaultPgAdapter`.
+- The mount's own root CA (`pki_int/root/generate/internal`) is regenerated every time the mount
+  itself is (re-)created — i.e. every dev-mode Vault restart, same as everything else here. Every
+  peer's leaf cert trusts whatever CA is currently live, so a stale CA left over from before a
+  restart is never a concern — there's nothing left over, dev mode wipes it all.

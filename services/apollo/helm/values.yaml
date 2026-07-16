@@ -20,4 +20,14 @@ subgraphs:
   test2:
     url: http://test2.test2.svc.cluster.local:4002
   auth:
-    url: http://auth.auth.svc.cluster.local:4003
+    url: https://auth.auth.svc.cluster.local:4003
+
+# Vault-issued mTLS client identity for every https:// subgraph above — see
+# packages/server/CLAUDE.md's TLS section and services/vault/CLAUDE.md's PKI section. roleId/
+# secretId filled in manually after running services/vault/ansible against the in-cluster Vault
+# (same "not knowable at `turbo gen` time" shape as servers/auth/helm/values.yaml's own vault.*).
+vault:
+  addr: http://vault.infra.svc.cluster.local:8200
+  tlsRole: apollo-router-tls-role
+  roleId: ""
+  secretId: ""
