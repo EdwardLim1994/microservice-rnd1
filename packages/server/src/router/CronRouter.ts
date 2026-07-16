@@ -2,8 +2,10 @@ import { type AwilixContainer, asClass } from 'awilix';
 import { BaseRouter } from '../abstract/BaseRouter';
 import type { BaseUseCase } from '../abstract/BaseUseCase';
 
-// schedule name -> five-field cron expression (or a Bun nickname like "@daily"),
-// interpreted in UTC — same syntax Bun.cron itself accepts.
+/**
+ * schedule name -> five-field cron expression (or a Bun nickname like "@daily"),
+ * interpreted in UTC — same syntax Bun.cron itself accepts.
+ */
 export type CronScheduleMap = Record<string, string>;
 
 export type CronHandlerMap<TSchedules extends CronScheduleMap> = {

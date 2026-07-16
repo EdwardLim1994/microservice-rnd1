@@ -6,10 +6,12 @@ interface CronRouterShape {
 }
 
 export interface CronDriverConfig {
-  // Bun.cron matches setTimeout error semantics: an uncaught throw/rejection from a job would
-  // otherwise emit uncaughtException/unhandledRejection and, without a listener, exit the whole
-  // process — not acceptable for a single bad job run in a multi-driver server. Defaults to
-  // console.error so a failure is visible but doesn't take the server down.
+  /**
+   * Bun.cron matches setTimeout error semantics: an uncaught throw/rejection from a job would
+   * otherwise emit uncaughtException/unhandledRejection and, without a listener, exit the whole
+   * process — not acceptable for a single bad job run in a multi-driver server. Defaults to
+   * console.error so a failure is visible but doesn't take the server down.
+   */
   onError?: (error: unknown, name: string) => void;
 }
 

@@ -12,21 +12,23 @@ type Verify = (
   options: JWTVerifyOptions,
 ) => Promise<JWTVerifyResult>;
 
-// Validates a Bearer token by verifying its signature against servers/auth's Authentik-issued
-// JWKS — the real validator the AuthInterceptor docstring's "swap in real auth later" comment
-// points at, once servers/auth (see its own CLAUDE.md) exists. No shared secret to distribute:
-// the OAuth2 Provider signs with RS256 (services/authentik/ansible's provisioning role sets
-// `signing_key` to Authentik's default self-signed CertificateKeyPair — HS256, the default with
-// no signing_key set, would need every consuming server to hold the provider's client_secret,
-// which doesn't scale past one consumer and isn't a real per-server credential to begin with).
-// Any server can fetch the public JWKS and verify independently.
-//
-// ServerApp always constructs interceptors as `new I(container)` (see ServerApp.run()) — the
-// first constructor param below exists only to occupy that position; this class has nothing to
-// register into the container, same as AuthInterceptor itself. `verify` is the real injectable
-// seam (defaults to jose's own jwtVerify), same testability pattern as RedisPlugin/
-// MeilisearchPlugin's `createClient` factory param — tests inject a mock instead of hitting a
-// real network JWKS endpoint.
+/**
+ * Validates a Bearer token by verifying its signature against servers/auth's Authentik-issued
+ * JWKS — the real validator the AuthInterceptor docstring's "swap in real auth later" comment
+ * points at, once servers/auth (see its own CLAUDE.md) exists. No shared secret to distribute:
+ * the OAuth2 Provider signs with RS256 (services/authentik/ansible's provisioning role sets
+ * `signing_key` to Authentik's default self-signed CertificateKeyPair — HS256, the default with
+ * no signing_key set, would need every consuming server to hold the provider's client_secret,
+ * which doesn't scale past one consumer and isn't a real per-server credential to begin with).
+ * Any server can fetch the public JWKS and verify independently.
+ *
+ * ServerApp always constructs interceptors as `new I(container)` (see ServerApp.run()) — the
+ * first constructor param below exists only to occupy that position; this class has nothing to
+ * register into the container, same as AuthInterceptor itself. `verify` is the real injectable
+ * seam (defaults to jose's own jwtVerify), same testability pattern as RedisPlugin/
+ * MeilisearchPlugin's `createClient` factory param — tests inject a mock instead of hitting a
+ * real network JWKS endpoint.
+ */
 export class AuthentikAuthInterceptor extends AuthInterceptor {
   private readonly issuer: string;
   private readonly audience?: string;

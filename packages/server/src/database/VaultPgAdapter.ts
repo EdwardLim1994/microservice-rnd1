@@ -38,15 +38,17 @@ export interface VaultPgAdapterConfig {
   dbName?: string;
 }
 
-// Fetches a short-lived Postgres credential from Vault's database secrets engine (via AppRole
-// login) and builds a PgAdapter from it. This is the generated default for a new server's
-// .database() call — see turbo/generators/serverExtension/DatabaseGenerator.ts and
-// services/vault/CLAUDE.md for the provisioning story a server's role_id/secret_id come from.
-//
-// Known gap: the returned PgAdapter's credential expires at its Vault lease TTL (default 1h,
-// configured in services/vault/ansible's database/roles/<name>-role). Nothing renews it — a
-// long-running server must restart to get a fresh lease. Accepted as out of scope for this
-// prototype; see packages/server/CLAUDE.md's Database section.
+/**
+ * Fetches a short-lived Postgres credential from Vault's database secrets engine (via AppRole
+ * login) and builds a PgAdapter from it. This is the generated default for a new server's
+ * .database() call — see turbo/generators/serverExtension/DatabaseGenerator.ts and
+ * services/vault/CLAUDE.md for the provisioning story a server's role_id/secret_id come from.
+ *
+ * Known gap: the returned PgAdapter's credential expires at its Vault lease TTL (default 1h,
+ * configured in services/vault/ansible's database/roles/<name>-role). Nothing renews it — a
+ * long-running server must restart to get a fresh lease. Accepted as out of scope for this
+ * prototype; see packages/server/CLAUDE.md's Database section.
+ */
 export class VaultPgAdapter {
   /**
    * Logs into Vault via AppRole, reads a fresh `database/creds/<dbRole>` credential, and builds a

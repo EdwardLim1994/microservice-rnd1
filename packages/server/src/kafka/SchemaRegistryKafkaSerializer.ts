@@ -8,8 +8,10 @@ import {
 import type { KafkaMessageType } from '../router/KafkaRouter';
 import type { KafkaSerializer } from './KafkaSerializer';
 
-// Subsets actually used here — lets tests inject fakes instead of hitting a real Schema
-// Registry over the network.
+/**
+ * Subsets actually used here — lets tests inject fakes instead of hitting a real Schema
+ * Registry over the network.
+ */
 export interface ProtobufSerializerLike {
   registry: { add(schema: DescMessage): void };
   serialize(topic: string, message: unknown): Promise<Buffer>;
@@ -19,18 +21,22 @@ export interface ProtobufDeserializerLike {
 }
 
 export interface SchemaRegistryKafkaSerializerConfig {
-  // topic -> protobuf-es generated schema (e.g. Demo1ProtobufEs.Demo1Schema) — only required for
-  // topics this instance *produces* to (registered up front so a produce fails fast if the
-  // message shape is no longer BACKWARD-compatible). A topic only ever consumed via
-  // deserialize()/decoder() needs no schema here — ProtobufDeserializer fetches whatever schema
-  // the producer actually registered, by the ID embedded in the message's wire format.
+  /**
+   * topic -> protobuf-es generated schema (e.g. Demo1ProtobufEs.Demo1Schema) — only required for
+   * topics this instance *produces* to (registered up front so a produce fails fast if the
+   * message shape is no longer BACKWARD-compatible). A topic only ever consumed via
+   * deserialize()/decoder() needs no schema here — ProtobufDeserializer fetches whatever schema
+   * the producer actually registered, by the ID embedded in the message's wire format.
+   */
   schemas?: Record<string, DescMessage>;
   registryUrl?: string;
 }
 
-// One Schema Registry client backs both directions — a server that only produces or only
-// consumes simply never calls the other method, but a server doing both (unusual, but not
-// disallowed) shares a single client/cache instead of standing up two.
+/**
+ * One Schema Registry client backs both directions — a server that only produces or only
+ * consumes simply never calls the other method, but a server doing both (unusual, but not
+ * disallowed) shares a single client/cache instead of standing up two.
+ */
 export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
   private readonly serializer: ProtobufSerializerLike;
   private readonly deserializer: ProtobufDeserializerLike;

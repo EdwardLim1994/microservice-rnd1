@@ -12,10 +12,12 @@ export interface InterceptorRequest {
   getHeader(name: string): string | undefined;
 }
 
-// Throw this from intercept() to reject the call — translated into the right shape for whichever
-// protocol is calling it (grpc `status.UNAUTHENTICATED` / GraphQL `extensions.code:
-// 'UNAUTHENTICATED'`). Any other thrown error still rejects the call (as an internal/unformatted
-// error instead) — this class exists so a deliberate rejection looks distinct from an unexpected bug.
+/**
+ * Throw this from intercept() to reject the call — translated into the right shape for whichever
+ * protocol is calling it (grpc `status.UNAUTHENTICATED` / GraphQL `extensions.code:
+ * 'UNAUTHENTICATED'`). Any other thrown error still rejects the call (as an internal/unformatted
+ * error instead) — this class exists so a deliberate rejection looks distinct from an unexpected bug.
+ */
 export class InterceptorError extends Error {}
 
 type UnaryCallback = (error: unknown, ...rest: unknown[]) => void;

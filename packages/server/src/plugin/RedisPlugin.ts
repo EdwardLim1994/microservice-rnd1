@@ -2,10 +2,12 @@ import { type AwilixContainer, asValue } from 'awilix';
 import type { RedisClient } from 'bun';
 import { BasePlugin } from '../abstract/BasePlugin';
 
-// Bun's own Redis client — 'bun' is a builtin module, only resolvable when running under the
-// Bun runtime. Imported dynamically (not at module scope) so this file still loads under
-// rstest's Node-based test runner; the default factory below is only invoked when nothing is
-// injected in its place, which tests avoid by passing their own mock.
+/**
+ * Bun's own Redis client — 'bun' is a builtin module, only resolvable when running under the
+ * Bun runtime. Imported dynamically (not at module scope) so this file still loads under
+ * rstest's Node-based test runner; the default factory below is only invoked when nothing is
+ * injected in its place, which tests avoid by passing their own mock.
+ */
 async function createBunRedisClient(): Promise<RedisClient> {
   const { RedisClient: Ctor } = await import('bun');
   return new Ctor();

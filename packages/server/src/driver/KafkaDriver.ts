@@ -4,9 +4,11 @@ import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
 import type { KafkaSerializer } from '../kafka/KafkaSerializer';
 import type { KafkaMessageType } from '../router/KafkaRouter';
 
-// The container-facing producer — kafkaProducer.send(topic, value) auto-serializes value via
-// KafkaDriverConfig.serializer when one is configured; otherwise value must already be an
-// encoded Buffer/Uint8Array/string, same as calling the raw kafkajs producer directly.
+/**
+ * The container-facing producer — kafkaProducer.send(topic, value) auto-serializes value via
+ * KafkaDriverConfig.serializer when one is configured; otherwise value must already be an
+ * encoded Buffer/Uint8Array/string, same as calling the raw kafkajs producer directly.
+ */
 export interface KafkaProducer {
   send(topic: string, value: unknown): Promise<void>;
 }
@@ -37,15 +39,19 @@ export interface KafkaDriverConfig {
   brokers?: string[];
   clientId?: string;
   groupId?: string;
-  // Topics this server produces to but doesn't consume (e.g. demo1, which has no
-  // KafkaConsumerRouter) — provisioned alongside whatever routers declare, so a
-  // producer-only server doesn't race the broker's auto-create on first send().
+  /**
+   * Topics this server produces to but doesn't consume (e.g. demo1, which has no
+   * KafkaConsumerRouter) — provisioned alongside whatever routers declare, so a
+   * producer-only server doesn't race the broker's auto-create on first send().
+   */
   topics?: Record<string, KafkaMessageType<unknown>>;
-  // Serialization strategy (e.g. SchemaRegistryKafkaSerializer). When set: (1) kafkaProducer.send()
-  // auto-serializes value via serialize() before publishing — when omitted, send() expects an
-  // already-encoded Buffer/Uint8Array/string; (2) the same instance is registered into the
-  // container as kafkaSerializer, so a KafkaConsumerRouter can resolve it (this.container.resolve)
-  // to build its own topics' decoders via deserialize() — one shared strategy for both directions.
+  /**
+   * Serialization strategy (e.g. SchemaRegistryKafkaSerializer). When set: (1) kafkaProducer.send()
+   * auto-serializes value via serialize() before publishing — when omitted, send() expects an
+   * already-encoded Buffer/Uint8Array/string; (2) the same instance is registered into the
+   * container as kafkaSerializer, so a KafkaConsumerRouter can resolve it (this.container.resolve)
+   * to build its own topics' decoders via deserialize() — one shared strategy for both directions.
+   */
   serializer?: KafkaSerializer;
 }
 

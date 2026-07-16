@@ -3,9 +3,11 @@ import { BaseRouter } from '../abstract/BaseRouter';
 import type { BaseUseCase } from '../abstract/BaseUseCase';
 import type { KafkaSerializer } from '../kafka/KafkaSerializer';
 
-// Matches ts-proto generated message objects (e.g. `Demo1Demo1Proto.Demo1`) — decode()
-// is what turns a raw Kafka message value into a typed protobuf message. Also matches an
-// async decode, e.g. a Confluent Schema Registry ProtobufDeserializer wrapped to this shape.
+/**
+ * Matches ts-proto generated message objects (e.g. `Demo1Demo1Proto.Demo1`) — decode()
+ * is what turns a raw Kafka message value into a typed protobuf message. Also matches an
+ * async decode, e.g. a Confluent Schema Registry ProtobufDeserializer wrapped to this shape.
+ */
 export interface KafkaMessageType<T> {
   decode(input: Uint8Array): T | Promise<T>;
 }
@@ -18,10 +20,12 @@ export type KafkaHandlerMap<
   ) => BaseUseCase<Awaited<ReturnType<TTopics[K]['decode']>>, void>;
 };
 
-// Maps a { topicName: tsProtoGeneratedMessage } declaration (the same shape used for
-// KafkaDriverConfig.topics, e.g. { 'demo1.events': Demo1Demo1eventProto.Demo1Event }) to the
-// KafkaMessageType<T> map a topic actually decodes to — each T inferred from that message's own
-// decode() return type. This is what KafkaConsumerRouter.topics returns automatically.
+/**
+ * Maps a { topicName: tsProtoGeneratedMessage } declaration (the same shape used for
+ * KafkaDriverConfig.topics, e.g. { 'demo1.events': Demo1Demo1eventProto.Demo1Event }) to the
+ * KafkaMessageType<T> map a topic actually decodes to — each T inferred from that message's own
+ * decode() return type. This is what KafkaConsumerRouter.topics returns automatically.
+ */
 export type DecodedTopics<
   TTopicTypes extends Record<string, KafkaMessageType<any>>,
 > = {
@@ -32,11 +36,13 @@ export type DecodedTopics<
 
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-// Every KafkaConsumerRouter decodes through a container-registered KafkaSerializer — Kafka
-// messaging in this framework is protobuf + Schema Registry by convention (see
-// packages/server/CLAUDE.md's Kafka serialization section), not a per-router choice. A router only
-// declares which topics it consumes and what generated message type each one is; decoding itself
-// is handled here, once, for every router.
+/**
+ * Every KafkaConsumerRouter decodes through a container-registered KafkaSerializer — Kafka
+ * messaging in this framework is protobuf + Schema Registry by convention (see
+ * packages/server/CLAUDE.md's Kafka serialization section), not a per-router choice. A router only
+ * declares which topics it consumes and what generated message type each one is; decoding itself
+ * is handled here, once, for every router.
+ */
 export abstract class KafkaConsumerRouter<
   TTopicTypes extends Record<string, KafkaMessageType<any>>,
 > extends BaseRouter {

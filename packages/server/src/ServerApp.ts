@@ -33,18 +33,24 @@ export interface DriverEntry {
   driver: Constructor<BaseDriver>;
   port?: number;
   host?: string;
-  // Fires for this driver only, once it's started — avoids string-matching `info.driver`
-  // in the shared run() callback when different drivers need different startup behavior.
+  /**
+   * Fires for this driver only, once it's started — avoids string-matching `info.driver`
+   * in the shared run() callback when different drivers need different startup behavior.
+   */
   onReady?: (info: DriverReadyInfo) => void;
-  // Passed as the driver's sole constructor argument (new Driver(config)) — lets a driver
-  // take rich typed config (e.g. KafkaDriver's brokers/topics) instead of only env vars.
-  // Drivers that don't use it are unaffected: passing `undefined` still triggers their
-  // constructor's own default parameters, same as calling `new Driver()`.
+  /**
+   * Passed as the driver's sole constructor argument (new Driver(config)) — lets a driver
+   * take rich typed config (e.g. KafkaDriver's brokers/topics) instead of only env vars.
+   * Drivers that don't use it are unaffected: passing `undefined` still triggers their
+   * constructor's own default parameters, same as calling `new Driver()`.
+   */
   config?: unknown;
 }
 
-// Either a bare driver constructor (uses ServerApp's default port/host, if any)
-// or an entry with its own port/host/onReady — e.g. gRPC on 5001, GraphQL on 4001, Kafka with none.
+/**
+ * Either a bare driver constructor (uses ServerApp's default port/host, if any)
+ * or an entry with its own port/host/onReady — e.g. gRPC on 5001, GraphQL on 4001, Kafka with none.
+ */
 type DriverInit = Constructor<BaseDriver> | DriverEntry;
 
 interface RunningDriver {

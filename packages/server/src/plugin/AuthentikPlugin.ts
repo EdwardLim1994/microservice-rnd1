@@ -1,10 +1,12 @@
 import { type AwilixContainer, asValue } from 'awilix';
 import { BasePlugin } from '../abstract/BasePlugin';
 
-// Must match exactly what services/authentik/ansible's provisioning role registers as the OAuth2
-// Provider's redirect_uris entry (strict matching_mode) — see that role's oauth2_redirect_uri
-// default. Never actually dereferenced: signIn() reads the authorization code straight off the
-// authorize endpoint's 302 Location header instead of following the redirect.
+/**
+ * Must match exactly what services/authentik/ansible's provisioning role registers as the OAuth2
+ * Provider's redirect_uris entry (strict matching_mode) — see that role's oauth2_redirect_uri
+ * default. Never actually dereferenced: signIn() reads the authorization code straight off the
+ * authorize endpoint's 302 Location header instead of following the redirect.
+ */
 const AUTHENTIK_REDIRECT_URI = 'http://auth/callback';
 
 interface FlowExecutorChallenge {
@@ -12,10 +14,12 @@ interface FlowExecutorChallenge {
   [key: string]: unknown;
 }
 
-// Bun's fetch has no implicit cookie jar across separate calls (unlike a browser) — the
-// authentication flow below needs one across several requests, so this tracks Set-Cookie values
-// by hand. Deliberately minimal: keeps whatever the server sends, no expiry/path handling, since
-// it only ever lives for the duration of one signIn() call.
+/**
+ * Bun's fetch has no implicit cookie jar across separate calls (unlike a browser) — the
+ * authentication flow below needs one across several requests, so this tracks Set-Cookie values
+ * by hand. Deliberately minimal: keeps whatever the server sends, no expiry/path handling, since
+ * it only ever lives for the duration of one signIn() call.
+ */
 class CookieJar {
   private readonly cookies = new Map<string, string>();
 
@@ -51,9 +55,11 @@ export interface AuthentikCreatedUser {
   email: string;
 }
 
-// Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
-// it (e.g. 401 on bad sign-in credentials vs. a genuine 5xx) instead of catching a bare Error and
-// guessing — same rationale as VaultPgAdapter's typed response interfaces, one level further.
+/**
+ * Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
+ * it (e.g. 401 on bad sign-in credentials vs. a genuine 5xx) instead of catching a bare Error and
+ * guessing — same rationale as VaultPgAdapter's typed response interfaces, one level further.
+ */
 export class AuthentikApiError extends Error {
   constructor(
     readonly status: number,
@@ -79,10 +85,12 @@ async function parseBody(response: Response): Promise<unknown> {
   }
 }
 
-// Plain fetch-based thin client — same convention as VaultPgAdapter's vaultFetch, not a generated
-// SDK. Three integration points: Flow Executor + Authorization Code sign-in, RFC 7009 revoke, and
-// Admin API user creation (see services/authentik/CLAUDE.md and servers/auth/CLAUDE.md for why
-// these three specifically, and why signIn() isn't a plain OAuth2 "password" grant).
+/**
+ * Plain fetch-based thin client — same convention as VaultPgAdapter's vaultFetch, not a generated
+ * SDK. Three integration points: Flow Executor + Authorization Code sign-in, RFC 7009 revoke, and
+ * Admin API user creation (see services/authentik/CLAUDE.md and servers/auth/CLAUDE.md for why
+ * these three specifically, and why signIn() isn't a plain OAuth2 "password" grant).
+ */
 export class AuthentikClient {
   private readonly baseUrl: string;
   private readonly clientId: string;
@@ -120,16 +128,17 @@ export class AuthentikClient {
     }
   }
 
-  // Real username+password sign-in. NOT the OAuth2 "password" grant — Authentik implements that
-  // grant as a client-credentials-style lookup against a separate "App Password" Token, not a
-  // check of the account's real password, and minting that token for a user other than the caller
-  // itself is hardcoded to require is_superuser (confirmed by reading
-  // authentik/providers/oauth2/views/token.py and authentik/core/api/tokens.py directly inside the
-  // running container) — not something a least-privilege service account can do. So this instead
-  // drives the same path a browser would: the Flow Executor API validates the real password via
-  // the authentication flow's stages, then a normal Authorization Code exchange mints real tokens
-  // once the resulting session is authenticated. See servers/auth/CLAUDE.md for the full story.
-  /** Real username+password sign-in via the Flow Executor + Authorization Code exchange (see class-level comment for why not the OAuth2 "password" grant). */
+  /**
+   * Real username+password sign-in. NOT the OAuth2 "password" grant — Authentik implements that
+   * grant as a client-credentials-style lookup against a separate "App Password" Token, not a
+   * check of the account's real password, and minting that token for a user other than the caller
+   * itself is hardcoded to require is_superuser (confirmed by reading
+   * authentik/providers/oauth2/views/token.py and authentik/core/api/tokens.py directly inside the
+   * running container) — not something a least-privilege service account can do. So this instead
+   * drives the same path a browser would: the Flow Executor API validates the real password via
+   * the authentication flow's stages, then a normal Authorization Code exchange mints real tokens
+   * once the resulting session is authenticated. See servers/auth/CLAUDE.md for the full story.
+   */
   async signIn(
     username: string,
     password: string,
@@ -450,8 +459,7 @@ export class AuthentikClient {
 export class AuthentikPlugin extends BasePlugin {
   private client?: AuthentikClient;
 
-  // factory param allows injection in tests without touching the real client, same pattern as
-  // RedisPlugin/MeilisearchPlugin
+  /** factory param allows injection in tests without touching the real client, same pattern as RedisPlugin/MeilisearchPlugin */
   constructor(
     private readonly container: AwilixContainer,
     private readonly createClient: () => AuthentikClient = () =>
@@ -466,15 +474,10 @@ export class AuthentikPlugin extends BasePlugin {
    */
   async onStart(): Promise<void> {
     this.client = this.createClient();
-    // eager reachability check — throws on a bad AUTHENTIK_URL, failing server startup instead of
-    // surfacing later on first sign-in/sign-up request, same rationale as RedisPlugin's eager
-    // .connect() and MeilisearchPlugin's eager .health()
     await this.client.healthCheck();
     this.container.register({ authentik: asValue(this.client) });
   }
 
   /** No-op — stateless HTTP client, nothing to close, same as MeilisearchPlugin. */
-  async onStop(): Promise<void> {
-    // stateless HTTP client — nothing to close, same as MeilisearchPlugin
-  }
+  async onStop(): Promise<void> {}
 }
