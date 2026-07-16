@@ -6,24 +6,31 @@ import { GrpcDriver } from '../../src/driver/GrpcDriver';
 function makeMockServer() {
   let boundAddress = '';
   let shutdown = false;
+  let boundCredentials: unknown;
 
   return {
     boundAddress: () => boundAddress,
+    boundCredentials: () => boundCredentials,
     isShutdown: () => shutdown,
     addService: () => {},
     bindAsync(
       addr: string,
-      _creds: unknown,
+      creds: unknown,
       cb: (err: null, port: number) => void,
     ) {
       boundAddress = addr;
+      boundCredentials = creds;
       cb(null, 3000);
     },
     tryShutdown(cb: (err?: Error) => void) {
       shutdown = true;
       cb();
     },
-  } as unknown as Server & { boundAddress(): string; isShutdown(): boolean };
+  } as unknown as Server & {
+    boundAddress(): string;
+    boundCredentials(): unknown;
+    isShutdown(): boolean;
+  };
 }
 
 class StubRouter extends BaseRouter {
@@ -39,7 +46,7 @@ class NonRegistrableStubRouter extends BaseRouter {}
 
 test('start() binds to correct address', async () => {
   const mock = makeMockServer();
-  const driver = new GrpcDriver(mock);
+  const driver = new GrpcDriver({}, mock);
   await driver.start({
     port: 3000,
     host: '0.0.0.0',
@@ -50,10 +57,45 @@ test('start() binds to correct address', async () => {
   expect(mock.boundAddress()).toBe('0.0.0.0:3000');
 });
 
+test('start() binds insecurely when no tls config is given', async () => {
+  const mock = makeMockServer();
+  const driver = new GrpcDriver({}, mock);
+  await driver.start({
+    port: 3000,
+    host: '0.0.0.0',
+    routers: [],
+    interceptors: [],
+    plugins: [],
+  });
+  expect(
+    (mock.boundCredentials() as { _isSecure(): boolean })._isSecure(),
+  ).toBe(false);
+});
+
+test('start() binds with mTLS when a tls config is given', async () => {
+  const mock = makeMockServer();
+  const tls = {
+    ca: Buffer.from('ca'),
+    cert: Buffer.from('cert'),
+    key: Buffer.from('key'),
+  };
+  const driver = new GrpcDriver({ tls }, mock);
+  await driver.start({
+    port: 3000,
+    host: '0.0.0.0',
+    routers: [],
+    interceptors: [],
+    plugins: [],
+  });
+  expect(
+    (mock.boundCredentials() as { _isSecure(): boolean })._isSecure(),
+  ).toBe(true);
+});
+
 test('start() calls register on each router with the grpc server', async () => {
   const mock = makeMockServer();
   const router = new StubRouter({});
-  const driver = new GrpcDriver(mock);
+  const driver = new GrpcDriver({}, mock);
   await driver.start({
     port: 3000,
     host: '0.0.0.0',
@@ -66,7 +108,7 @@ test('start() calls register on each router with the grpc server', async () => {
 
 test('start() skips a router that does not implement Registrable', async () => {
   const mock = makeMockServer();
-  const driver = new GrpcDriver(mock);
+  const driver = new GrpcDriver({}, mock);
   await expect(
     driver.start({
       port: 3000,
@@ -80,7 +122,7 @@ test('start() skips a router that does not implement Registrable', async () => {
 
 test('stop() calls tryShutdown on the server', async () => {
   const mock = makeMockServer();
-  const driver = new GrpcDriver(mock);
+  const driver = new GrpcDriver({}, mock);
   await driver.start({
     port: 3000,
     host: '0.0.0.0',
@@ -100,7 +142,7 @@ test('start() rejects when bindAsync errors', async () => {
     tryShutdown: () => {},
   } as unknown as Server;
 
-  const driver = new GrpcDriver(errServer);
+  const driver = new GrpcDriver({}, errServer);
   await expect(
     driver.start({
       port: 3000,

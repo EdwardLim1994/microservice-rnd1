@@ -14,3 +14,7 @@ data:
   # See services/authentik/CLAUDE.md — the OAuth2 client credentials themselves are secret (see
   # authentik-secret.yaml) but the Authentik URL itself is not.
   AUTHENTIK_URL: {{ .Values.authentik.url | quote }}
+  # VaultTlsAdapter.fromEnv()'s non-sensitive config (VAULT_ROLE_ID/VAULT_SECRET_ID are Vault-issued
+  # secrets and go into vault-secret.yaml instead) — see packages/server/CLAUDE.md's TLS section.
+  VAULT_ADDR: {{ .Values.vault.addr | quote }}
+  VAULT_TLS_ROLE: {{ .Values.vault.tlsRole | quote }}

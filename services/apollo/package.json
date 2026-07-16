@@ -8,10 +8,13 @@
 	},
 	"dependencies": {
 		"@apollo/rover": "^0.40.0",
-		"script": "workspace:*"
+		"script": "workspace:*",
+		"server": "workspace:*"
 	},
 	"scripts": {
 		"supergraph": "bun ./src/scripts/compose_supergraph.sh.ts",
+		"tls:provision": "bun ./src/scripts/provision_tls.sh.ts",
+		"vault:provision": "cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @services/apollo/ansible/vars.yml",
 		"test": "bun test ./tests"
 	}
 }

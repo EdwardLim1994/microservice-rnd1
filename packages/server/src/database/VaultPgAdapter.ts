@@ -1,31 +1,8 @@
 import { PgAdapter } from './PgAdapter';
-
-interface VaultLoginResponse {
-  auth: { client_token: string };
-}
+import { vaultAppRoleLogin, vaultFetch } from './vaultClient';
 
 interface VaultDbCredsResponse {
   data: { username: string; password: string };
-}
-
-async function vaultFetch<T>(
-  vaultAddr: string,
-  method: 'GET' | 'POST',
-  path: string,
-  body?: unknown,
-  token?: string,
-): Promise<T> {
-  const response = await fetch(`${vaultAddr.replace(/\/$/, '')}/v1/${path}`, {
-    method,
-    headers: token ? { 'X-Vault-Token': token } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Vault request failed: ${method} ${path} -> ${response.status} ${await response.text()}`,
-    );
-  }
-  return (await response.json()) as T;
 }
 
 export interface VaultPgAdapterConfig {
@@ -71,19 +48,14 @@ export class VaultPgAdapter {
       );
     }
 
-    const { auth } = await vaultFetch<VaultLoginResponse>(
-      vaultAddr,
-      'POST',
-      'auth/approle/login',
-      { role_id: roleId, secret_id: secretId },
-    );
+    const token = await vaultAppRoleLogin(vaultAddr, roleId, secretId);
 
     const { data } = await vaultFetch<VaultDbCredsResponse>(
       vaultAddr,
       'GET',
       `database/creds/${dbRole}`,
       undefined,
-      auth.client_token,
+      token,
     );
 
     const connectionString = `postgresql://${encodeURIComponent(data.username)}:${encodeURIComponent(data.password)}@${dbHost}:${dbPort}/${dbName}`;

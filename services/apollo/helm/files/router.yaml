@@ -3,6 +3,19 @@ supergraph:
   path: /graphql
   introspection: true
 
+# mTLS to every https:// subgraph (see values.yaml's subgraphs.*.url) — CA + this Router's own
+# Vault-issued client cert, written to /etc/tls by the vault-tls-init initContainer (see
+# templates/deployment.yaml). Same NOTE as services/apollo/src/config/router.yaml's docker-compose
+# copy — verify this block's exact keys against the deployed Router image's TLS reference.
+tls:
+  subgraph:
+    subgraphs:
+      auth:
+        certificate_authorities: "${file:/etc/tls/ca.pem}"
+        client_authentication:
+          certificate_chain: "${file:/etc/tls/cert.pem}"
+          key: "${file:/etc/tls/key.pem}"
+
 cors:
   policies:
     # Local dev frontends: frontend1's own dev server (3001) and portal (3000),

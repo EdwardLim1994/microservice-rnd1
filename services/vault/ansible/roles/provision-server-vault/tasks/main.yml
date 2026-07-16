@@ -2,6 +2,14 @@
 # Every task here is written to be safely re-runnable — Vault dev mode wipes all of this on
 # restart (see services/vault/CLAUDE.md), so this isn't a one-shot setup, it's the thing you run
 # every time Vault comes back up empty.
+#
+# Two independent things get provisioned per server, each optional:
+#   - database/* (Postgres dynamic creds) — only when db_name is defined (a DB-backed server)
+#   - pki_int/*  (short-lived TLS leaf certs, for the mTLS story — see packages/server/CLAUDE.md's
+#     TLS section) — controlled by provision_tls (defaults true, see defaults/main.yml), so a
+#     GraphQL-only server with no DB (e.g. servers/auth) still gets a TLS identity.
+# Both land on the SAME AppRole/policy for the server — one credential pair, however many secrets
+# engines it's allowed to touch.
 
 - name: Read current secret engine mounts
   community.hashi_vault.vault_read:
@@ -17,7 +25,31 @@
     path: sys/mounts/database
     data:
       type: database
-  when: "'database/' not in current_mounts.data.data"
+  when: db_name is defined and "'database/' not in current_mounts.data.data"
+
+- name: Enable the PKI secrets engine
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: sys/mounts/pki_int
+    data:
+      type: pki
+      config:
+        max_lease_ttl: "{{ vault_pki_max_ttl }}"
+  when: provision_tls | default(true) and "'pki_int/' not in current_mounts.data.data"
+
+# Single self-signed root on this one mount — real intermediate-signed-by-offline-root chains are
+# out of scope for a dev-mode Vault that wipes on every restart anyway (same "prototype, not
+# production PKI hygiene" acceptance as this repo's other Vault-issued secrets).
+- name: Generate this mount's internal root CA
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: pki_int/root/generate/internal
+    data:
+      common_name: "microservice-rnd1 dev root CA"
+      ttl: "{{ vault_pki_root_ttl }}"
+  when: provision_tls | default(true) and "'pki_int/' not in current_mounts.data.data"
 
 - name: Read currently enabled auth methods
   community.hashi_vault.vault_read:
@@ -46,6 +78,7 @@
       username: "{{ db_admin_username }}"
       password: "{{ db_admin_password }}"
       allowed_roles: ["{{ server_name }}-role"]
+  when: db_name is defined
 
 - name: Create the dynamic-credential database role
   community.hashi_vault.vault_write:
@@ -59,17 +92,42 @@
         GRANT ALL PRIVILEGES ON DATABASE "{{ db_name }}" TO "{% raw %}{{name}}{% endraw %}";
       default_ttl: "{{ vault_db_default_ttl }}"
       max_ttl: "{{ vault_db_max_ttl }}"
+  when: db_name is defined
 
-- name: Write the policy scoping this server to only its own database role's creds path
+# allowed_domains left open to any CN this role is asked to issue for (server_name itself, plus
+# its docker-compose/k8s Service DNS names) — allow_bare_domains/allow_subdomains cover the
+# "<name>", "<name>.<namespace>.svc.cluster.local" shapes this repo's services actually use.
+- name: Create this server's TLS leaf-cert role
+  community.hashi_vault.vault_write:
+    url: "{{ vault_addr }}"
+    token: "{{ vault_token }}"
+    path: "pki_int/roles/{{ server_name }}-tls-role"
+    data:
+      allow_any_name: true
+      allow_subdomains: true
+      client_flag: true
+      server_flag: true
+      default_ttl: "{{ vault_pki_default_ttl }}"
+      max_ttl: "{{ vault_pki_max_ttl }}"
+  when: provision_tls | default(true)
+
+- name: Write the policy scoping this server to only its own Vault-issued secrets
   community.hashi_vault.vault_write:
     url: "{{ vault_addr }}"
     token: "{{ vault_token }}"
     path: "sys/policy/{{ server_name }}-policy"
     data:
       policy: |-
+        {% if db_name is defined %}
         path "database/creds/{{ server_name }}-role" {
           capabilities = ["read"]
         }
+        {% endif %}
+        {% if provision_tls | default(true) %}
+        path "pki_int/issue/{{ server_name }}-tls-role" {
+          capabilities = ["create", "update"]
+        }
+        {% endif %}
 
 - name: Create the AppRole bound to this server's policy
   community.hashi_vault.vault_write:
@@ -101,9 +159,12 @@
     resolved_role_id: "{{ role_id_result.data.data.role_id }}"
     resolved_secret_id: "{{ secret_id_result.data.data.secret_id }}"
 
+# server_env_dir defaults to servers/<name> (every DB-backed server's own shape) but is
+# overridable — e.g. services/apollo for the Router's own TLS-client identity, which isn't a
+# "server" under servers/ at all.
 - name: Check whether the server's real .env exists
   ansible.builtin.stat:
-    path: "{{ playbook_dir }}/../../../servers/{{ server_name }}/.env"
+    path: "{{ playbook_dir }}/../../../{{ server_env_dir | default('servers/' ~ server_name) }}/.env"
   register: dotenv_stat
 
 # Only ever written into .env (gitignored, real-secret territory) — never .env.sample (committed).
@@ -113,14 +174,14 @@
 # .env-only writes.
 - name: Write VAULT_ROLE_ID into the server's .env, if it exists
   ansible.builtin.lineinfile:
-    path: "{{ playbook_dir }}/../../../servers/{{ server_name }}/.env"
+    path: "{{ playbook_dir }}/../../../{{ server_env_dir | default('servers/' ~ server_name) }}/.env"
     regexp: "^VAULT_ROLE_ID="
     line: "VAULT_ROLE_ID={{ resolved_role_id }}"
   when: dotenv_stat.stat.exists
 
 - name: Write VAULT_SECRET_ID into the server's .env, if it exists
   ansible.builtin.lineinfile:
-    path: "{{ playbook_dir }}/../../../servers/{{ server_name }}/.env"
+    path: "{{ playbook_dir }}/../../../{{ server_env_dir | default('servers/' ~ server_name) }}/.env"
     regexp: "^VAULT_SECRET_ID="
     line: "VAULT_SECRET_ID={{ resolved_secret_id }}"
   when: dotenv_stat.stat.exists

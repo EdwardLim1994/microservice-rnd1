@@ -21,6 +21,55 @@ spec:
       enableServiceLinks: false
       # No use of the Kubernetes API from within this pod.
       automountServiceAccountToken: false
+      initContainers:
+        # Issues this Router's short-lived mTLS client identity from Vault's PKI secrets engine
+        # and writes it into the "tls" emptyDir, mounted read-only by the main container below —
+        # same idea as the docker-compose side's `bun run tls:provision` pre-start script (see
+        # services/apollo/src/scripts/provision_tls.sh.ts), just run as a pod init step instead of
+        # a host-side script, since there's no equivalent "run this before `docker compose up`"
+        # step in Kubernetes.
+        #
+        # ponytail: curl + grep/sed JSON field extraction, not jq (curlimages/curl doesn't bundle
+        # it) — works because Vault's JSON response here is flat, single-line, and the PEM values
+        # never contain a literal `"`. Fragile if that ever changes; swap for a jq-bundled image
+        # if so.
+        - name: vault-tls-init
+          image: curlimages/curl:8.11.0
+          env:
+            - name: VAULT_ADDR
+              value: {{ .Values.vault.addr | quote }}
+            - name: VAULT_TLS_ROLE
+              value: {{ .Values.vault.tlsRole | quote }}
+            - name: VAULT_ROLE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: apollo-router-vault-secret
+                  key: VAULT_ROLE_ID
+            - name: VAULT_SECRET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: apollo-router-vault-secret
+                  key: VAULT_SECRET_ID
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              TOKEN=$(curl -sf -X POST -d "{\"role_id\":\"$VAULT_ROLE_ID\",\"secret_id\":\"$VAULT_SECRET_ID\"}" \
+                "$VAULT_ADDR/v1/auth/approle/login" \
+                | grep -o '"client_token":"[^"]*"' | sed -e 's/.*:"//' -e 's/"$//')
+              curl -sf -X POST -H "X-Vault-Token: $TOKEN" \
+                -d '{"common_name":"apollo-router"}' \
+                "$VAULT_ADDR/v1/pki_int/issue/$VAULT_TLS_ROLE" -o /tmp/resp.json
+              extract() {
+                grep -o "\"$1\":\"[^\"]*\"" /tmp/resp.json | sed -e 's/.*:"//' -e 's/"$//' -e 's/\\n/\n/g'
+              }
+              extract certificate > /shared/cert.pem
+              extract private_key > /shared/key.pem
+              extract issuing_ca > /shared/ca.pem
+          volumeMounts:
+            - name: tls
+              mountPath: /shared
       containers:
         - name: apollo-router
           image: "{{ .Values.image }}"
@@ -46,6 +95,9 @@ spec:
             - name: config
               mountPath: /etc/supergraph.graphql
               subPath: supergraph.graphql
+            - name: tls
+              mountPath: /etc/tls
+              readOnly: true
           # tcpSocket, not an HTTP path — router.yaml doesn't enable Apollo Router's health_check
           # endpoint (a separate port, off by default), and the main :4000 listener only answers
           # actual GraphQL POST requests, not a plain GET health check.
@@ -63,3 +115,5 @@ spec:
         - name: config
           configMap:
             name: apollo-router-config
+        - name: tls
+          emptyDir: {}

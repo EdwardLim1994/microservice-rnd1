@@ -1,5 +1,5 @@
 subgraphs:
    auth:
-      routing_url: http://auth:4003
+      routing_url: https://auth:4003
       schema:
          file: ../../../../servers/auth/src/schemas/graphql/auth.graphql

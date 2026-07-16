@@ -12,6 +12,12 @@ services:
     volumes:
       - ./src/config/router.yaml:${APOLLO_ROUTER_CONFIG_PATH:-/etc/router.yaml}
       - ./dist/supergraph.graphql:${APOLLO_ROUTER_SUPERGRAPH_PATH:-/etc/supergraph.graphql}
+      # Written by `bun run tls:provision` (host-side, before `docker compose up` — same "spawn
+      # before the real thing starts" pattern as `bun run supergraph`) — see
+      # src/scripts/provision_tls.sh.ts.
+      - ./dist/ca.pem:/etc/tls/ca.pem
+      - ./dist/cert.pem:/etc/tls/cert.pem
+      - ./dist/key.pem:/etc/tls/key.pem
     env_file:
       - .env
     restart: unless-stopped

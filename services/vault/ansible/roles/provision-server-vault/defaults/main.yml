@@ -6,6 +6,13 @@ vault_db_max_ttl: "24h"
 vault_approle_token_ttl: "1h"
 vault_approle_token_max_ttl: "4h"
 
+# TLS leaf-cert leases — short-lived on purpose (mTLS story, see packages/server/CLAUDE.md).
+# vault_pki_root_ttl is the mount's own root CA lifetime, generated once per Vault dev-mode boot.
+provision_tls: true
+vault_pki_default_ttl: "1h"
+vault_pki_max_ttl: "24h"
+vault_pki_root_ttl: "8760h"
+
 # db_admin_url is a full postgresql://user:pass@host:port/db connection string (see
 # servers/<name>/ansible/vars.yml) — split into parts here so individual fields (username,
 # password) can be passed to Vault's database/config write, which wants connection_url with the

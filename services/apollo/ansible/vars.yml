@@ -1,0 +1,6 @@
+---
+server_name: apollo-router
+# Not a servers/<name> project — Router's own .env lives here instead.
+server_env_dir: services/apollo
+# No Postgres of its own — db_name intentionally left undefined so provision-server-vault's
+# database/* tasks are skipped and it only gets a PKI (TLS) identity.
