@@ -3,7 +3,7 @@ import { BaseUseCase } from './BaseUseCase';
 
 type Constructor<T> = new (...args: any[]) => T;
 
-export interface StepOptions {
+export interface ProcedureOptions {
   /** Additional attempts after the first if the main use case throws/times out. Default 0. */
   retries?: number;
   /** Delay between retry attempts. Default 0. */
@@ -12,13 +12,13 @@ export interface StepOptions {
   timeoutMs?: number;
 }
 
-interface SagaStep<TContext> {
+interface SagaProcedure<TContext> {
   main: Constructor<BaseUseCase<TContext, Partial<TContext>>>;
   fallback: Constructor<BaseUseCase<TContext, unknown>>;
-  options: StepOptions;
+  options: ProcedureOptions;
 }
 
-export class StepTimeoutError extends Error {}
+export class ProcedureTimeoutError extends Error {}
 
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -28,7 +28,7 @@ function withTimeout<T>(promise: Promise<T>, ms?: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new StepTimeoutError(`step timed out after ${ms}ms`)),
+      () => reject(new ProcedureTimeoutError(`procedure timed out after ${ms}ms`)),
       ms,
     );
   });
@@ -36,43 +36,43 @@ function withTimeout<T>(promise: Promise<T>, ms?: number): Promise<T> {
 }
 
 /**
- * Orchestrated SAGA: runs registered steps in order against a shared context, merging each main
- * use case's return into it. On a step's failure, runs the fallback (compensation) use case of
- * every already-completed step, in reverse order, then rethrows.
+ * Orchestrated SAGA: runs registered procedures in order against a shared context, merging each main
+ * use case's return into it. On a procedure's failure, runs the fallback (compensation) use case of
+ * every already-completed procedure, in reverse order, then rethrows.
  */
-export abstract class ProcessOrchestrator<TContext> extends BaseUseCase<
+export abstract class ProcedureOrchestrator<TContext> extends BaseUseCase<
   TContext,
   TContext
 > {
   private readonly container: AwilixContainer;
-  private readonly steps: SagaStep<TContext>[] = [];
+  private readonly procedures: SagaProcedure<TContext>[] = [];
 
   constructor({ container }: { container: AwilixContainer }) {
     super();
     this.container = container;
   }
 
-  /** Registers one step: `main` runs forward, `fallback` compensates if a later step fails. */
-  protected step(
+  /** Registers one procedure: `main` runs forward, `fallback` compensates if a later procedure fails. */
+  protected procedure(
     main: Constructor<BaseUseCase<TContext, Partial<TContext>>>,
     fallback: Constructor<BaseUseCase<TContext, unknown>>,
-    options: StepOptions = {},
+    options: ProcedureOptions = {},
   ): this {
-    this.steps.push({ main, fallback, options });
+    this.procedures.push({ main, fallback, options });
     return this;
   }
 
-  /** Subclasses register steps here, in execution order, via repeated `this.step(Main, Fallback)`. */
+  /** Subclasses register procedures here, in execution order, via repeated `this.procedure(Main, Fallback)`. */
   protected abstract build(): void;
 
   async execute(input: TContext): Promise<TContext> {
     this.build();
 
     let context = input;
-    const completed: SagaStep<TContext>[] = [];
+    const completed: SagaProcedure<TContext>[] = [];
 
-    for (const step of this.steps) {
-      const attempts = (step.options.retries ?? 0) + 1;
+    for (const procedure of this.procedures) {
+      const attempts = (procedure.options.retries ?? 0) + 1;
       let lastErr: unknown;
       let patch: Partial<TContext> | undefined;
       let succeeded = false;
@@ -80,15 +80,15 @@ export abstract class ProcessOrchestrator<TContext> extends BaseUseCase<
       for (let attempt = 0; attempt < attempts; attempt++) {
         try {
           patch = await withTimeout(
-            this.resolve(step.main).execute(context),
-            step.options.timeoutMs,
+            this.resolve(procedure.main).execute(context),
+            procedure.options.timeoutMs,
           );
           succeeded = true;
           break;
         } catch (err) {
           lastErr = err;
-          if (attempt < attempts - 1 && step.options.retryDelayMs) {
-            await sleep(step.options.retryDelayMs);
+          if (attempt < attempts - 1 && procedure.options.retryDelayMs) {
+            await sleep(procedure.options.retryDelayMs);
           }
         }
       }
@@ -101,7 +101,7 @@ export abstract class ProcessOrchestrator<TContext> extends BaseUseCase<
       }
 
       context = { ...context, ...patch };
-      completed.push(step);
+      completed.push(procedure);
     }
 
     return context;

@@ -1,7 +1,7 @@
 import { expect, test } from '@rstest/core';
 import { asValue, createContainer, InjectionMode } from 'awilix';
 import { BaseUseCase } from '../../src/abstract/BaseUseCase';
-import { ProcessOrchestrator } from '../../src/abstract/ProcessOrchestrator';
+import { ProcedureOrchestrator } from '../../src/abstract/ProcedureOrchestrator';
 
 interface Context {
   orderId: string;
@@ -35,9 +35,9 @@ class RefundPaymentUseCase extends BaseUseCase<Context, void> {
   }
 }
 
-class OrderSaga extends ProcessOrchestrator<Context> {
+class OrderSaga extends ProcedureOrchestrator<Context> {
   protected build() {
-    this.step(ReserveInventoryUseCase, ReleaseInventoryUseCase).step(
+    this.procedure(ReserveInventoryUseCase, ReleaseInventoryUseCase).procedure(
       ChargePaymentUseCase,
       RefundPaymentUseCase,
     );
@@ -64,9 +64,9 @@ test('runs steps in order, merging each step output into the shared context', as
 });
 
 test('returns the merged context when every step succeeds', async () => {
-  class HappySaga extends ProcessOrchestrator<Context> {
+  class HappySaga extends ProcedureOrchestrator<Context> {
     protected build() {
-      this.step(ReserveInventoryUseCase, ReleaseInventoryUseCase);
+      this.procedure(ReserveInventoryUseCase, ReleaseInventoryUseCase);
     }
   }
   const container = makeContainer();
@@ -92,9 +92,9 @@ test('retries a step until it succeeds, without compensating', async () => {
     }
   }
 
-  class RetrySaga extends ProcessOrchestrator<Context> {
+  class RetrySaga extends ProcedureOrchestrator<Context> {
     protected build() {
-      this.step(FlakyUseCase, NoopFallback, { retries: 2 });
+      this.procedure(FlakyUseCase, NoopFallback, { retries: 2 });
     }
   }
   calls.length = 0;
@@ -116,9 +116,9 @@ test('gives up and compensates after exhausting retries', async () => {
     }
   }
 
-  class RetrySaga extends ProcessOrchestrator<Context> {
+  class RetrySaga extends ProcedureOrchestrator<Context> {
     protected build() {
-      this.step(ReserveInventoryUseCase, ReleaseInventoryUseCase).step(
+      this.procedure(ReserveInventoryUseCase, ReleaseInventoryUseCase).procedure(
         AlwaysFailsUseCase,
         ChargePaymentUseCase as any,
         { retries: 1 },
@@ -145,14 +145,14 @@ test('a step that never resolves is aborted by timeoutMs', async () => {
     async execute() {}
   }
 
-  class TimeoutSaga extends ProcessOrchestrator<Context> {
+  class TimeoutSaga extends ProcedureOrchestrator<Context> {
     protected build() {
-      this.step(HangingUseCase, NoopFallback, { timeoutMs: 20 });
+      this.procedure(HangingUseCase, NoopFallback, { timeoutMs: 20 });
     }
   }
   const saga = new TimeoutSaga({ container: makeContainer() } as any);
 
   await expect(saga.execute({ orderId: '5' })).rejects.toThrow(
-    'step timed out after 20ms',
+    'procedure timed out after 20ms',
   );
 });

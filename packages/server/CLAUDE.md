@@ -121,13 +121,13 @@ class TestDemoUseCase extends BaseUseCase<Empty, Demo1> {
 
 One class, one method, one business operation. Resolved transiently from container per request.
 
-### ProcessOrchestrator — orchestrated SAGA
+### ProcedureOrchestrator — orchestrated SAGA
 
-`ProcessOrchestrator<TContext>` is itself a `BaseUseCase<TContext, TContext>` — it slots straight
+`ProcedureOrchestrator<TContext>` is itself a `BaseUseCase<TContext, TContext>` — it slots straight
 into any `GrpcHandlerMap`/`GraphqlHandlerMap` like a normal use case, no router changes needed. A
-concrete saga overrides `build()` to register steps in order via `this.step(main, fallback,
-options?)`; each step's `main` use case receives the accumulated context and returns a
-`Partial<TContext>` patch merged into it before the next step runs.
+concrete saga overrides `build()` to register procedures in order via `this.procedure(main, fallback,
+options?)`; each procedure's `main` use case receives the accumulated context and returns a
+`Partial<TContext>` patch merged into it before the next procedure runs.
 
 ```ts
 interface RegisterUserContext {
@@ -161,14 +161,14 @@ class SendWelcomeEmailUseCase extends BaseUseCase<RegisterUserContext, Partial<R
   }
 }
 
-// no later step to fail after this one, but `.step()` still requires a fallback — reuse a no-op
+// no later procedure to fail after this one, but `.procedure()` still requires a fallback — reuse a no-op
 class NoopUseCase extends BaseUseCase<unknown, void> {
   async execute() {}
 }
 
-class RegisterUserSaga extends ProcessOrchestrator<RegisterUserContext> {
+class RegisterUserSaga extends ProcedureOrchestrator<RegisterUserContext> {
   protected build() {
-    this.step(CreateUserUseCase, DeleteUserUseCase).step(
+    this.procedure(CreateUserUseCase, DeleteUserUseCase).procedure(
       SendWelcomeEmailUseCase,
       NoopUseCase,
       { retries: 2, retryDelayMs: 500, timeoutMs: 5000 }, // email send: retry twice, 5s/attempt
@@ -189,18 +189,18 @@ class AuthGraphqlRouter extends GraphqlRouter {
 - **Constructor takes `{ container }`, same awilix PROXY convention as any use case** —
   `container` is already registered (`asValue`) by `ServerApp`, so a saga is resolved by the
   router exactly like any other handler; nothing extra needs registering.
-- **Compensation on failure**: if a step's `main` use case fails (after exhausting retries), the
-  `fallback` of every already-*completed* step runs, in reverse order, then the original error is
-  rethrown. The failing step's own fallback never runs — it never committed, so it has nothing to
+- **Compensation on failure**: if a procedure's `main` use case fails (after exhausting retries), the
+  `fallback` of every already-*completed* procedure runs, in reverse order, then the original error is
+  rethrown. The failing procedure's own fallback never runs — it never committed, so it has nothing to
   undo.
 - **`options?: { retries?, retryDelayMs?, timeoutMs? }`** (all default off): each attempt races
-  against `timeoutMs` (rejecting with `StepTimeoutError` if it fires first); failed attempts
+  against `timeoutMs` (rejecting with `ProcedureTimeoutError` if it fires first); failed attempts
   retry up to `retries` more times, waiting `retryDelayMs` between them. Only exhausting every
-  attempt counts as the step failing. A retried step is re-resolved from the container each
+  attempt counts as the procedure failing. A retried procedure is re-resolved from the container each
   attempt (fresh transient instance), same as any other use case resolution.
 - **Fallbacks are not retried or timeout-guarded** — if a compensation itself throws, it
   propagates immediately and stops further compensations from running. Apply the same `options` to
-  a step's own compensating use case by wrapping it, if a saga needs that.
+  a procedure's own compensating use case by wrapping it, if a saga needs that.
 - Every `main`/`fallback` use case is auto-registered into the container transiently on first
   resolution — same `lcFirst(ClassName)` token convention as routers.
 
@@ -401,6 +401,37 @@ constructor({ meilisearch }: { meilisearch: MeiliSearch }) { ... }  // awilix PR
 - Takes the same injectable `createClient: () => MeiliSearch` factory constructor param as
   `RedisPlugin`'s `createClient` (just synchronous, since constructing a `MeiliSearch` instance
   doesn't need an awaited dynamic import) — same testability pattern, tests inject their own mock.
+
+`MinioPlugin` follows the exact same shape as `MeilisearchPlugin` (`extends BasePlugin`,
+constructed as `new Plugin(container)`, plain top-level static import of the official `minio`
+npm package, injectable `createClient` factory, `onStart()` registers the client via `asValue()`):
+
+```ts
+import { MinioPlugin, ServerApp } from 'server';
+
+ServerApp.init([...])
+  .plugins([MinioPlugin])
+  .routers([...])
+  .run();
+
+// elsewhere, e.g. a repository:
+constructor({ minio }: { minio: Client }) { ... }  // awilix PROXY, token = 'minio'; Client from 'minio'
+```
+
+- Uses the official **`minio` npm package** (`import { Client } from 'minio'`) — an S3-compatible
+  client over plain HTTP, no native bindings, so it resolves normally under both the Bun runtime
+  and rstest's Node-based test runner, and bundles fine through rslib, same as `meilisearch`.
+  `MINIO_ENDPOINT` (default `localhost`) / `MINIO_PORT` (default `9000`) / `MINIO_USE_SSL`
+  (default `false`) / `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` (both default `minioadmin`,
+  matching `services/minio/docker-compose.yml`) env vars configure the default client — same
+  "configure via env vars only" constraint as every other plugin.
+- Auth is **access key/secret key** (MinIO's S3-compatible signed-request scheme), not a single
+  master key like Meilisearch or a connection-string password like Redis — see
+  `services/minio/CLAUDE.md`.
+- `onStart()` calls `await this.client.listBuckets()` eagerly as a connectivity/credential check —
+  throws on a bad host/credentials, failing server startup instead of surfacing later on first
+  bucket operation, same rationale as `MeilisearchPlugin`'s eager `.health()`.
+- `onStop()` is a no-op — same as `MeilisearchPlugin`, the client is stateless HTTP.
 
 `OtelPlugin` sets up OpenTelemetry (traces + metrics, exported via OTLP/gRPC to a Collector — no
 `services/*` counterpart exists yet, this only wires up the server-side SDK) and instruments
@@ -809,7 +840,7 @@ single-element array) to `ServerApp.init()` with no gRPC/GraphQL/Kafka driver at
 | `BaseDriver` | Protocol driver — `start(options)` / `stop()` |
 | `BaseRouter` | Route registration — `register(server)` |
 | `BaseUseCase<TIn, TOut>` | Business logic — `execute(input)` |
-| `ProcessOrchestrator<TContext>` | Orchestrated SAGA — `build()` registers `step(main, fallback, options?)` |
+| `ProcedureOrchestrator<TContext>` | Orchestrated SAGA — `build()` registers `procedure(main, fallback, options?)` |
 | `BaseRepository<TClient>` | Data access — constructor receives `{ prisma }` |
 | `BaseInterceptor` | Request middleware — `apply(server)` |
 | `BasePlugin` | Infrastructure adapter — `onStart()` / `onStop()` |
@@ -870,6 +901,8 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
 - `meilisearch` — official JS SDK for `MeilisearchPlugin`, a regular npm dependency (unlike
   `RedisPlugin`'s Bun builtin) bundled directly into `dist` like `kafkajs`, no `rslib.config.ts`
   external needed.
+- `minio` — official JS SDK for `MinioPlugin`, same "regular npm dependency, bundled directly
+  into `dist`, no `rslib.config.ts` external needed" story as `meilisearch`.
 - `pg` + `@prisma/adapter-pg` — required by `PgAdapter` for Prisma 7 driver adapter
 - `@prisma/client-runtime-utils` — required by Prisma 7 (install explicitly if missing)
 - `PrismaAdapter` class is deleted — logic lives directly in `ServerApp.database()`

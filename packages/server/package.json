@@ -29,6 +29,7 @@
     "@grpc/grpc-js": "^1.14.4",
     "kafkajs": "^2.2.4",
     "meilisearch": "^0.51.0",
+    "minio": "^8.0.6",
     "@rslib/core": "^0.23.1",
     "@rstest/adapter-rslib": "^0.10.6",
     "@rstest/core": "^0.10.6",

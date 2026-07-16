@@ -30,6 +30,14 @@ module "meilisearch" {
   master_key = var.meilisearch_master_key
 }
 
+module "minio" {
+  source = "../minio/terraform/module"
+
+  namespace     = kubernetes_namespace.infra.metadata[0].name
+  root_user     = var.minio_root_user
+  root_password = var.minio_root_password
+}
+
 module "vault" {
   source = "../vault/terraform/module"
 

@@ -1,0 +1,25 @@
+# Same Host() as services/minio/docker-compose.yml's `traefik.http.routers.minio.rule` label.
+# Not gated by admin-auth here — no equivalent Middleware CRD exists in-cluster (see
+# services/traefik/CLAUDE.md's Kubernetes section) — but that's an accepted gap, same as
+# services/monitoring's grafana-ingress.yaml: the console already gates itself with its own
+# root-user/password login, unlike a bare debugging UI with no auth of its own.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "minio.labels" . | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: minio.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9001

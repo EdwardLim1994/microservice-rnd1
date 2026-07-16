@@ -25,7 +25,9 @@ package (`packages/api`), backed by Docker Compose infra services.
   Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` — see
   `packages/server/CLAUDE.md`'s Plugins section for a concrete usage example), `meilisearch`
   (master-key-protected Meilisearch instance with its own built-in dashboard, consumed via
-  `server`'s `MeilisearchPlugin` — see `packages/server/CLAUDE.md`'s Plugins section), `vault`
+  `server`'s `MeilisearchPlugin` — see `packages/server/CLAUDE.md`'s Plugins section), `minio`
+  (root-credential-protected MinIO instance with its own built-in web console, consumed via
+  `server`'s `MinioPlugin` — see `packages/server/CLAUDE.md`'s Plugins section), `vault`
   (HashiCorp Vault, dev-mode single instance — issues short-lived per-server Postgres credentials
   via its database secrets engine + AppRole, consumed via `server`'s `VaultPgAdapter`; see
   `packages/server/CLAUDE.md`'s Database section and `services/vault/CLAUDE.md`), `debezium`
@@ -38,7 +40,7 @@ package (`packages/api`), backed by Docker Compose infra services.
   tools additionally gated by a shared basic-auth middleware; a plain Kubernetes `Ingress` in
   k8s, narrower there since none of docker-compose's admin-tool UIs have a k8s Service to route
   to; see `services/traefik/CLAUDE.md`). Each has its own `CLAUDE.md`.
-  `kafka`/`redis`/`apollo`/`meilisearch`/`vault`/`debezium`/`authentik`/`traefik` (not `adminer`)
+  `kafka`/`redis`/`apollo`/`meilisearch`/`minio`/`vault`/`debezium`/`authentik`/`traefik` (not `adminer`)
   also each have a `helm/` + `terraform/` for an independent
   Kubernetes deployment — see `services/terraform/CLAUDE.md`.
 - `generators/*`, `apps/*`, `frontends/*` — declared in `package.json`'s `workspaces` for future

@@ -30,6 +30,19 @@ variable "meilisearch_master_key" {
   sensitive   = true
 }
 
+variable "minio_root_user" {
+  description = "MinIO root user"
+  type        = string
+  default     = "minioadmin"
+}
+
+variable "minio_root_password" {
+  description = "MinIO root password"
+  type        = string
+  default     = "minioadmin"
+  sensitive   = true
+}
+
 variable "vault_dev_root_token_id" {
   description = "Vault dev-mode root token"
   type        = string

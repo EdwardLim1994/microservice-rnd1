@@ -1,17 +1,19 @@
 
 # services/terraform
 
-Root Terraform config for Kafka + Schema Registry, Redis, Apollo Router, Meilisearch, Vault,
-Monitoring (Prometheus/Loki/Tempo/Grafana — see `services/monitoring/CLAUDE.md`), Authentik, and
-Traefik (see `services/traefik/CLAUDE.md`'s Kubernetes section) — shared, always-on
-infrastructure, deployed and torn down as one unit, **never** by the app-aggregating `terraform/`
-at the repo root. Adminer, kafka-ui, and redisinsight are deliberately excluded (debugging UIs,
-not runtime dependencies of anything, and — now that Traefik is in the picture — also not
-reachable through it, since none of them have a Kubernetes Service exposed to a browser to route
-to in the first place); Meilisearch's own built-in dashboard (`MEILI_ENV=development`) is likewise
-not exposed by this config for the same reason. Grafana *is* exposed (unlike those debugging UIs)
-since it's the actual point of the monitoring stack, not an incidental admin panel — reachable
-both by its own `kubectl port-forward` and, now, through Traefik's `grafana.localhost` `Ingress`.
+Root Terraform config for Kafka + Schema Registry, Redis, Apollo Router, Meilisearch, MinIO,
+Vault, Monitoring (Prometheus/Loki/Tempo/Grafana — see `services/monitoring/CLAUDE.md`),
+Authentik, and Traefik (see `services/traefik/CLAUDE.md`'s Kubernetes section) — shared,
+always-on infrastructure, deployed and torn down as one unit, **never** by the app-aggregating
+`terraform/` at the repo root. Adminer, kafka-ui, and redisinsight are deliberately excluded
+(debugging UIs, not runtime dependencies of anything, and — now that Traefik is in the picture —
+also not reachable through it, since none of them have a Kubernetes Service exposed to a browser
+to route to in the first place); Meilisearch's own built-in dashboard (`MEILI_ENV=development`) is
+likewise not exposed by this config for the same reason — reachable only via its own
+`kubectl port-forward`. Grafana and MinIO's own built-in web console *are* exposed (unlike those
+debugging UIs), since each is the actual point of its stack (not an incidental admin panel) and
+each gates itself with its own login — reachable both by their own `kubectl port-forward` and,
+now, through Traefik's `grafana.localhost`/`minio.localhost` `Ingress` objects.
 
 ## Separate from the app-level `terraform/` on purpose
 
