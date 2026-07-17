@@ -57,10 +57,10 @@ export default class ReviewLeaveUseCase extends BaseUseCase<{ input: ReviewLeave
 
 		const reviewed = await this.leaveRequestRepository.review(leaveRequestId, decision, supervisorId);
 
-		const decisionLabel = decision === "APPROVED" ? "approved" : "rejected";
+		const decisionLabel = decision === "APPROVED" ? "Approved" : "Rejected";
 		await this.payrollServiceClient.createNotification(
 			leaveRequest.employeeId,
-			`Your ${leaveRequest.leaveType.toLowerCase()} leave request (${leaveRequest.startDate.toISOString().slice(0, 10)} to ${leaveRequest.endDate.toISOString().slice(0, 10)}) was ${decisionLabel}.`,
+			`Your leave request for ${leaveRequest.startDate.toISOString().slice(0, 10)} – ${leaveRequest.endDate.toISOString().slice(0, 10)} has been ${decisionLabel}.`,
 		);
 
 		return reviewed;
