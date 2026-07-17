@@ -32,7 +32,19 @@ message StorePayslipRequest {
   bytes pdfBytes = 4;
 }
 
+message GetPayslipURLRequest {
+  string employeeId = 1;
+  int32 month = 2;
+  int32 year = 3;
+}
+
+message PayslipDownloadURL {
+  string url = 1;
+  string expiresAt = 2; // ISO 8601
+}
+
 service PayrollService {
   rpc GeneratePayslips (GeneratePayslipsRequest) returns (GeneratePayslipsResponse);
   rpc StorePayslip (StorePayslipRequest) returns (Payslip);
+  rpc GetPayslipURL (GetPayslipURLRequest) returns (PayslipDownloadURL);
 }
