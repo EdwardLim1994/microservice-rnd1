@@ -41,6 +41,7 @@
         "@rsbuild/plugin-tailwindcss": "^2.0.3",
         "@rstest/adapter-rsbuild": "^0.10.6",
         "@rstest/core": "^0.10.6",
+        "@rstest/coverage-istanbul": "0.10.6",
         "@storybook/addon-docs": "^10.4.6",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/jest-dom": "^6.9.1",

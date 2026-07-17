@@ -20,6 +20,7 @@ spec:
         {{- include "server.labels" . | nindent 8 }}
         app.kubernetes.io/component: postgres
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: postgres
           image: {{ .Values.postgres.image }}
@@ -33,6 +34,16 @@ spec:
               value: {{ .Values.postgres.password | quote }}
             - name: POSTGRES_DB
               value: {{ .Values.postgres.database | quote }}
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 1Gi
+              # Ephemeral (node-local) scratch space — separate from the PVC's own storageSize
+              # (see values.yaml's postgres.storageSize), which already bounds the actual data
+              # directory.
+              ephemeral-storage: 1Gi
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

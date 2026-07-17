@@ -14,6 +14,7 @@ spec:
       labels:
         {{- include "frontend.labels" . | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.app.repository }}:{{ .Values.image.app.tag }}"
@@ -21,6 +22,12 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.port }}
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 50m
+            limits:
+              memory: 256Mi
           readinessProbe:
             tcpSocket:
               port: http

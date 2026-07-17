@@ -22,6 +22,7 @@ spec:
         app.kubernetes.io/component: migrate
     spec:
       restartPolicy: OnFailure
+      automountServiceAccountToken: false
       containers:
         - name: migrate
           image: "{{ .Values.image.migrate.repository }}:{{ .Values.image.migrate.tag }}"
@@ -29,3 +30,9 @@ spec:
           env:
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.postgres.user }}:{{ .Values.postgres.password }}@{{ include "server.fullname" . }}-postgres:5432/{{ .Values.postgres.database }}"
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 256Mi

@@ -5,4 +5,10 @@ import { defineConfig } from '@rstest/core';
 export default defineConfig({
   extends: withRsbuildConfig(),
   setupFiles: ['./tests/rstest.setup.ts'],
+  coverage: {
+    enabled: true,
+    provider: 'istanbul',
+    reporters: ['text', 'lcov'],
+    reportsDirectory: 'coverage',
+  },
 });
