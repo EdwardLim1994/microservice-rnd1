@@ -1,0 +1,557 @@
+---
+release: 0.1.0
+date: 2026-07-17
+releaseBranch: release/0.1.0
+hotfix: false
+
+affectedSubgraphs:
+  - employee-subgraph
+  - payroll-subgraph
+  - leave-subgraph
+
+userStories:
+  - id: US-1
+    title: HR Admin manages employees
+    persona: HR Admin
+    goal: Register employees into the system and have payslips generated monthly
+    outcome: Employees exist in the system with Authentik accounts; payslips are generated monthly as PDFs stored in Minio; employees are notified via bell notification
+    labels:
+      - user-story
+      - e2e
+    acceptanceCriteria:
+      - HR can register an employee with name, employee ID, role, department, and gross salary
+      - HR assigns a supervisor (also an employee) at registration time; one supervisor can manage many employees; employees can themselves have a supervisor (hierarchical)
+      - System auto-generates a temporary password and creates the Authentik account for the new employee
+      - The temporary password is displayed in a copyable field after successful registration
+      - Cron server triggers monthly payslip generation for all employees
+      - Payslip is a PDF containing employee name, employee ID, role, department, gross salary, month/year, and generated timestamp
+      - Payslip PDF is uploaded to Minio after generation
+      - Employee receives a bell notification that a new payslip is available
+    e2eTestPlan:
+      - id: E2E-1
+        scenario: HR registers a new employee successfully
+        given: HR Admin is logged in and no employee with the given ID exists
+        when: HR submits the registration form with valid name, ID, role, department, salary, and supervisor
+        then: Employee record is created in Postgres, Authentik account is created with a temporary password, temporary password is shown in a copyable field on the UI
+      - id: E2E-2
+        scenario: Cron triggers monthly payslip generation
+        given: At least one employee exists in the system
+        when: Cron server fires the monthly payslip generation job
+        then: A PDF payslip is generated per employee, uploaded to Minio, and a bell notification appears for each employee indicating a new payslip is available
+    features:
+      - id: FEAT-1
+        title: Register employee and create Authentik account
+        type: backend
+        description: gRPC endpoint that accepts employee details, persists the record to Postgres, calls Authentik API to create a user account with an auto-generated temporary password, and returns the temporary password to the caller
+        component: employee-subgraph.EmployeeService.RegisterEmployee
+        input:
+          - fullName (string, required)
+          - employeeId (string, required, unique)
+          - role (string, required)
+          - department (string, required)
+          - grossSalary (float, required)
+          - supervisorId (string, optional — null if no supervisor yet)
+        output:
+          - employee record (id, fullName, employeeId, role, department, grossSalary, supervisorId, createdAt)
+          - temporaryPassword (string, auto-generated, returned once)
+        edgeCases:
+          - Duplicate employeeId returns a conflict error
+          - Authentik account creation fails — rollback Postgres insert and return error
+          - supervisorId provided but does not exist — return not found error
+          - grossSalary must be a positive number — return validation error otherwise
+          - fullName, role, department must be non-empty strings — return validation error otherwise
+        graphqlChanges: true
+        affectedSubgraphs:
+          - employee-subgraph
+        integrationTestPlan:
+          - id: INT-1-1
+            scenario: Valid registration creates employee and Authentik account
+          - id: INT-1-2
+            scenario: Duplicate employeeId returns conflict error
+          - id: INT-1-3
+            scenario: Authentik failure rolls back Postgres insert
+          - id: INT-1-4
+            scenario: Invalid supervisorId returns not found error
+          - id: INT-1-5
+            scenario: Negative grossSalary returns validation error
+
+      - id: FEAT-2
+        title: Assign supervisor at registration
+        type: backend
+        description: Part of the RegisterEmployee flow — resolves and validates the supervisorId foreign key on the employee record. Supervisor must be an existing employee. Supports hierarchical assignment (an employee can be both a supervisor and have their own supervisor). Exposed as a standalone gRPC method for HR to reassign supervisor after initial registration.
+        component: employee-subgraph.EmployeeService.AssignSupervisor
+        input:
+          - employeeId (string, required)
+          - supervisorId (string, required)
+        output:
+          - updated employee record with new supervisorId
+        edgeCases:
+          - employeeId does not exist — return not found error
+          - supervisorId does not exist — return not found error
+          - Employee cannot be assigned as their own supervisor — return validation error
+        graphqlChanges: true
+        affectedSubgraphs:
+          - employee-subgraph
+        integrationTestPlan:
+          - id: INT-2-1
+            scenario: Valid supervisor assignment updates employee record
+          - id: INT-2-2
+            scenario: Non-existent supervisorId returns not found error
+          - id: INT-2-3
+            scenario: Employee assigned as their own supervisor returns validation error
+
+      - id: FEAT-3
+        title: Monthly payslip generation via cron
+        type: backend
+        description: Cron server fires a monthly job that calls the payroll gRPC service. The service fetches all active employees from the employee service, generates a PDF payslip per employee (name, ID, role, department, gross salary, month/year, generated timestamp), and passes each PDF to the Minio storage step. Triggers the notification step after each payslip is stored.
+        component: payroll-subgraph.PayrollService.GeneratePayslips
+        input:
+          - month (int, 1–12, derived from cron schedule)
+          - year (int, derived from cron schedule)
+        output:
+          - list of generated payslip records (employeeId, month, year, minioObjectKey, generatedAt)
+        edgeCases:
+          - No active employees — return empty list, no error
+          - PDF generation failure for one employee — log error, continue with remaining employees, report failures in response
+          - Employee service unreachable — abort job and return error
+        graphqlChanges: true
+        affectedSubgraphs:
+          - payroll-subgraph
+        integrationTestPlan:
+          - id: INT-3-1
+            scenario: Monthly job generates one payslip PDF per active employee
+          - id: INT-3-2
+            scenario: PDF generation failure for one employee does not stop remaining generation
+          - id: INT-3-3
+            scenario: No active employees returns empty list without error
+
+      - id: FEAT-4
+        title: Store payslip PDF in Minio
+        type: backend
+        description: Accepts a generated PDF binary and employee/period metadata, uploads the PDF to Minio under a structured object key (e.g. payslips/{employeeId}/{year}/{month}.pdf), persists the Minio object key and metadata to Postgres, and returns the stored record.
+        component: payroll-subgraph.PayrollService.StorePayslip
+        input:
+          - employeeId (string, required)
+          - month (int, required)
+          - year (int, required)
+          - pdfBytes (bytes, required)
+        output:
+          - payslip record (id, employeeId, month, year, minioObjectKey, generatedAt)
+        edgeCases:
+          - Minio upload failure — return error, do not persist record to Postgres
+          - Duplicate payslip for same employeeId/month/year — overwrite existing Minio object and update Postgres record
+          - pdfBytes empty — return validation error
+        graphqlChanges: false
+        integrationTestPlan:
+          - id: INT-4-1
+            scenario: Valid PDF uploads to Minio and persists record to Postgres
+          - id: INT-4-2
+            scenario: Minio failure does not persist record to Postgres
+          - id: INT-4-3
+            scenario: Duplicate payslip overwrites existing object and updates record
+
+      - id: FEAT-5
+        title: HR portal — employee registration form
+        type: fullstack
+        description: HR Admin view in hr-portal for registering a new employee. Form fields — full name, employee ID, role (dropdown), department (dropdown), gross salary (number input), supervisor (searchable dropdown of existing employees). On submit calls the RegisterEmployee GraphQL mutation. On success displays the auto-generated temporary password in a copyable field. On error displays inline validation or server error messages.
+        component: hr-portal EmployeeRegistrationForm
+        input:
+          - fullName (text input)
+          - employeeId (text input)
+          - role (dropdown)
+          - department (dropdown)
+          - grossSalary (number input)
+          - supervisorId (searchable dropdown)
+        output:
+          - Success state with copyable temporary password
+          - Error state with inline field-level or server-level messages
+        edgeCases:
+          - Supervisor dropdown empty (no employees yet) — show "No supervisors available" and allow submission without supervisor
+          - Server returns conflict on employeeId — show inline error on employeeId field
+          - Network failure on submit — show generic error banner, keep form data intact
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Supervisor field is a searchable dropdown filtering existing employees by name
+          - Submit button disabled while request is in flight
+          - Temporary password field has a copy-to-clipboard button
+          - Form resets after successful submission
+        responsiveBreakpoints:
+          - Desktop (1280px+) — modal overlay on employee list page
+          - Tablet (768px) — full-page form
+        graphqlChanges: true
+        affectedSubgraphs:
+          - employee-subgraph
+        integrationTestPlan:
+          - id: INT-5-1
+            scenario: Valid form submission calls RegisterEmployee mutation and displays temporary password
+          - id: INT-5-2
+            scenario: Duplicate employeeId shows inline error on field
+          - id: INT-5-3
+            scenario: Network failure shows error banner and preserves form state
+
+      - id: FEAT-6
+        title: In-app notification — new payslip available
+        type: fullstack
+        description: Bell icon in the hr-portal navbar shows an unread badge count. When a new payslip is generated for the employee, a notification record is created in Postgres and surfaced via GraphQL. Employee sees the notification in the dropdown with message "Your [Month Year] payslip is ready" and a timestamp. Clicking the notification marks it as read and navigates to the payslip page.
+        component: hr-portal NotificationBell
+        input:
+          - Notification records fetched via GraphQL query (employeeId, message, read, createdAt)
+        output:
+          - Bell icon with unread badge count
+          - Dropdown list of notifications (unread highlighted)
+          - Mark as read on click
+        edgeCases:
+          - No notifications — bell shows no badge, dropdown shows empty state
+          - All notifications read — badge disappears
+          - Network failure fetching notifications — show error state in dropdown
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Bell icon polling or subscription for new notifications
+          - Unread notifications highlighted in dropdown
+          - Click notification marks as read and navigates to relevant page
+          - Badge disappears when all notifications are read
+        responsiveBreakpoints:
+          - Desktop (1280px+) — dropdown anchored to bell icon top-right
+          - Tablet/Mobile (768px and below) — full-width notification drawer
+        graphqlChanges: true
+        affectedSubgraphs:
+          - payroll-subgraph
+        integrationTestPlan:
+          - id: INT-6-1
+            scenario: New payslip generation creates notification record in Postgres
+          - id: INT-6-2
+            scenario: Notification appears in bell dropdown with correct message and timestamp
+          - id: INT-6-3
+            scenario: Clicking notification marks it as read and clears badge
+
+  - id: US-2
+    title: Employee self-service
+    persona: Employee / Supervisor
+    goal: Apply for leave, download payslip, reset password; supervisors approve or reject leave requests
+    outcome: Employees can self-serve all core HR actions via role-based views; supervisors can action leave requests; all status changes surface via bell notifications
+    labels:
+      - user-story
+      - e2e
+    acceptanceCriteria:
+      - Employee logs in via Authentik and sees role-appropriate views (Employee or Supervisor)
+      - Employee can submit a leave request with leave type, start date, end date, and reason
+      - Supervisor sees a list of pending leave requests from their direct reports and can approve or reject each
+      - Employee receives a bell notification when their leave status changes to approved or rejected
+      - Employee sees leave status (Pending / Approved / Rejected) on their leave history list
+      - Employee can download their payslip PDF via a presigned Minio URL
+      - Employee can reset their password via a custom UI that calls Authentik API (forgot password → email link → set new password page)
+    e2eTestPlan:
+      - id: E2E-3
+        scenario: Employee submits leave and supervisor approves
+        given: Employee and their assigned supervisor are both logged in; employee has no pending leave for the period
+        when: Employee submits a leave request with valid fields; supervisor approves the request
+        then: Leave status updates to Approved; employee receives bell notification; leave history shows Approved badge
+      - id: E2E-4
+        scenario: Employee submits leave and supervisor rejects
+        given: Employee and their assigned supervisor are both logged in
+        when: Employee submits a leave request; supervisor rejects the request
+        then: Leave status updates to Rejected; employee receives bell notification; leave history shows Rejected badge
+      - id: E2E-5
+        scenario: Employee downloads payslip
+        given: At least one payslip exists for the employee in Minio
+        when: Employee clicks Download on a payslip entry
+        then: A presigned Minio URL is returned and the PDF downloads successfully
+      - id: E2E-6
+        scenario: Employee resets password via custom UI
+        given: Employee has a registered email in Authentik
+        when: Employee submits their email on the forgot password page; clicks the reset link in the email; enters and confirms a new password on the custom set-new-password page
+        then: Authentik updates the password; employee can log in with the new password
+    features:
+      - id: FEAT-7
+        title: Submit leave request
+        type: backend
+        description: gRPC endpoint that accepts a leave request from an employee and persists it to Postgres with status Pending. Validates that start date is before end date and that the employee exists.
+        component: leave-subgraph.LeaveService.SubmitLeave
+        input:
+          - employeeId (string, required)
+          - leaveType (enum: ANNUAL | MEDICAL | EMERGENCY, required)
+          - startDate (date, required)
+          - endDate (date, required)
+          - reason (string, required)
+        output:
+          - leave request record (id, employeeId, leaveType, startDate, endDate, reason, status: PENDING, submittedAt)
+        edgeCases:
+          - startDate after endDate — return validation error
+          - employeeId does not exist — return not found error
+          - reason is empty — return validation error
+          - Overlapping approved leave for same employee and period — return conflict error
+        graphqlChanges: true
+        affectedSubgraphs:
+          - leave-subgraph
+        integrationTestPlan:
+          - id: INT-7-1
+            scenario: Valid leave request is persisted with status PENDING
+          - id: INT-7-2
+            scenario: startDate after endDate returns validation error
+          - id: INT-7-3
+            scenario: Non-existent employeeId returns not found error
+          - id: INT-7-4
+            scenario: Overlapping approved leave returns conflict error
+
+      - id: FEAT-8
+        title: Approve or reject leave (supervisor)
+        type: backend
+        description: gRPC endpoint that allows a supervisor to approve or reject a pending leave request from one of their direct reports. Updates the leave record status in Postgres and triggers a notification record creation for the employee.
+        component: leave-subgraph.LeaveService.ReviewLeave
+        input:
+          - leaveRequestId (string, required)
+          - supervisorId (string, required)
+          - decision (enum: APPROVED | REJECTED, required)
+        output:
+          - updated leave request record (id, status: APPROVED | REJECTED, reviewedAt, reviewedBy)
+        edgeCases:
+          - leaveRequestId does not exist — return not found error
+          - Leave request is not in PENDING status — return conflict error
+          - supervisorId is not the direct supervisor of the leave requester — return forbidden error
+          - supervisorId does not exist — return not found error
+        graphqlChanges: true
+        affectedSubgraphs:
+          - leave-subgraph
+        integrationTestPlan:
+          - id: INT-8-1
+            scenario: Supervisor approves pending leave — status updates to APPROVED
+          - id: INT-8-2
+            scenario: Supervisor rejects pending leave — status updates to REJECTED
+          - id: INT-8-3
+            scenario: Non-supervisor attempts review — returns forbidden error
+          - id: INT-8-4
+            scenario: Reviewing already-approved leave returns conflict error
+
+      - id: FEAT-9
+        title: Download payslip via Minio presigned URL
+        type: backend
+        description: gRPC endpoint that accepts an employeeId and payslip period (month/year), looks up the Minio object key from Postgres, generates a short-lived presigned Minio URL, and returns it to the caller. The frontend uses the URL to trigger a direct PDF download.
+        component: payroll-subgraph.PayrollService.GetPayslipURL
+        input:
+          - employeeId (string, required)
+          - month (int, required)
+          - year (int, required)
+        output:
+          - presignedUrl (string, short-lived, e.g. 15-minute expiry)
+          - expiresAt (timestamp)
+        edgeCases:
+          - No payslip found for given employeeId/month/year — return not found error
+          - Minio presign operation fails — return internal error
+          - employeeId does not exist — return not found error
+        graphqlChanges: true
+        affectedSubgraphs:
+          - payroll-subgraph
+        integrationTestPlan:
+          - id: INT-9-1
+            scenario: Valid request returns a presigned URL with correct expiry
+          - id: INT-9-2
+            scenario: Non-existent payslip returns not found error
+          - id: INT-9-3
+            scenario: Minio presign failure returns internal error
+
+      - id: FEAT-10
+        title: Password reset via Authentik API
+        type: backend
+        description: Two gRPC endpoints supporting the custom password reset flow. First endpoint accepts an email, calls Authentik API to trigger a password reset email to the user. Second endpoint accepts a reset token and new password, calls Authentik API to set the new password. No custom password storage — all credential management delegated to Authentik.
+        component: employee-subgraph.EmployeeService.ResetPassword
+        input:
+          - RequestReset — email (string, required)
+          - ConfirmReset — resetToken (string, required), newPassword (string, required)
+        output:
+          - RequestReset — success acknowledgement (no sensitive data returned)
+          - ConfirmReset — success acknowledgement
+        edgeCases:
+          - Email not registered in Authentik — return success anyway (do not leak account existence)
+          - Invalid or expired reset token — return invalid token error
+          - New password does not meet Authentik password policy — return validation error with policy message
+          - Authentik API unreachable — return internal error
+        graphqlChanges: true
+        affectedSubgraphs:
+          - employee-subgraph
+        integrationTestPlan:
+          - id: INT-10-1
+            scenario: Valid email triggers Authentik reset email and returns success
+          - id: INT-10-2
+            scenario: Unregistered email returns success without leaking account existence
+          - id: INT-10-3
+            scenario: Invalid reset token returns invalid token error
+          - id: INT-10-4
+            scenario: Password not meeting policy returns validation error
+
+      - id: FEAT-11
+        title: Employee portal — leave request form and status list
+        type: fullstack
+        description: Employee view in hr-portal for submitting leave requests and viewing leave history. Apply Leave button opens a form with leave type dropdown (Annual/Medical/Emergency), start date, end date, reason textarea. Leave history table shows all requests with type, dates, reason, submitted date, and status badge (Pending/Approved/Rejected).
+        component: hr-portal LeaveRequestForm
+        input:
+          - leaveType (dropdown: Annual | Medical | Emergency)
+          - startDate (date picker)
+          - endDate (date picker)
+          - reason (textarea)
+        output:
+          - Success state — new entry appears in leave history table with Pending badge
+          - Error state — inline validation or server error messages
+        edgeCases:
+          - End date before start date — show inline validation error before submission
+          - Network failure on submit — show error banner, preserve form state
+          - Empty leave history — show empty state with prompt to apply for leave
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Apply Leave button opens form (modal or inline)
+          - Date picker enforces start date before end date
+          - Submit button disabled while request is in flight
+          - Leave history table sorted by submitted date descending
+          - Status badges colour-coded (Pending yellow, Approved green, Rejected red)
+        responsiveBreakpoints:
+          - Desktop (1280px+) — modal form over leave history table
+          - Tablet/Mobile (768px and below) — full-page form
+        graphqlChanges: true
+        affectedSubgraphs:
+          - leave-subgraph
+        integrationTestPlan:
+          - id: INT-11-1
+            scenario: Valid leave submission appears in history table with Pending badge
+          - id: INT-11-2
+            scenario: End date before start date shows inline validation before submit
+          - id: INT-11-3
+            scenario: Empty history shows empty state message
+
+      - id: FEAT-12
+        title: Supervisor portal — leave approval view
+        type: fullstack
+        description: Supervisor view in hr-portal showing a table of pending leave requests from direct reports. Columns — employee name, leave type, start date, end date, reason, submitted date, and Approve/Reject action buttons. Approve or Reject triggers a confirmation modal before calling the ReviewLeave GraphQL mutation. After action the row updates status inline and is removed from the pending list.
+        component: hr-portal LeaveApprovalView
+        input:
+          - Pending leave requests fetched via GraphQL query filtered by supervisorId
+        output:
+          - Updated row with status after approve/reject action
+          - Row removed from pending list after action
+        edgeCases:
+          - No pending requests — show empty state "No pending leave requests"
+          - Leave request already reviewed by the time supervisor acts — show stale data error and refresh table
+          - Network failure on approve/reject — show error banner, revert optimistic update
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Approve button (green) and Reject button (red) per row
+          - Confirmation modal before action with employee name and leave period shown
+          - Row removed from pending table after successful action
+          - Empty state shown when no pending requests remain
+        responsiveBreakpoints:
+          - Desktop (1280px+) — full table view
+          - Tablet/Mobile (768px and below) — card-based list view per request
+        graphqlChanges: true
+        affectedSubgraphs:
+          - leave-subgraph
+        integrationTestPlan:
+          - id: INT-12-1
+            scenario: Pending leave requests from direct reports appear in table
+          - id: INT-12-2
+            scenario: Approve action calls ReviewLeave mutation and removes row from pending list
+          - id: INT-12-3
+            scenario: Already-reviewed request shows stale data error and refreshes table
+
+      - id: FEAT-13
+        title: Employee portal — payslip download page
+        type: fullstack
+        description: Employee view in hr-portal listing all available payslips by month/year descending. Each row shows month/year, generated date, and a Download button. Clicking Download calls the GetPayslipURL GraphQL query, receives a presigned URL, and triggers a PDF download in the browser.
+        component: hr-portal PayslipPage
+        input:
+          - Payslip records fetched via GraphQL query filtered by employeeId
+        output:
+          - List of payslips with Download button per row
+          - PDF download triggered via presigned URL
+        edgeCases:
+          - No payslips available — show empty state "No payslips available yet"
+          - Presigned URL fetch fails — show inline error on the row, do not navigate away
+          - Presigned URL expired before download completes — browser will receive 403 from Minio; show error and prompt retry
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Download button per payslip row
+          - Loading state on Download button while fetching presigned URL
+          - PDF opens as download in browser (not new tab navigation)
+          - Empty state shown when no payslips exist
+        responsiveBreakpoints:
+          - Desktop (1280px+) — table view
+          - Tablet/Mobile (768px and below) — card list view
+        graphqlChanges: true
+        affectedSubgraphs:
+          - payroll-subgraph
+        integrationTestPlan:
+          - id: INT-13-1
+            scenario: Payslip list fetches and renders correctly for logged-in employee
+          - id: INT-13-2
+            scenario: Download button fetches presigned URL and triggers PDF download
+          - id: INT-13-3
+            scenario: No payslips shows empty state message
+
+      - id: FEAT-14
+        title: Custom password reset UI
+        type: fullstack
+        description: Two unauthenticated pages in hr-portal for the password reset flow. Step 1 — Forgot Password page where employee enters their registered email and clicks Send Reset Link, which calls the RequestReset GraphQL mutation. Step 2 — Set New Password page (reached via link in reset email) where employee enters and confirms new password, calling ConfirmReset GraphQL mutation. Both steps show inline success and error states.
+        component: hr-portal PasswordResetPage
+        input:
+          - Step 1 — email (text input)
+          - Step 2 — newPassword (password input), confirmPassword (password input)
+        output:
+          - Step 1 success — inline message "If this email is registered, a reset link has been sent"
+          - Step 2 success — inline message "Password updated. You can now log in." with link to login
+          - Error states — inline messages per step
+        edgeCases:
+          - Step 1 — invalid email format — show inline validation before submit
+          - Step 1 — Authentik unreachable — show generic error banner
+          - Step 2 — passwords do not match — show inline validation before submit
+          - Step 2 — password does not meet Authentik policy — show policy error returned from API
+          - Step 2 — token expired or invalid — show "Reset link expired" with link back to Step 1
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Step 1 and Step 2 are separate routes accessible without authentication
+          - Submit buttons disabled while request is in flight
+          - Step 2 confirm password field validates match on blur
+          - Success state replaces form inline (no page navigation)
+        responsiveBreakpoints:
+          - Desktop (1280px+) — centered card layout
+          - Tablet/Mobile (768px and below) — full-width card
+        graphqlChanges: true
+        affectedSubgraphs:
+          - employee-subgraph
+        integrationTestPlan:
+          - id: INT-14-1
+            scenario: Valid email submission shows success message regardless of account existence
+          - id: INT-14-2
+            scenario: Mismatched passwords shows inline validation before submit
+          - id: INT-14-3
+            scenario: Expired token shows reset link expired message with back link
+
+      - id: FEAT-15
+        title: In-app notification — leave status change
+        type: fullstack
+        description: Reuses the NotificationBell component from FEAT-6. When a supervisor approves or rejects a leave request, a notification record is created in Postgres for the employee. The bell icon badge increments and the dropdown shows the new notification with message "Your leave request for [Start Date] – [End Date] has been [Approved/Rejected]" and a timestamp. Clicking the notification marks it as read and navigates to the leave page.
+        component: hr-portal NotificationBell
+        input:
+          - Notification records fetched via GraphQL query (employeeId, message, read, createdAt)
+        output:
+          - Bell badge increments on new leave status notification
+          - Dropdown entry with leave status message and timestamp
+          - Mark as read on click, navigate to leave page
+        edgeCases:
+          - No unread notifications — badge not shown
+          - Network failure fetching notifications — show error state in dropdown
+          - Multiple status changes for same leave request — show one notification per status change event
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Shared NotificationBell component with FEAT-6
+          - Notification message includes leave period dates and decision
+          - Click navigates to leave request list page and marks notification read
+        responsiveBreakpoints:
+          - Desktop (1280px+) — dropdown anchored to bell icon top-right
+          - Tablet/Mobile (768px and below) — full-width notification drawer
+        graphqlChanges: true
+        affectedSubgraphs:
+          - leave-subgraph
+        integrationTestPlan:
+          - id: INT-15-1
+            scenario: Leave approval creates notification record for employee
+          - id: INT-15-2
+            scenario: Notification appears in bell dropdown with correct status message
+          - id: INT-15-3
+            scenario: Clicking notification marks it as read and navigates to leave page

@@ -1,0 +1,26 @@
+release: 0.1.0
+chore: false
+
+services:
+  - name: employee
+    type: grpc
+    path: ./servers/employee
+    subgraph: ./servers/employee-subgraph
+    deploy: true
+
+  - name: payroll
+    type: grpc
+    path: ./servers/payroll
+    subgraph: ./servers/payroll-subgraph
+    deploy: true
+
+  - name: leave
+    type: grpc
+    path: ./servers/leave
+    subgraph: ./servers/leave-subgraph
+    deploy: true
+
+  - name: hr-portal
+    type: webapp
+    path: ./apps/hr-portal
+    deploy: true

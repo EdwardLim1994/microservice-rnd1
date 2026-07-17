@@ -1,0 +1,164 @@
+# Apollo Federation v2 SDL — employee-subgraph
+# Release: 0.1.0
+# Feature references: FEAT-1, FEAT-2, FEAT-5, FEAT-10, FEAT-14
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key", "@shareable", "@external",
+    "@requires", "@provides", "@override", "@inaccessible"
+  ])
+
+"""
+Represents an employee registered in the HR system.
+"""
+type Employee @key(fields: "id") {
+  """Unique internal identifier for the employee (UUID)."""
+  id: ID!
+
+  """Human-readable employee identifier assigned by HR (e.g. EMP-001)."""
+  employeeId: String!
+
+  """Full name of the employee."""
+  fullName: String!
+
+  """Job role or title of the employee (e.g. Software Engineer)."""
+  role: String!
+
+  """Department the employee belongs to (e.g. Engineering, Finance)."""
+  department: String!
+
+  """Gross monthly salary of the employee in the base currency."""
+  grossSalary: Float!
+
+  """
+  The employee who is assigned as this employee's supervisor.
+  Null if no supervisor has been assigned.
+  Supports hierarchical assignment — a supervisor can themselves have a supervisor.
+  """
+  supervisor: Employee
+
+  """Timestamp when the employee record was created."""
+  createdAt: String!
+}
+
+"""
+Result returned after successfully registering a new employee.
+Includes the auto-generated temporary password, returned only once.
+"""
+type RegisterEmployeeResult {
+  """The newly created employee record."""
+  employee: Employee!
+
+  """
+  Auto-generated temporary password for the employee's Authentik account.
+  Shown once to HR — not stored in the system after this response.
+  """
+  temporaryPassword: String!
+}
+
+"""
+Input for registering a new employee.
+"""
+input RegisterEmployeeInput {
+  """Full name of the employee."""
+  fullName: String!
+
+  """Unique human-readable employee identifier (e.g. EMP-001)."""
+  employeeId: String!
+
+  """Job role or title."""
+  role: String!
+
+  """Department name."""
+  department: String!
+
+  """Gross monthly salary. Must be a positive number."""
+  grossSalary: Float!
+
+  """
+  Internal ID of the employee to assign as supervisor.
+  Optional — can be assigned later via assignSupervisor.
+  """
+  supervisorId: ID
+}
+
+"""
+Input for assigning or reassigning a supervisor to an employee.
+"""
+input AssignSupervisorInput {
+  """Internal ID of the employee to update."""
+  employeeId: ID!
+
+  """Internal ID of the employee to assign as supervisor."""
+  supervisorId: ID!
+}
+
+"""
+Input for step 1 of the password reset flow — request a reset email.
+"""
+input RequestPasswordResetInput {
+  """Registered email address of the employee."""
+  email: String!
+}
+
+"""
+Input for step 2 of the password reset flow — confirm and set new password.
+"""
+input ConfirmPasswordResetInput {
+  """Reset token received via email link from Authentik."""
+  resetToken: String!
+
+  """New password to set. Must meet Authentik password policy."""
+  newPassword: String!
+}
+
+"""
+Generic acknowledgement result for operations that do not return domain data.
+"""
+type AcknowledgementResult {
+  """True if the operation was accepted successfully."""
+  success: Boolean!
+
+  """Optional human-readable message for the caller."""
+  message: String
+}
+
+type Query {
+  """
+  Fetch a single employee by their internal ID.
+  """
+  employee(id: ID!): Employee
+
+  """
+  Fetch all employees. Supports filtering by department or role.
+  """
+  employees(department: String, role: String): [Employee!]!
+}
+
+type Mutation {
+  """
+  Register a new employee in the system.
+  Creates a Postgres record and an Authentik account with an auto-generated temporary password.
+  Returns the employee record and the temporary password (shown once).
+  """
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+
+  """
+  Assign or reassign a supervisor for an existing employee.
+  The supervisor must be an existing employee.
+  An employee cannot be their own supervisor.
+  """
+  assignSupervisor(input: AssignSupervisorInput!): Employee!
+
+  """
+  Step 1 of password reset — request a reset email via Authentik.
+  Always returns success to avoid leaking whether an email is registered.
+  """
+  requestPasswordReset(input: RequestPasswordResetInput!): AcknowledgementResult!
+
+  """
+  Step 2 of password reset — confirm reset token and set new password via Authentik.
+  Returns error if token is invalid, expired, or password does not meet policy.
+  """
+  confirmPasswordReset(input: ConfirmPasswordResetInput!): AcknowledgementResult!
+}
