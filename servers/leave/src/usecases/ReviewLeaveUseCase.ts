@@ -1,6 +1,7 @@
 import { GraphQLError } from "graphql";
 import { BaseUseCase } from "server";
 import EmployeeServiceClient from "../clients/EmployeeServiceClient";
+import PayrollServiceClient from "../clients/PayrollServiceClient";
 import LeaveRequestRepository from "../repositories/LeaveRequestRepository";
 
 export interface ReviewLeaveInput {
@@ -12,17 +13,21 @@ export interface ReviewLeaveInput {
 export default class ReviewLeaveUseCase extends BaseUseCase<{ input: ReviewLeaveInput }, unknown> {
 	private readonly leaveRequestRepository: LeaveRequestRepository;
 	private readonly employeeServiceClient: EmployeeServiceClient;
+	private readonly payrollServiceClient: PayrollServiceClient;
 
 	constructor({
 		leaveRequestRepository,
 		employeeServiceClient,
+		payrollServiceClient,
 	}: {
 		leaveRequestRepository: LeaveRequestRepository;
 		employeeServiceClient: EmployeeServiceClient;
+		payrollServiceClient: PayrollServiceClient;
 	}) {
 		super();
 		this.leaveRequestRepository = leaveRequestRepository;
 		this.employeeServiceClient = employeeServiceClient;
+		this.payrollServiceClient = payrollServiceClient;
 	}
 
 	async execute({ input }: { input: ReviewLeaveInput }) {
@@ -50,9 +55,14 @@ export default class ReviewLeaveUseCase extends BaseUseCase<{ input: ReviewLeave
 			});
 		}
 
-		// TODO(FEAT-8): create a Notification for leaveRequest.employeeId via payroll-subgraph
-		// once servers/payroll lands on this branch (blocked on PR #106 — US-1 merging into
-		// release/0.1.0).
-		return this.leaveRequestRepository.review(leaveRequestId, decision, supervisorId);
+		const reviewed = await this.leaveRequestRepository.review(leaveRequestId, decision, supervisorId);
+
+		const decisionLabel = decision === "APPROVED" ? "approved" : "rejected";
+		await this.payrollServiceClient.createNotification(
+			leaveRequest.employeeId,
+			`Your ${leaveRequest.leaveType.toLowerCase()} leave request (${leaveRequest.startDate.toISOString().slice(0, 10)} to ${leaveRequest.endDate.toISOString().slice(0, 10)}) was ${decisionLabel}.`,
+		);
+
+		return reviewed;
 	}
 }

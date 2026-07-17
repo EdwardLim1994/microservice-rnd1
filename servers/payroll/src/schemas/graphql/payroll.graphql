@@ -99,6 +99,18 @@ input GetPayslipURLInput {
   year: Int!
 }
 
+"""
+Input for creating a notification for an employee. Used internally by other subgraphs
+(e.g. leave-subgraph's ReviewLeave) — not part of the OpenSpec-authored public contract.
+"""
+input CreateNotificationInput {
+  """Internal ID of the employee to notify."""
+  employeeId: ID!
+
+  """Human-readable notification message."""
+  message: String!
+}
+
 type Query {
   """Fetch all notifications for a given employee. Sorted by createdAt descending."""
   notifications(employeeId: ID!): [Notification!]!
@@ -121,4 +133,11 @@ type Mutation {
 
   """Mark a specific notification as read."""
   markNotificationRead(id: ID!): Notification!
+
+  """
+  Create a notification for an employee. Internal-use mutation for other subgraphs
+  (e.g. leave-subgraph's reviewLeave) to raise a notification without owning payroll's
+  Postgres database directly.
+  """
+  createNotification(input: CreateNotificationInput!): Notification!
 }
