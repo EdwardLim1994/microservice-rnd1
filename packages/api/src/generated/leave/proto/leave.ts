@@ -5,47 +5,47 @@
 // source: leave.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
 import {
   type CallOptions,
   type ChannelCredentials,
-  Client,
+  type Client,
   type ClientOptions,
   type ClientUnaryCall,
   type handleUnaryCall,
-  makeGenericClientConstructor,
   type Metadata,
+  makeGenericClientConstructor,
   type ServiceError,
   type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { messageTypeRegistry } from "./typeRegistry";
+} from '@grpc/grpc-js';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "leave";
+export const protobufPackage = 'leave';
 
 export enum LeaveType {
-  LEAVE_TYPE_UNSPECIFIED = "LEAVE_TYPE_UNSPECIFIED",
-  ANNUAL = "ANNUAL",
-  MEDICAL = "MEDICAL",
-  EMERGENCY = "EMERGENCY",
-  UNRECOGNIZED = "UNRECOGNIZED",
+  LEAVE_TYPE_UNSPECIFIED = 'LEAVE_TYPE_UNSPECIFIED',
+  ANNUAL = 'ANNUAL',
+  MEDICAL = 'MEDICAL',
+  EMERGENCY = 'EMERGENCY',
+  UNRECOGNIZED = 'UNRECOGNIZED',
 }
 
 export function leaveTypeFromJSON(object: any): LeaveType {
   switch (object) {
     case 0:
-    case "LEAVE_TYPE_UNSPECIFIED":
+    case 'LEAVE_TYPE_UNSPECIFIED':
       return LeaveType.LEAVE_TYPE_UNSPECIFIED;
     case 1:
-    case "ANNUAL":
+    case 'ANNUAL':
       return LeaveType.ANNUAL;
     case 2:
-    case "MEDICAL":
+    case 'MEDICAL':
       return LeaveType.MEDICAL;
     case 3:
-    case "EMERGENCY":
+    case 'EMERGENCY':
       return LeaveType.EMERGENCY;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return LeaveType.UNRECOGNIZED;
   }
@@ -54,16 +54,16 @@ export function leaveTypeFromJSON(object: any): LeaveType {
 export function leaveTypeToJSON(object: LeaveType): string {
   switch (object) {
     case LeaveType.LEAVE_TYPE_UNSPECIFIED:
-      return "LEAVE_TYPE_UNSPECIFIED";
+      return 'LEAVE_TYPE_UNSPECIFIED';
     case LeaveType.ANNUAL:
-      return "ANNUAL";
+      return 'ANNUAL';
     case LeaveType.MEDICAL:
-      return "MEDICAL";
+      return 'MEDICAL';
     case LeaveType.EMERGENCY:
-      return "EMERGENCY";
+      return 'EMERGENCY';
     case LeaveType.UNRECOGNIZED:
     default:
-      return "UNRECOGNIZED";
+      return 'UNRECOGNIZED';
   }
 }
 
@@ -84,29 +84,29 @@ export function leaveTypeToNumber(object: LeaveType): number {
 }
 
 export enum LeaveStatus {
-  LEAVE_STATUS_UNSPECIFIED = "LEAVE_STATUS_UNSPECIFIED",
-  PENDING = "PENDING",
-  APPROVED = "APPROVED",
-  REJECTED = "REJECTED",
-  UNRECOGNIZED = "UNRECOGNIZED",
+  LEAVE_STATUS_UNSPECIFIED = 'LEAVE_STATUS_UNSPECIFIED',
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  UNRECOGNIZED = 'UNRECOGNIZED',
 }
 
 export function leaveStatusFromJSON(object: any): LeaveStatus {
   switch (object) {
     case 0:
-    case "LEAVE_STATUS_UNSPECIFIED":
+    case 'LEAVE_STATUS_UNSPECIFIED':
       return LeaveStatus.LEAVE_STATUS_UNSPECIFIED;
     case 1:
-    case "PENDING":
+    case 'PENDING':
       return LeaveStatus.PENDING;
     case 2:
-    case "APPROVED":
+    case 'APPROVED':
       return LeaveStatus.APPROVED;
     case 3:
-    case "REJECTED":
+    case 'REJECTED':
       return LeaveStatus.REJECTED;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return LeaveStatus.UNRECOGNIZED;
   }
@@ -115,16 +115,16 @@ export function leaveStatusFromJSON(object: any): LeaveStatus {
 export function leaveStatusToJSON(object: LeaveStatus): string {
   switch (object) {
     case LeaveStatus.LEAVE_STATUS_UNSPECIFIED:
-      return "LEAVE_STATUS_UNSPECIFIED";
+      return 'LEAVE_STATUS_UNSPECIFIED';
     case LeaveStatus.PENDING:
-      return "PENDING";
+      return 'PENDING';
     case LeaveStatus.APPROVED:
-      return "APPROVED";
+      return 'APPROVED';
     case LeaveStatus.REJECTED:
-      return "REJECTED";
+      return 'REJECTED';
     case LeaveStatus.UNRECOGNIZED:
     default:
-      return "UNRECOGNIZED";
+      return 'UNRECOGNIZED';
   }
 }
 
@@ -149,7 +149,7 @@ export function leaveStatusToNumber(object: LeaveStatus): number {
  * empty-string-sentinel convention as employee.proto's supervisorId.
  */
 export interface LeaveRequest {
-  $type: "leave.LeaveRequest";
+  $type: 'leave.LeaveRequest';
   id: string;
   employeeId: string;
   leaveType: LeaveType;
@@ -167,7 +167,7 @@ export interface LeaveRequest {
 }
 
 export interface SubmitLeaveRequest {
-  $type: "leave.SubmitLeaveRequest";
+  $type: 'leave.SubmitLeaveRequest';
   employeeId: string;
   leaveType: LeaveType;
   startDate: string;
@@ -176,7 +176,7 @@ export interface SubmitLeaveRequest {
 }
 
 export interface ReviewLeaveRequest {
-  $type: "leave.ReviewLeaveRequest";
+  $type: 'leave.ReviewLeaveRequest';
   leaveRequestId: string;
   supervisorId: string;
   decision: LeaveStatus;
@@ -184,59 +184,63 @@ export interface ReviewLeaveRequest {
 
 function createBaseLeaveRequest(): LeaveRequest {
   return {
-    $type: "leave.LeaveRequest",
-    id: "",
-    employeeId: "",
+    $type: 'leave.LeaveRequest',
+    id: '',
+    employeeId: '',
     leaveType: LeaveType.LEAVE_TYPE_UNSPECIFIED,
-    startDate: "",
-    endDate: "",
-    reason: "",
+    startDate: '',
+    endDate: '',
+    reason: '',
     status: LeaveStatus.LEAVE_STATUS_UNSPECIFIED,
-    submittedAt: "",
-    reviewedById: "",
-    reviewedAt: "",
+    submittedAt: '',
+    reviewedById: '',
+    reviewedAt: '',
   };
 }
 
-export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
-  $type: "leave.LeaveRequest" as const,
+export const LeaveRequest: MessageFns<LeaveRequest, 'leave.LeaveRequest'> = {
+  $type: 'leave.LeaveRequest' as const,
 
-  encode(message: LeaveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: LeaveRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       writer.uint32(18).string(message.employeeId);
     }
     if (message.leaveType !== LeaveType.LEAVE_TYPE_UNSPECIFIED) {
       writer.uint32(24).int32(leaveTypeToNumber(message.leaveType));
     }
-    if (message.startDate !== "") {
+    if (message.startDate !== '') {
       writer.uint32(34).string(message.startDate);
     }
-    if (message.endDate !== "") {
+    if (message.endDate !== '') {
       writer.uint32(42).string(message.endDate);
     }
-    if (message.reason !== "") {
+    if (message.reason !== '') {
       writer.uint32(50).string(message.reason);
     }
     if (message.status !== LeaveStatus.LEAVE_STATUS_UNSPECIFIED) {
       writer.uint32(56).int32(leaveStatusToNumber(message.status));
     }
-    if (message.submittedAt !== "") {
+    if (message.submittedAt !== '') {
       writer.uint32(66).string(message.submittedAt);
     }
-    if (message.reviewedById !== "") {
+    if (message.reviewedById !== '') {
       writer.uint32(74).string(message.reviewedById);
     }
-    if (message.reviewedAt !== "") {
+    if (message.reviewedAt !== '') {
       writer.uint32(82).string(message.reviewedAt);
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): LeaveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseLeaveRequest();
     while (reader.pos < end) {
@@ -334,69 +338,87 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
   fromJSON(object: any): LeaveRequest {
     return {
       $type: LeaveRequest.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
-      employeeId: isSet(object.employeeId) ? globalThis.String(object.employeeId) : "",
-      leaveType: isSet(object.leaveType) ? leaveTypeFromJSON(object.leaveType) : LeaveType.LEAVE_TYPE_UNSPECIFIED,
-      startDate: isSet(object.startDate) ? globalThis.String(object.startDate) : "",
-      endDate: isSet(object.endDate) ? globalThis.String(object.endDate) : "",
-      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
-      status: isSet(object.status) ? leaveStatusFromJSON(object.status) : LeaveStatus.LEAVE_STATUS_UNSPECIFIED,
-      submittedAt: isSet(object.submittedAt) ? globalThis.String(object.submittedAt) : "",
-      reviewedById: isSet(object.reviewedById) ? globalThis.String(object.reviewedById) : "",
-      reviewedAt: isSet(object.reviewedAt) ? globalThis.String(object.reviewedAt) : "",
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      leaveType: isSet(object.leaveType)
+        ? leaveTypeFromJSON(object.leaveType)
+        : LeaveType.LEAVE_TYPE_UNSPECIFIED,
+      startDate: isSet(object.startDate)
+        ? globalThis.String(object.startDate)
+        : '',
+      endDate: isSet(object.endDate) ? globalThis.String(object.endDate) : '',
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : '',
+      status: isSet(object.status)
+        ? leaveStatusFromJSON(object.status)
+        : LeaveStatus.LEAVE_STATUS_UNSPECIFIED,
+      submittedAt: isSet(object.submittedAt)
+        ? globalThis.String(object.submittedAt)
+        : '',
+      reviewedById: isSet(object.reviewedById)
+        ? globalThis.String(object.reviewedById)
+        : '',
+      reviewedAt: isSet(object.reviewedAt)
+        ? globalThis.String(object.reviewedAt)
+        : '',
     };
   },
 
   toJSON(message: LeaveRequest): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.leaveType !== LeaveType.LEAVE_TYPE_UNSPECIFIED) {
       obj.leaveType = leaveTypeToJSON(message.leaveType);
     }
-    if (message.startDate !== "") {
+    if (message.startDate !== '') {
       obj.startDate = message.startDate;
     }
-    if (message.endDate !== "") {
+    if (message.endDate !== '') {
       obj.endDate = message.endDate;
     }
-    if (message.reason !== "") {
+    if (message.reason !== '') {
       obj.reason = message.reason;
     }
     if (message.status !== LeaveStatus.LEAVE_STATUS_UNSPECIFIED) {
       obj.status = leaveStatusToJSON(message.status);
     }
-    if (message.submittedAt !== "") {
+    if (message.submittedAt !== '') {
       obj.submittedAt = message.submittedAt;
     }
-    if (message.reviewedById !== "") {
+    if (message.reviewedById !== '') {
       obj.reviewedById = message.reviewedById;
     }
-    if (message.reviewedAt !== "") {
+    if (message.reviewedAt !== '') {
       obj.reviewedAt = message.reviewedAt;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<LeaveRequest>, I>>(base?: I): LeaveRequest {
+  create<I extends Exact<DeepPartial<LeaveRequest>, I>>(
+    base?: I,
+  ): LeaveRequest {
     return LeaveRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<LeaveRequest>, I>>(object: I): LeaveRequest {
+  fromPartial<I extends Exact<DeepPartial<LeaveRequest>, I>>(
+    object: I,
+  ): LeaveRequest {
     const message = createBaseLeaveRequest();
-    message.id = object.id ?? "";
-    message.employeeId = object.employeeId ?? "";
+    message.id = object.id ?? '';
+    message.employeeId = object.employeeId ?? '';
     message.leaveType = object.leaveType ?? LeaveType.LEAVE_TYPE_UNSPECIFIED;
-    message.startDate = object.startDate ?? "";
-    message.endDate = object.endDate ?? "";
-    message.reason = object.reason ?? "";
+    message.startDate = object.startDate ?? '';
+    message.endDate = object.endDate ?? '';
+    message.reason = object.reason ?? '';
     message.status = object.status ?? LeaveStatus.LEAVE_STATUS_UNSPECIFIED;
-    message.submittedAt = object.submittedAt ?? "";
-    message.reviewedById = object.reviewedById ?? "";
-    message.reviewedAt = object.reviewedAt ?? "";
+    message.submittedAt = object.submittedAt ?? '';
+    message.reviewedById = object.reviewedById ?? '';
+    message.reviewedAt = object.reviewedAt ?? '';
     return message;
   },
 };
@@ -405,39 +427,49 @@ messageTypeRegistry.set(LeaveRequest.$type, LeaveRequest);
 
 function createBaseSubmitLeaveRequest(): SubmitLeaveRequest {
   return {
-    $type: "leave.SubmitLeaveRequest",
-    employeeId: "",
+    $type: 'leave.SubmitLeaveRequest',
+    employeeId: '',
     leaveType: LeaveType.LEAVE_TYPE_UNSPECIFIED,
-    startDate: "",
-    endDate: "",
-    reason: "",
+    startDate: '',
+    endDate: '',
+    reason: '',
   };
 }
 
-export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLeaveRequest"> = {
-  $type: "leave.SubmitLeaveRequest" as const,
+export const SubmitLeaveRequest: MessageFns<
+  SubmitLeaveRequest,
+  'leave.SubmitLeaveRequest'
+> = {
+  $type: 'leave.SubmitLeaveRequest' as const,
 
-  encode(message: SubmitLeaveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: SubmitLeaveRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.leaveType !== LeaveType.LEAVE_TYPE_UNSPECIFIED) {
       writer.uint32(16).int32(leaveTypeToNumber(message.leaveType));
     }
-    if (message.startDate !== "") {
+    if (message.startDate !== '') {
       writer.uint32(26).string(message.startDate);
     }
-    if (message.endDate !== "") {
+    if (message.endDate !== '') {
       writer.uint32(34).string(message.endDate);
     }
-    if (message.reason !== "") {
+    if (message.reason !== '') {
       writer.uint32(42).string(message.reason);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): SubmitLeaveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): SubmitLeaveRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSubmitLeaveRequest();
     while (reader.pos < end) {
@@ -495,44 +527,54 @@ export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLea
   fromJSON(object: any): SubmitLeaveRequest {
     return {
       $type: SubmitLeaveRequest.$type,
-      employeeId: isSet(object.employeeId) ? globalThis.String(object.employeeId) : "",
-      leaveType: isSet(object.leaveType) ? leaveTypeFromJSON(object.leaveType) : LeaveType.LEAVE_TYPE_UNSPECIFIED,
-      startDate: isSet(object.startDate) ? globalThis.String(object.startDate) : "",
-      endDate: isSet(object.endDate) ? globalThis.String(object.endDate) : "",
-      reason: isSet(object.reason) ? globalThis.String(object.reason) : "",
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      leaveType: isSet(object.leaveType)
+        ? leaveTypeFromJSON(object.leaveType)
+        : LeaveType.LEAVE_TYPE_UNSPECIFIED,
+      startDate: isSet(object.startDate)
+        ? globalThis.String(object.startDate)
+        : '',
+      endDate: isSet(object.endDate) ? globalThis.String(object.endDate) : '',
+      reason: isSet(object.reason) ? globalThis.String(object.reason) : '',
     };
   },
 
   toJSON(message: SubmitLeaveRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.leaveType !== LeaveType.LEAVE_TYPE_UNSPECIFIED) {
       obj.leaveType = leaveTypeToJSON(message.leaveType);
     }
-    if (message.startDate !== "") {
+    if (message.startDate !== '') {
       obj.startDate = message.startDate;
     }
-    if (message.endDate !== "") {
+    if (message.endDate !== '') {
       obj.endDate = message.endDate;
     }
-    if (message.reason !== "") {
+    if (message.reason !== '') {
       obj.reason = message.reason;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(base?: I): SubmitLeaveRequest {
+  create<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(
+    base?: I,
+  ): SubmitLeaveRequest {
     return SubmitLeaveRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(object: I): SubmitLeaveRequest {
+  fromPartial<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(
+    object: I,
+  ): SubmitLeaveRequest {
     const message = createBaseSubmitLeaveRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.leaveType = object.leaveType ?? LeaveType.LEAVE_TYPE_UNSPECIFIED;
-    message.startDate = object.startDate ?? "";
-    message.endDate = object.endDate ?? "";
-    message.reason = object.reason ?? "";
+    message.startDate = object.startDate ?? '';
+    message.endDate = object.endDate ?? '';
+    message.reason = object.reason ?? '';
     return message;
   },
 };
@@ -541,21 +583,27 @@ messageTypeRegistry.set(SubmitLeaveRequest.$type, SubmitLeaveRequest);
 
 function createBaseReviewLeaveRequest(): ReviewLeaveRequest {
   return {
-    $type: "leave.ReviewLeaveRequest",
-    leaveRequestId: "",
-    supervisorId: "",
+    $type: 'leave.ReviewLeaveRequest',
+    leaveRequestId: '',
+    supervisorId: '',
     decision: LeaveStatus.LEAVE_STATUS_UNSPECIFIED,
   };
 }
 
-export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLeaveRequest"> = {
-  $type: "leave.ReviewLeaveRequest" as const,
+export const ReviewLeaveRequest: MessageFns<
+  ReviewLeaveRequest,
+  'leave.ReviewLeaveRequest'
+> = {
+  $type: 'leave.ReviewLeaveRequest' as const,
 
-  encode(message: ReviewLeaveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.leaveRequestId !== "") {
+  encode(
+    message: ReviewLeaveRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.leaveRequestId !== '') {
       writer.uint32(10).string(message.leaveRequestId);
     }
-    if (message.supervisorId !== "") {
+    if (message.supervisorId !== '') {
       writer.uint32(18).string(message.supervisorId);
     }
     if (message.decision !== LeaveStatus.LEAVE_STATUS_UNSPECIFIED) {
@@ -564,8 +612,12 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ReviewLeaveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ReviewLeaveRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseReviewLeaveRequest();
     while (reader.pos < end) {
@@ -607,18 +659,24 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
   fromJSON(object: any): ReviewLeaveRequest {
     return {
       $type: ReviewLeaveRequest.$type,
-      leaveRequestId: isSet(object.leaveRequestId) ? globalThis.String(object.leaveRequestId) : "",
-      supervisorId: isSet(object.supervisorId) ? globalThis.String(object.supervisorId) : "",
-      decision: isSet(object.decision) ? leaveStatusFromJSON(object.decision) : LeaveStatus.LEAVE_STATUS_UNSPECIFIED,
+      leaveRequestId: isSet(object.leaveRequestId)
+        ? globalThis.String(object.leaveRequestId)
+        : '',
+      supervisorId: isSet(object.supervisorId)
+        ? globalThis.String(object.supervisorId)
+        : '',
+      decision: isSet(object.decision)
+        ? leaveStatusFromJSON(object.decision)
+        : LeaveStatus.LEAVE_STATUS_UNSPECIFIED,
     };
   },
 
   toJSON(message: ReviewLeaveRequest): unknown {
     const obj: any = {};
-    if (message.leaveRequestId !== "") {
+    if (message.leaveRequestId !== '') {
       obj.leaveRequestId = message.leaveRequestId;
     }
-    if (message.supervisorId !== "") {
+    if (message.supervisorId !== '') {
       obj.supervisorId = message.supervisorId;
     }
     if (message.decision !== LeaveStatus.LEAVE_STATUS_UNSPECIFIED) {
@@ -627,13 +685,17 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(base?: I): ReviewLeaveRequest {
+  create<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(
+    base?: I,
+  ): ReviewLeaveRequest {
     return ReviewLeaveRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(object: I): ReviewLeaveRequest {
+  fromPartial<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(
+    object: I,
+  ): ReviewLeaveRequest {
     const message = createBaseReviewLeaveRequest();
-    message.leaveRequestId = object.leaveRequestId ?? "";
-    message.supervisorId = object.supervisorId ?? "";
+    message.leaveRequestId = object.leaveRequestId ?? '';
+    message.supervisorId = object.supervisorId ?? '';
     message.decision = object.decision ?? LeaveStatus.LEAVE_STATUS_UNSPECIFIED;
     return message;
   },
@@ -644,22 +706,30 @@ messageTypeRegistry.set(ReviewLeaveRequest.$type, ReviewLeaveRequest);
 export type LeaveServiceService = typeof LeaveServiceService;
 export const LeaveServiceService = {
   submitLeave: {
-    path: "/leave.LeaveService/SubmitLeave" as const,
+    path: '/leave.LeaveService/SubmitLeave' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: SubmitLeaveRequest): Buffer => Buffer.from(SubmitLeaveRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): SubmitLeaveRequest => SubmitLeaveRequest.decode(value),
-    responseSerialize: (value: LeaveRequest): Buffer => Buffer.from(LeaveRequest.encode(value).finish()),
-    responseDeserialize: (value: Buffer): LeaveRequest => LeaveRequest.decode(value),
+    requestSerialize: (value: SubmitLeaveRequest): Buffer =>
+      Buffer.from(SubmitLeaveRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): SubmitLeaveRequest =>
+      SubmitLeaveRequest.decode(value),
+    responseSerialize: (value: LeaveRequest): Buffer =>
+      Buffer.from(LeaveRequest.encode(value).finish()),
+    responseDeserialize: (value: Buffer): LeaveRequest =>
+      LeaveRequest.decode(value),
   },
   reviewLeave: {
-    path: "/leave.LeaveService/ReviewLeave" as const,
+    path: '/leave.LeaveService/ReviewLeave' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: ReviewLeaveRequest): Buffer => Buffer.from(ReviewLeaveRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): ReviewLeaveRequest => ReviewLeaveRequest.decode(value),
-    responseSerialize: (value: LeaveRequest): Buffer => Buffer.from(LeaveRequest.encode(value).finish()),
-    responseDeserialize: (value: Buffer): LeaveRequest => LeaveRequest.decode(value),
+    requestSerialize: (value: ReviewLeaveRequest): Buffer =>
+      Buffer.from(ReviewLeaveRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReviewLeaveRequest =>
+      ReviewLeaveRequest.decode(value),
+    responseSerialize: (value: LeaveRequest): Buffer =>
+      Buffer.from(LeaveRequest.encode(value).finish()),
+    responseDeserialize: (value: Buffer): LeaveRequest =>
+      LeaveRequest.decode(value),
   },
 } as const;
 
@@ -703,24 +773,42 @@ export interface LeaveServiceClient extends Client {
 
 export const LeaveServiceClient = makeGenericClientConstructor(
   LeaveServiceService,
-  "leave.LeaveService",
+  'leave.LeaveService',
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): LeaveServiceClient;
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): LeaveServiceClient;
   service: typeof LeaveServiceService;
   serviceName: string;
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

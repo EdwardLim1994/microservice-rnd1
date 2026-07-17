@@ -1,4 +1,6 @@
-schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"]) {
+schema
+  @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
+{
   query: Query
   mutation: Mutation
 }
@@ -7,17 +9,29 @@ type Employee @key(fields: "id") {
   id: ID!
 }
 
-"""Represents a leave request submitted by an employee."""
+"""
+Represents a leave request submitted by an employee.
+"""
 type LeaveRequest @key(fields: "id") {
-  """The employee who submitted the leave request."""
+  """
+  The employee who submitted the leave request.
+  """
   employee: Employee!
-  """End date of the leave period (inclusive). Format: YYYY-MM-DD."""
+  """
+  End date of the leave period (inclusive). Format: YYYY-MM-DD.
+  """
   endDate: String!
-  """Unique internal identifier for the leave request."""
+  """
+  Unique internal identifier for the leave request.
+  """
   id: ID!
-  """Type of leave being requested."""
+  """
+  Type of leave being requested.
+  """
   leaveType: LeaveType!
-  """Reason provided by the employee for the leave request."""
+  """
+  Reason provided by the employee for the leave request.
+  """
   reason: String!
   """
   Timestamp when the request was reviewed (approved or rejected).
@@ -29,31 +43,53 @@ type LeaveRequest @key(fields: "id") {
   Null if the request is still pending.
   """
   reviewedBy: Employee
-  """Start date of the leave period (inclusive). Format: YYYY-MM-DD."""
+  """
+  Start date of the leave period (inclusive). Format: YYYY-MM-DD.
+  """
   startDate: String!
-  """Current status of the leave request."""
+  """
+  Current status of the leave request.
+  """
   status: LeaveStatus!
-  """Timestamp when the leave request was submitted."""
+  """
+  Timestamp when the leave request was submitted.
+  """
   submittedAt: String!
 }
 
-"""Enumeration of possible leave request statuses."""
+"""
+Enumeration of possible leave request statuses.
+"""
 enum LeaveStatus {
-  """Leave request has been approved by the supervisor."""
+  """
+  Leave request has been approved by the supervisor.
+  """
   APPROVED
-  """Leave request has been submitted and is awaiting supervisor review."""
+  """
+  Leave request has been submitted and is awaiting supervisor review.
+  """
   PENDING
-  """Leave request has been rejected by the supervisor."""
+  """
+  Leave request has been rejected by the supervisor.
+  """
   REJECTED
 }
 
-"""Enumeration of supported leave types."""
+"""
+Enumeration of supported leave types.
+"""
 enum LeaveType {
-  """Standard annual leave entitlement."""
+  """
+  Standard annual leave entitlement.
+  """
   ANNUAL
-  """Emergency or urgent personal leave."""
+  """
+  Emergency or urgent personal leave.
+  """
   EMERGENCY
-  """Medical or sick leave."""
+  """
+  Medical or sick leave.
+  """
   MEDICAL
 }
 
@@ -86,27 +122,43 @@ type Query {
   pendingLeaveRequestsForSupervisor(supervisorId: ID!): [LeaveRequest!]!
 }
 
-"""Input for a supervisor to approve or reject a pending leave request."""
+"""
+Input for a supervisor to approve or reject a pending leave request.
+"""
 input ReviewLeaveInput {
-  """Decision: APPROVED or REJECTED."""
+  """
+  Decision: APPROVED or REJECTED.
+  """
   decision: LeaveStatus!
-  """Internal ID of the leave request to review."""
+  """
+  Internal ID of the leave request to review.
+  """
   leaveRequestId: ID!
-  """Internal ID of the supervisor performing the review."""
+  """
+  Internal ID of the supervisor performing the review.
+  """
   supervisorId: ID!
 }
 
-"""Input for submitting a new leave request."""
+"""
+Input for submitting a new leave request.
+"""
 input SubmitLeaveInput {
-  """Internal ID of the employee submitting the request."""
+  """
+  Internal ID of the employee submitting the request.
+  """
   employeeId: ID!
   """
   End date of the leave period. Format: YYYY-MM-DD. Must be after or equal to startDate.
   """
   endDate: String!
-  """Type of leave being requested."""
+  """
+  Type of leave being requested.
+  """
   leaveType: LeaveType!
-  """Reason for the leave request. Must be non-empty."""
+  """
+  Reason for the leave request. Must be non-empty.
+  """
   reason: String!
   """
   Start date of the leave period. Format: YYYY-MM-DD. Must be before or equal to endDate.
