@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package leave;
+
+enum LeaveType {
+  LEAVE_TYPE_UNSPECIFIED = 0;
+  ANNUAL = 1;
+  MEDICAL = 2;
+  EMERGENCY = 3;
+}
+
+enum LeaveStatus {
+  LEAVE_STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  APPROVED = 2;
+  REJECTED = 3;
+}
+
+// reviewedById/reviewedAt are empty strings when the request is still PENDING — same
+// empty-string-sentinel convention as employee.proto's supervisorId.
+message LeaveRequest {
+  string id = 1;
+  string employeeId = 2;
+  LeaveType leaveType = 3;
+  string startDate = 4; // YYYY-MM-DD
+  string endDate = 5; // YYYY-MM-DD
+  string reason = 6;
+  LeaveStatus status = 7;
+  string submittedAt = 8; // ISO 8601
+  string reviewedById = 9;
+  string reviewedAt = 10; // ISO 8601, empty if not yet reviewed
+}
+
+message SubmitLeaveRequest {
+  string employeeId = 1;
+  LeaveType leaveType = 2;
+  string startDate = 3;
+  string endDate = 4;
+  string reason = 5;
+}
+
+message ReviewLeaveRequest {
+  string leaveRequestId = 1;
+  string supervisorId = 2;
+  LeaveStatus decision = 3;
+}
+
+service LeaveService {
+  rpc SubmitLeave (SubmitLeaveRequest) returns (LeaveRequest);
+  rpc ReviewLeave (ReviewLeaveRequest) returns (LeaveRequest);
+}

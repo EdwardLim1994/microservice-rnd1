@@ -13,3 +13,8 @@ subgraphs:
       routing_url: http://payroll:4002
       schema:
          file: ../../../../servers/payroll/src/schemas/graphql/payroll.graphql
+
+   leave:
+      routing_url: http://leave:4004
+      schema:
+         file: ../../../../servers/leave/src/schemas/graphql/leave.graphql

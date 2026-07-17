@@ -1,0 +1,33 @@
+generator client {
+    provider = "prisma-client-js"
+    output   = "../../../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum LeaveType {
+    ANNUAL
+    MEDICAL
+    EMERGENCY
+}
+
+enum LeaveStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+model LeaveRequest {
+    id           String      @id @default(uuid())
+    employeeId   String
+    leaveType    LeaveType
+    startDate    DateTime    @db.Date
+    endDate      DateTime    @db.Date
+    reason       String
+    status       LeaveStatus @default(PENDING)
+    submittedAt  DateTime    @default(now())
+    reviewedById String?
+    reviewedAt   DateTime?
+}
