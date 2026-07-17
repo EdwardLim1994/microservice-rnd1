@@ -1,16 +1,11 @@
 import { CombinedGraphQLErrors } from '@apollo/client/errors';
 import { useMutation, useQuery } from '@apollo/client/react';
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 import {
   EMPLOYEES_QUERY,
+  type EmployeeOption,
   REGISTER_EMPLOYEE_MUTATION,
 } from '../graphql/employee';
-
-interface EmployeeOption {
-  id: string;
-  fullName: string;
-  employeeId: string;
-}
 
 const ROLES = ['Software Engineer', 'HR Admin', 'Analyst', 'Manager'];
 const DEPARTMENTS = ['Engineering', 'Finance', 'HR', 'R&D'];
@@ -33,16 +28,10 @@ export function EmployeeRegistrationForm() {
     null,
   );
 
-  const { data: employeesData } = useQuery<{ employees: EmployeeOption[] }>(
-    EMPLOYEES_QUERY,
-  );
+  const { data: employeesData } = useQuery(EMPLOYEES_QUERY);
   const supervisors: EmployeeOption[] = employeesData?.employees ?? [];
 
-  interface RegisterEmployeeResponse {
-    registerEmployee: { temporaryPassword: string };
-  }
-
-  const [registerEmployee, { loading }] = useMutation<RegisterEmployeeResponse>(
+  const [registerEmployee, { loading }] = useMutation(
     REGISTER_EMPLOYEE_MUTATION,
     { refetchQueries: [{ query: EMPLOYEES_QUERY }] },
   );
@@ -55,7 +44,7 @@ export function EmployeeRegistrationForm() {
     setOpen(true);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setFieldError(null);
     setBannerError(null);
