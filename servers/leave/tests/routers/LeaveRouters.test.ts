@@ -1,6 +1,6 @@
 import { expect, test } from "@rstest/core";
-import { createContainer, InjectionMode } from "awilix";
 import { LeaveLeaveProto } from "api";
+import { createContainer, InjectionMode } from "awilix";
 import LeaveGraphqlRouter from "../../src/routers/LeaveGraphqlRouter";
 import LeaveGrpcRouter from "../../src/routers/LeaveGrpcRouter";
 
@@ -16,7 +16,10 @@ test("LeaveGraphqlRouter exposes typeDefs and wires Query/Mutation/LeaveRequest 
 		"leaveRequests",
 		"pendingLeaveRequestsForSupervisor",
 	]);
-	expect(Object.keys(router.handlers.Mutation ?? {})).toEqual(["submitLeave", "reviewLeave"]);
+	expect(Object.keys(router.handlers.Mutation ?? {})).toEqual([
+		"submitLeave",
+		"reviewLeave",
+	]);
 	expect(Object.keys(router.handlers.LeaveRequest ?? {})).toEqual([
 		"__resolveReference",
 		"employee",

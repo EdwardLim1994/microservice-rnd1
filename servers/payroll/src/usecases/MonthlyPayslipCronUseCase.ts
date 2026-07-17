@@ -1,5 +1,5 @@
 import { BaseUseCase } from "server";
-import GeneratePayslipsUseCase from "./GeneratePayslipsUseCase";
+import type GeneratePayslipsUseCase from "./GeneratePayslipsUseCase";
 
 /**
  * Cron entrypoint for FEAT-3 — derives month/year from "now" (see requirements.yaml's
@@ -10,7 +10,9 @@ import GeneratePayslipsUseCase from "./GeneratePayslipsUseCase";
 export default class MonthlyPayslipCronUseCase extends BaseUseCase<void, void> {
 	private readonly generatePayslipsUseCase: GeneratePayslipsUseCase;
 
-	constructor({ generatePayslipsUseCase }: { generatePayslipsUseCase: GeneratePayslipsUseCase }) {
+	constructor({
+		generatePayslipsUseCase,
+	}: { generatePayslipsUseCase: GeneratePayslipsUseCase }) {
 		super();
 		this.generatePayslipsUseCase = generatePayslipsUseCase;
 	}

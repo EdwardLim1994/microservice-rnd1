@@ -10,20 +10,27 @@ function withMockFetch<T>(response: Response, run: () => Promise<T>) {
 }
 
 function jsonResponse(status: number, body: unknown) {
-	return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+	return new Response(JSON.stringify(body), {
+		status,
+		headers: { "Content-Type": "application/json" },
+	});
 }
 
 test("createNotification resolves on success", async () => {
 	const client = new PayrollServiceClient("http://payroll.test");
-	await withMockFetch(jsonResponse(200, { data: { createNotification: { id: "notif-1" } } }), () =>
-		client.createNotification("emp-1", "Your leave request was approved."),
+	await withMockFetch(
+		jsonResponse(200, { data: { createNotification: { id: "notif-1" } } }),
+		() =>
+			client.createNotification("emp-1", "Your leave request was approved."),
 	);
 });
 
 test("throws when payroll-subgraph returns a non-2xx response", async () => {
 	const client = new PayrollServiceClient("http://payroll.test");
 	await expect(
-		withMockFetch(new Response(null, { status: 500 }), () => client.createNotification("emp-1", "msg")),
+		withMockFetch(new Response(null, { status: 500 }), () =>
+			client.createNotification("emp-1", "msg"),
+		),
 	).rejects.toThrow("payroll-subgraph returned 500");
 });
 

@@ -1,7 +1,12 @@
-import { ApolloDriver, GrpcDriver, ServerApp, VaultPgAdapter, singleton, transient } from "server";
+import {
+	ApolloDriver,
+	GrpcDriver,
+	ServerApp,
+	singleton,
+	transient,
+	VaultPgAdapter,
+} from "server";
 import { PrismaClient } from "../generated/prisma";
-import EmployeeServiceClient from "./clients/EmployeeServiceClient";
-import PayrollServiceClient from "./clients/PayrollServiceClient";
 import LeaveRequestRepository from "./repositories/LeaveRequestRepository";
 import LeaveGraphqlRouter from "./routers/LeaveGraphqlRouter";
 import LeaveGrpcRouter from "./routers/LeaveGrpcRouter";
@@ -26,8 +31,6 @@ export default async function main() {
 		.database(PrismaClient, () => VaultPgAdapter.fromEnv())
 		.containers({
 			leaveRequestRepository: singleton(LeaveRequestRepository),
-			employeeServiceClient: singleton(EmployeeServiceClient),
-			payrollServiceClient: singleton(PayrollServiceClient),
 			// Explicitly registered — the gRPC adapter use cases inject these directly, same
 			// convention as employee-subgraph's app.ts.
 			submitLeaveUseCase: transient(SubmitLeaveUseCase),

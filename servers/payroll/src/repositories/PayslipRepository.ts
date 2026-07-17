@@ -23,10 +23,19 @@ export default class PayslipRepository extends BaseRepository<PrismaClient> {
 		});
 	}
 
-	upsert(data: { employeeId: string; month: number; year: number; minioObjectKey: string }) {
+	upsert(data: {
+		employeeId: string;
+		month: number;
+		year: number;
+		minioObjectKey: string;
+	}) {
 		return this.prisma.payslip.upsert({
 			where: {
-				employeeId_month_year: { employeeId: data.employeeId, month: data.month, year: data.year },
+				employeeId_month_year: {
+					employeeId: data.employeeId,
+					month: data.month,
+					year: data.year,
+				},
 			},
 			create: data,
 			update: { minioObjectKey: data.minioObjectKey, generatedAt: new Date() },

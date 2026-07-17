@@ -2,7 +2,7 @@ import { GraphQLError } from "graphql";
 import { BaseUseCase } from "server";
 import EmployeeServiceClient from "../clients/EmployeeServiceClient";
 import PayrollServiceClient from "../clients/PayrollServiceClient";
-import LeaveRequestRepository from "../repositories/LeaveRequestRepository";
+import type LeaveRequestRepository from "../repositories/LeaveRequestRepository";
 
 export interface ReviewLeaveInput {
 	leaveRequestId: string;
@@ -10,32 +10,34 @@ export interface ReviewLeaveInput {
 	decision: "APPROVED" | "REJECTED";
 }
 
-export default class ReviewLeaveUseCase extends BaseUseCase<{ input: ReviewLeaveInput }, unknown> {
+export default class ReviewLeaveUseCase extends BaseUseCase<
+	{ input: ReviewLeaveInput },
+	unknown
+> {
 	private readonly leaveRequestRepository: LeaveRequestRepository;
 	private readonly employeeServiceClient: EmployeeServiceClient;
 	private readonly payrollServiceClient: PayrollServiceClient;
 
+	// EmployeeServiceClient/PayrollServiceClient are constructed internally (not container-
+	// injected) — see SubmitLeaveUseCase's equivalent comment for why.
 	constructor({
 		leaveRequestRepository,
-		employeeServiceClient,
-		payrollServiceClient,
-	}: {
-		leaveRequestRepository: LeaveRequestRepository;
-		employeeServiceClient: EmployeeServiceClient;
-		payrollServiceClient: PayrollServiceClient;
-	}) {
+	}: { leaveRequestRepository: LeaveRequestRepository }) {
 		super();
 		this.leaveRequestRepository = leaveRequestRepository;
-		this.employeeServiceClient = employeeServiceClient;
-		this.payrollServiceClient = payrollServiceClient;
+		this.employeeServiceClient = new EmployeeServiceClient();
+		this.payrollServiceClient = new PayrollServiceClient();
 	}
 
 	async execute({ input }: { input: ReviewLeaveInput }) {
 		const { leaveRequestId, supervisorId, decision } = input;
 
-		const leaveRequest = await this.leaveRequestRepository.findById(leaveRequestId);
+		const leaveRequest =
+			await this.leaveRequestRepository.findById(leaveRequestId);
 		if (!leaveRequest) {
-			throw new GraphQLError("leaveRequestId does not exist", { extensions: { code: "NOT_FOUND" } });
+			throw new GraphQLError("leaveRequestId does not exist", {
+				extensions: { code: "NOT_FOUND" },
+			});
 		}
 		if (leaveRequest.status !== "PENDING") {
 			throw new GraphQLError("leave request is not in PENDING status", {
@@ -43,19 +45,31 @@ export default class ReviewLeaveUseCase extends BaseUseCase<{ input: ReviewLeave
 			});
 		}
 
-		const supervisor = await this.employeeServiceClient.findEmployee(supervisorId);
+		const supervisor =
+			await this.employeeServiceClient.findEmployee(supervisorId);
 		if (!supervisor) {
-			throw new GraphQLError("supervisorId does not exist", { extensions: { code: "NOT_FOUND" } });
-		}
-
-		const requester = await this.employeeServiceClient.findEmployee(leaveRequest.employeeId);
-		if (requester?.supervisorId !== supervisorId) {
-			throw new GraphQLError("supervisorId is not the direct supervisor of the leave requester", {
-				extensions: { code: "FORBIDDEN" },
+			throw new GraphQLError("supervisorId does not exist", {
+				extensions: { code: "NOT_FOUND" },
 			});
 		}
 
-		const reviewed = await this.leaveRequestRepository.review(leaveRequestId, decision, supervisorId);
+		const requester = await this.employeeServiceClient.findEmployee(
+			leaveRequest.employeeId,
+		);
+		if (requester?.supervisorId !== supervisorId) {
+			throw new GraphQLError(
+				"supervisorId is not the direct supervisor of the leave requester",
+				{
+					extensions: { code: "FORBIDDEN" },
+				},
+			);
+		}
+
+		const reviewed = await this.leaveRequestRepository.review(
+			leaveRequestId,
+			decision,
+			supervisorId,
+		);
 
 		const decisionLabel = decision === "APPROVED" ? "Approved" : "Rejected";
 		await this.payrollServiceClient.createNotification(

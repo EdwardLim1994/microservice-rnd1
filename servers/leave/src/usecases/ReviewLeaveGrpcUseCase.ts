@@ -1,15 +1,22 @@
 import type { LeaveLeaveProto } from "api";
 import { BaseUseCase } from "server";
-import ReviewLeaveUseCase from "./ReviewLeaveUseCase";
-import toLeaveRequestMessage, { type LeaveRequestDomain } from "./toLeaveRequestMessage";
+import type ReviewLeaveUseCase from "./ReviewLeaveUseCase";
+import toLeaveRequestMessage, {
+	type LeaveRequestDomain,
+} from "./toLeaveRequestMessage";
 
 type ReviewLeaveRequest = LeaveLeaveProto.ReviewLeaveRequest;
 type LeaveRequestMessage = LeaveLeaveProto.LeaveRequest;
 
-export default class ReviewLeaveGrpcUseCase extends BaseUseCase<ReviewLeaveRequest, LeaveRequestMessage> {
+export default class ReviewLeaveGrpcUseCase extends BaseUseCase<
+	ReviewLeaveRequest,
+	LeaveRequestMessage
+> {
 	private readonly reviewLeaveUseCase: ReviewLeaveUseCase;
 
-	constructor({ reviewLeaveUseCase }: { reviewLeaveUseCase: ReviewLeaveUseCase }) {
+	constructor({
+		reviewLeaveUseCase,
+	}: { reviewLeaveUseCase: ReviewLeaveUseCase }) {
 		super();
 		this.reviewLeaveUseCase = reviewLeaveUseCase;
 	}

@@ -2,8 +2,8 @@ import { GraphQLError } from "graphql";
 import { BaseUseCase } from "server";
 import EmployeeServiceClient from "../clients/EmployeeServiceClient";
 import { generatePayslipPdf } from "../lib/generatePayslipPdf";
-import NotificationRepository from "../repositories/NotificationRepository";
-import StorePayslipUseCase from "./StorePayslipUseCase";
+import type NotificationRepository from "../repositories/NotificationRepository";
+import type StorePayslipUseCase from "./StorePayslipUseCase";
 
 interface GeneratePayslipsInput {
 	month: number;
@@ -11,8 +11,18 @@ interface GeneratePayslipsInput {
 }
 
 const MONTH_NAMES = [
-	"January", "February", "March", "April", "May", "June",
-	"July", "August", "September", "October", "November", "December",
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
 ];
 
 export default class GeneratePayslipsUseCase extends BaseUseCase<
@@ -76,7 +86,10 @@ export default class GeneratePayslipsUseCase extends BaseUseCase<
 					message: `Your ${MONTH_NAMES[month - 1]} ${year} payslip is ready`,
 				});
 			} catch (error) {
-				console.error(`GeneratePayslipsUseCase: failed for employee ${employee.id}`, error);
+				console.error(
+					`GeneratePayslipsUseCase: failed for employee ${employee.id}`,
+					error,
+				);
 				failed.push(employee.id);
 			}
 		}

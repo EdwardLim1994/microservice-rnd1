@@ -1,7 +1,7 @@
 import { GraphQLError } from "graphql";
 import { BaseUseCase } from "server";
 import EmployeeServiceClient from "../clients/EmployeeServiceClient";
-import LeaveRequestRepository from "../repositories/LeaveRequestRepository";
+import type LeaveRequestRepository from "../repositories/LeaveRequestRepository";
 
 export interface SubmitLeaveInput {
 	employeeId: string;
@@ -11,20 +11,24 @@ export interface SubmitLeaveInput {
 	reason: string;
 }
 
-export default class SubmitLeaveUseCase extends BaseUseCase<{ input: SubmitLeaveInput }, unknown> {
+export default class SubmitLeaveUseCase extends BaseUseCase<
+	{ input: SubmitLeaveInput },
+	unknown
+> {
 	private readonly leaveRequestRepository: LeaveRequestRepository;
 	private readonly employeeServiceClient: EmployeeServiceClient;
 
+	// EmployeeServiceClient is constructed internally (not container-injected) — same convention
+	// as payroll's GeneratePayslipsUseCase. It's a plain-fetch client with no DI dependencies of
+	// its own; registering it via awilix's asClass()/singleton() would call `new
+	// EmployeeServiceClient(cradle)`, passing the cradle proxy itself as `baseUrl` since the
+	// constructor doesn't destructure — crashing at runtime.
 	constructor({
 		leaveRequestRepository,
-		employeeServiceClient,
-	}: {
-		leaveRequestRepository: LeaveRequestRepository;
-		employeeServiceClient: EmployeeServiceClient;
-	}) {
+	}: { leaveRequestRepository: LeaveRequestRepository }) {
 		super();
 		this.leaveRequestRepository = leaveRequestRepository;
-		this.employeeServiceClient = employeeServiceClient;
+		this.employeeServiceClient = new EmployeeServiceClient();
 	}
 
 	// GraphQL's `submitLeave(input: SubmitLeaveInput!)` resolves with a wrapped `{ input: {...} }`
@@ -32,7 +36,9 @@ export default class SubmitLeaveUseCase extends BaseUseCase<{ input: SubmitLeave
 	async execute({ input }: { input: SubmitLeaveInput }) {
 		const reason = input.reason.trim();
 		if (!reason) {
-			throw new GraphQLError("reason must not be empty", { extensions: { code: "VALIDATION_ERROR" } });
+			throw new GraphQLError("reason must not be empty", {
+				extensions: { code: "VALIDATION_ERROR" },
+			});
 		}
 
 		const startDate = new Date(input.startDate);
@@ -43,20 +49,28 @@ export default class SubmitLeaveUseCase extends BaseUseCase<{ input: SubmitLeave
 			});
 		}
 
-		const employee = await this.employeeServiceClient.findEmployee(input.employeeId);
+		const employee = await this.employeeServiceClient.findEmployee(
+			input.employeeId,
+		);
 		if (!employee) {
-			throw new GraphQLError("employeeId does not exist", { extensions: { code: "NOT_FOUND" } });
+			throw new GraphQLError("employeeId does not exist", {
+				extensions: { code: "NOT_FOUND" },
+			});
 		}
 
-		const overlapping = await this.leaveRequestRepository.findApprovedOverlapping(
-			input.employeeId,
-			startDate,
-			endDate,
-		);
+		const overlapping =
+			await this.leaveRequestRepository.findApprovedOverlapping(
+				input.employeeId,
+				startDate,
+				endDate,
+			);
 		if (overlapping) {
-			throw new GraphQLError("Overlapping approved leave already exists for this period", {
-				extensions: { code: "CONFLICT" },
-			});
+			throw new GraphQLError(
+				"Overlapping approved leave already exists for this period",
+				{
+					extensions: { code: "CONFLICT" },
+				},
+			);
 		}
 
 		return this.leaveRequestRepository.create({

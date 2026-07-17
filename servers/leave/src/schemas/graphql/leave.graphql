@@ -1,4 +1,5 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key"])
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
 
 # Owned by employee-subgraph. Federation v2 does NOT mark a stub entity's own @key field
 # @external (that's Federation v1 syntax, reserved in v2 for fields pulled in via
@@ -6,139 +7,183 @@ extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@
 # employee-subgraph through this key (confirmed with a minimal 2-subgraph repro — see
 # payroll-subgraph's own Employee stub for the same fix).
 type Employee @key(fields: "id") {
-  id: ID!
+	id: ID!
 }
 
 """
 Enumeration of supported leave types.
 """
 enum LeaveType {
-  """Standard annual leave entitlement."""
-  ANNUAL
+	"""
+	Standard annual leave entitlement.
+	"""
+	ANNUAL
 
-  """Medical or sick leave."""
-  MEDICAL
+	"""
+	Medical or sick leave.
+	"""
+	MEDICAL
 
-  """Emergency or urgent personal leave."""
-  EMERGENCY
+	"""
+	Emergency or urgent personal leave.
+	"""
+	EMERGENCY
 }
 
 """
 Enumeration of possible leave request statuses.
 """
 enum LeaveStatus {
-  """Leave request has been submitted and is awaiting supervisor review."""
-  PENDING
+	"""
+	Leave request has been submitted and is awaiting supervisor review.
+	"""
+	PENDING
 
-  """Leave request has been approved by the supervisor."""
-  APPROVED
+	"""
+	Leave request has been approved by the supervisor.
+	"""
+	APPROVED
 
-  """Leave request has been rejected by the supervisor."""
-  REJECTED
+	"""
+	Leave request has been rejected by the supervisor.
+	"""
+	REJECTED
 }
 
 """
 Represents a leave request submitted by an employee.
 """
 type LeaveRequest @key(fields: "id") {
-  """Unique internal identifier for the leave request."""
-  id: ID!
+	"""
+	Unique internal identifier for the leave request.
+	"""
+	id: ID!
 
-  """The employee who submitted the leave request."""
-  employee: Employee!
+	"""
+	The employee who submitted the leave request.
+	"""
+	employee: Employee!
 
-  """Type of leave being requested."""
-  leaveType: LeaveType!
+	"""
+	Type of leave being requested.
+	"""
+	leaveType: LeaveType!
 
-  """Start date of the leave period (inclusive). Format: YYYY-MM-DD."""
-  startDate: String!
+	"""
+	Start date of the leave period (inclusive). Format: YYYY-MM-DD.
+	"""
+	startDate: String!
 
-  """End date of the leave period (inclusive). Format: YYYY-MM-DD."""
-  endDate: String!
+	"""
+	End date of the leave period (inclusive). Format: YYYY-MM-DD.
+	"""
+	endDate: String!
 
-  """Reason provided by the employee for the leave request."""
-  reason: String!
+	"""
+	Reason provided by the employee for the leave request.
+	"""
+	reason: String!
 
-  """Current status of the leave request."""
-  status: LeaveStatus!
+	"""
+	Current status of the leave request.
+	"""
+	status: LeaveStatus!
 
-  """Timestamp when the leave request was submitted."""
-  submittedAt: String!
+	"""
+	Timestamp when the leave request was submitted.
+	"""
+	submittedAt: String!
 
-  """
-  The supervisor who reviewed the request.
-  Null if the request is still pending.
-  """
-  reviewedBy: Employee
+	"""
+	The supervisor who reviewed the request.
+	Null if the request is still pending.
+	"""
+	reviewedBy: Employee
 
-  """
-  Timestamp when the request was reviewed (approved or rejected).
-  Null if the request is still pending.
-  """
-  reviewedAt: String
+	"""
+	Timestamp when the request was reviewed (approved or rejected).
+	Null if the request is still pending.
+	"""
+	reviewedAt: String
 }
 
 """
 Input for submitting a new leave request.
 """
 input SubmitLeaveInput {
-  """Internal ID of the employee submitting the request."""
-  employeeId: ID!
+	"""
+	Internal ID of the employee submitting the request.
+	"""
+	employeeId: ID!
 
-  """Type of leave being requested."""
-  leaveType: LeaveType!
+	"""
+	Type of leave being requested.
+	"""
+	leaveType: LeaveType!
 
-  """Start date of the leave period. Format: YYYY-MM-DD. Must be before or equal to endDate."""
-  startDate: String!
+	"""
+	Start date of the leave period. Format: YYYY-MM-DD. Must be before or equal to endDate.
+	"""
+	startDate: String!
 
-  """End date of the leave period. Format: YYYY-MM-DD. Must be after or equal to startDate."""
-  endDate: String!
+	"""
+	End date of the leave period. Format: YYYY-MM-DD. Must be after or equal to startDate.
+	"""
+	endDate: String!
 
-  """Reason for the leave request. Must be non-empty."""
-  reason: String!
+	"""
+	Reason for the leave request. Must be non-empty.
+	"""
+	reason: String!
 }
 
 """
 Input for a supervisor to approve or reject a pending leave request.
 """
 input ReviewLeaveInput {
-  """Internal ID of the leave request to review."""
-  leaveRequestId: ID!
+	"""
+	Internal ID of the leave request to review.
+	"""
+	leaveRequestId: ID!
 
-  """Internal ID of the supervisor performing the review."""
-  supervisorId: ID!
+	"""
+	Internal ID of the supervisor performing the review.
+	"""
+	supervisorId: ID!
 
-  """Decision: APPROVED or REJECTED."""
-  decision: LeaveStatus!
+	"""
+	Decision: APPROVED or REJECTED.
+	"""
+	decision: LeaveStatus!
 }
 
 type Query {
-  """
-  Fetch all leave requests submitted by a specific employee.
-  Sorted by submittedAt descending.
-  """
-  leaveRequests(employeeId: ID!): [LeaveRequest!]!
+	"""
+	Fetch all leave requests submitted by a specific employee.
+	Sorted by submittedAt descending.
+	"""
+	leaveRequests(employeeId: ID!): [LeaveRequest!]!
 
-  """
-  Fetch all pending leave requests for direct reports of a given supervisor.
-  Used to populate the supervisor leave approval view.
-  """
-  pendingLeaveRequestsForSupervisor(supervisorId: ID!): [LeaveRequest!]!
+	"""
+	Fetch all pending leave requests for direct reports of a given supervisor.
+	Used to populate the supervisor leave approval view.
+	"""
+	pendingLeaveRequestsForSupervisor(supervisorId: ID!): [LeaveRequest!]!
 }
 
 type Mutation {
-  """
-  Submit a new leave request for an employee.
-  Validates date range, employee existence, and overlapping approved leave.
-  Returns the created leave request with status PENDING.
-  """
-  submitLeave(input: SubmitLeaveInput!): LeaveRequest!
+	"""
+	Submit a new leave request for an employee.
+	Validates date range, employee existence, and overlapping approved leave.
+	Returns the created leave request with status PENDING.
+	"""
+	submitLeave(input: SubmitLeaveInput!): LeaveRequest!
 
-  """
-  Approve or reject a pending leave request.
-  Only the direct supervisor of the requesting employee may perform this action.
-  Creates a notification record for the employee on successful review.
-  Returns the updated leave request.
-  """
-  reviewLeave(input: ReviewLeaveInput!): LeaveRequest!
+	"""
+	Approve or reject a pending leave request.
+	Only the direct supervisor of the requesting employee may perform this action.
+	Creates a notification record for the employee on successful review.
+	Returns the updated leave request.
+	"""
+	reviewLeave(input: ReviewLeaveInput!): LeaveRequest!
 }

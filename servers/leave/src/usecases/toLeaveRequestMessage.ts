@@ -14,12 +14,15 @@ export interface LeaveRequestDomain {
 }
 
 /** Shared domain -> proto mapping used by both SubmitLeaveGrpcUseCase and ReviewLeaveGrpcUseCase. */
-export default function toLeaveRequestMessage(leaveRequest: LeaveRequestDomain): LeaveLeaveProto.LeaveRequest {
+export default function toLeaveRequestMessage(
+	leaveRequest: LeaveRequestDomain,
+): LeaveLeaveProto.LeaveRequest {
 	return {
 		$type: "leave.LeaveRequest",
 		id: leaveRequest.id,
 		employeeId: leaveRequest.employeeId,
-		leaveType: leaveRequest.leaveType as LeaveLeaveProto.LeaveRequest["leaveType"],
+		leaveType:
+			leaveRequest.leaveType as LeaveLeaveProto.LeaveRequest["leaveType"],
 		startDate: leaveRequest.startDate.toISOString().slice(0, 10),
 		endDate: leaveRequest.endDate.toISOString().slice(0, 10),
 		reason: leaveRequest.reason,

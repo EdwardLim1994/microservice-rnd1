@@ -69,6 +69,16 @@ test('fetches a presigned URL and triggers a download on click', async () => {
     },
   };
 
+  const originalFetch = globalThis.fetch;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+  globalThis.fetch = (async () =>
+    new Response(new Blob(['pdf-bytes']), {
+      status: 200,
+    })) as unknown as typeof fetch;
+  URL.createObjectURL = (() => 'blob:mock-url') as typeof URL.createObjectURL;
+  URL.revokeObjectURL = (() => {}) as typeof URL.revokeObjectURL;
+
   render(
     <MockedProvider mocks={[onePayslipMock, downloadUrlMock]}>
       <PayslipPage employeeId={EMPLOYEE_ID} />
@@ -86,6 +96,49 @@ test('fetches a presigned URL and triggers a download on click', async () => {
     expect(screen.queryByTestId('download-loading')).not.toBeInTheDocument();
   });
   expect(screen.queryByTestId('download-error')).not.toBeInTheDocument();
+
+  globalThis.fetch = originalFetch;
+  URL.createObjectURL = originalCreateObjectURL;
+  URL.revokeObjectURL = originalRevokeObjectURL;
+});
+
+// Edge case: presigned URL expired mid-download — Minio returns a non-2xx, caught via the
+// fetch+blob download (not a native <a> click, which the frontend has no visibility into)
+test('shows an inline error when the presigned URL has expired by download time', async () => {
+  const downloadUrlMock = {
+    request: {
+      query: PAYSLIP_DOWNLOAD_URL_QUERY,
+      variables: { input: { employeeId: EMPLOYEE_ID, month: 7, year: 2026 } },
+    },
+    result: {
+      data: {
+        payslipDownloadURL: {
+          url: 'https://minio.local/presigned',
+          expiresAt: '2026-07-01T00:15:00.000Z',
+        },
+      },
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(null, { status: 403 })) as unknown as typeof fetch;
+
+  render(
+    <MockedProvider mocks={[onePayslipMock, downloadUrlMock]}>
+      <PayslipPage employeeId={EMPLOYEE_ID} />
+    </MockedProvider>,
+  );
+
+  await waitFor(() =>
+    expect(screen.getAllByTestId('payslip-row')).toHaveLength(1),
+  );
+  fireEvent.click(screen.getByTestId('download-button'));
+
+  await waitFor(() => {
+    expect(screen.getByTestId('download-error')).toBeInTheDocument();
+  });
+
+  globalThis.fetch = originalFetch;
 });
 
 // Edge case: presigned URL fetch fails — inline error, no navigation away

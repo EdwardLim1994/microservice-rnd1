@@ -1,10 +1,15 @@
 import { BaseUseCase } from "server";
-import NotificationRepository from "../repositories/NotificationRepository";
+import type NotificationRepository from "../repositories/NotificationRepository";
 
-export default class ListNotificationsUseCase extends BaseUseCase<{ employeeId: string }, unknown> {
+export default class ListNotificationsUseCase extends BaseUseCase<
+	{ employeeId: string },
+	unknown
+> {
 	private readonly notificationRepository: NotificationRepository;
 
-	constructor({ notificationRepository }: { notificationRepository: NotificationRepository }) {
+	constructor({
+		notificationRepository,
+	}: { notificationRepository: NotificationRepository }) {
 		super();
 		this.notificationRepository = notificationRepository;
 	}
