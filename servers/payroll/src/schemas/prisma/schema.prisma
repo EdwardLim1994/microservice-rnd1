@@ -6,3 +6,22 @@ generator client {
 datasource db {
     provider = "postgresql"
 }
+
+model Payslip {
+    id             String   @id @default(uuid())
+    employeeId     String
+    month          Int
+    year           Int
+    minioObjectKey String
+    generatedAt    DateTime @default(now())
+
+    @@unique([employeeId, month, year])
+}
+
+model Notification {
+    id         String   @id @default(uuid())
+    employeeId String
+    message    String
+    read       Boolean  @default(false)
+    createdAt  DateTime @default(now())
+}

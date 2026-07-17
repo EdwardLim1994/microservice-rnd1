@@ -1,5 +1,17 @@
-import { ApolloDriver, CronDriver, GrpcDriver, MinioPlugin, ServerApp, VaultPgAdapter } from "server";
+import {
+	ApolloDriver,
+	CronDriver,
+	GrpcDriver,
+	MinioPlugin,
+	ServerApp,
+	singleton,
+	VaultPgAdapter,
+} from "server";
 import { PrismaClient } from "../generated/prisma";
+import NotificationRepository from "./repositories/NotificationRepository";
+import PayslipRepository from "./repositories/PayslipRepository";
+import PayrollCronRouter from "./routers/PayrollCronRouter";
+import PayrollGraphqlRouter from "./routers/PayrollGraphqlRouter";
 
 export default async function main() {
 	await ServerApp.init([
@@ -22,5 +34,10 @@ export default async function main() {
 	])
 		.database(PrismaClient, () => VaultPgAdapter.fromEnv())
 		.plugins([MinioPlugin])
+		.containers({
+			payslipRepository: singleton(PayslipRepository),
+			notificationRepository: singleton(NotificationRepository),
+		})
+		.routers([PayrollGraphqlRouter, PayrollCronRouter])
 		.run(() => `Server is running`);
 }
