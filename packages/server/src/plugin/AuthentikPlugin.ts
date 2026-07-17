@@ -69,6 +69,24 @@ export class AuthentikApiError extends Error {
   }
 }
 
+/**
+ * Thrown by confirmPasswordReset() specifically for an invalid/expired reset token (the flow
+ * never reaches the password-set stage) — distinct from AuthentikPasswordPolicyError below, so
+ * ConfirmPasswordResetUseCase can map each to its own GraphQL error code (FEAT-10's edge cases).
+ */
+export class AuthentikInvalidTokenError extends Error {
+  constructor(readonly body: unknown) {
+    super('Authentik reset token is invalid or expired');
+  }
+}
+
+/** Thrown by confirmPasswordReset() when the new password fails Authentik's password policy. */
+export class AuthentikPasswordPolicyError extends Error {
+  constructor(readonly body: unknown) {
+    super('Authentik rejected the new password (policy violation)');
+  }
+}
+
 export interface AuthentikClientConfig {
   baseUrl?: string;
   clientId?: string;
@@ -394,6 +412,82 @@ export class AuthentikClient {
    */
   async enroll(email: string, password: string): Promise<AuthentikCreatedUser> {
     return this.createUser({ username: email, email, password });
+  }
+
+  /**
+   * Step 1 of the password reset flow (FEAT-10) — looks up the user by email via the Admin API,
+   * then triggers Authentik's own recovery-email send (`recovery_email`), the same action an
+   * admin takes from the Authentik UI. Silently no-ops (does not throw) if no user matches the
+   * email — the caller must not leak account existence, same as this method's own silence.
+   * **ponytail**: endpoint shape (`recovery_email` action, empty body) taken from Authentik's
+   * documented Admin API, not confirmed against a live instance the way signIn()'s flow-stage
+   * sequence was — verify against a running Authentik before relying on this beyond local dev.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    const lookupResponse = await fetch(
+      `${this.baseUrl}/api/v3/core/users/?email=${encodeURIComponent(email)}`,
+      { headers: { Authorization: `Bearer ${this.apiToken}` } },
+    );
+    if (!lookupResponse.ok) {
+      throw new AuthentikApiError(
+        lookupResponse.status,
+        await parseBody(lookupResponse),
+      );
+    }
+    const { results } = (await lookupResponse.json()) as {
+      results: { pk: number }[];
+    };
+    const user = results[0];
+    if (!user) return;
+
+    const recoveryResponse = await fetch(
+      `${this.baseUrl}/api/v3/core/users/${user.pk}/recovery_email/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiToken}`,
+        },
+        body: JSON.stringify({}),
+      },
+    );
+    if (!recoveryResponse.ok) {
+      throw new AuthentikApiError(
+        recoveryResponse.status,
+        await parseBody(recoveryResponse),
+      );
+    }
+  }
+
+  /**
+   * Step 2 of the password reset flow (FEAT-10) — drives default-recovery-flow's Flow Executor
+   * API with the token from the recovery email link, submitting the new password once the flow
+   * reaches its password-set stage. Mirrors runAuthenticationFlow()'s challenge-driven approach.
+   * **ponytail**: same unverified-against-a-live-instance caveat as requestPasswordReset() above.
+   */
+  async confirmPasswordReset(
+    resetToken: string,
+    newPassword: string,
+  ): Promise<void> {
+    const cookies = new CookieJar();
+    const flowUrl = `${this.baseUrl}/api/v3/flows/executor/default-recovery-flow/?token=${encodeURIComponent(resetToken)}`;
+
+    let challenge = await this.flowStep('GET', flowUrl, undefined, cookies);
+    if (challenge.component !== 'ak-stage-prompt') {
+      // Invalid/expired token — the flow doesn't reach the password-set stage.
+      throw new AuthentikInvalidTokenError(challenge);
+    }
+
+    challenge = await this.flowStep(
+      'POST',
+      flowUrl,
+      { password: newPassword, password_repeat: newPassword },
+      cookies,
+    );
+    if (challenge.component === 'ak-stage-prompt') {
+      // Re-rendered the same stage with response_errors — a password-policy violation.
+      throw new AuthentikPasswordPolicyError(challenge);
+    }
   }
 
   /**

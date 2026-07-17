@@ -1,9 +1,11 @@
 import { EmployeeGraphql } from "api";
 import { type GraphqlHandlerMap, GraphqlRouter } from "server";
 import AssignSupervisorUseCase from "../usecases/AssignSupervisorUseCase";
+import ConfirmPasswordResetUseCase from "../usecases/ConfirmPasswordResetUseCase";
 import GetEmployeeUseCase from "../usecases/GetEmployeeUseCase";
 import ListEmployeesUseCase from "../usecases/ListEmployeesUseCase";
 import RegisterEmployeeUseCase from "../usecases/RegisterEmployeeUseCase";
+import RequestPasswordResetUseCase from "../usecases/RequestPasswordResetUseCase";
 import ResolveEmployeeReferenceUseCase from "../usecases/ResolveEmployeeReferenceUseCase";
 
 export default class EmployeeGraphqlRouter extends GraphqlRouter {
@@ -20,6 +22,8 @@ export default class EmployeeGraphqlRouter extends GraphqlRouter {
 			Mutation: {
 				registerEmployee: RegisterEmployeeUseCase,
 				assignSupervisor: AssignSupervisorUseCase,
+				requestPasswordReset: RequestPasswordResetUseCase,
+				confirmPasswordReset: ConfirmPasswordResetUseCase,
 			},
 			Employee: {
 				__resolveReference: ResolveEmployeeReferenceUseCase,
