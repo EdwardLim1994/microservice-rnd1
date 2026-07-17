@@ -1,0 +1,67 @@
+services:
+  employee:
+    build:
+      context: ../..
+      dockerfile: servers/employee/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-x64}
+    container_name: employee_server
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      DB_HOST: employee-db
+      DB_PORT: 5432
+      DB_NAME: employee
+      VAULT_ADDR: http://vault:8200
+      VAULT_DB_ROLE: employee-role
+      AUTHENTIK_URL: http://authentik-server:9000
+    networks:
+      - adminer
+      - vault
+      - authentik
+    depends_on:
+      employee-db:
+        condition: service_healthy
+      authentik-server:
+        condition: service_healthy
+
+  employee-migrate:
+    build:
+      context: ../..
+      dockerfile: servers/employee/Dockerfile
+      target: migrate
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
+    container_name: employee_migrate
+    env_file:
+      - .env
+    networks:
+      - adminer
+    depends_on:
+      employee-db:
+        condition: service_healthy
+    restart: "no"
+
+  employee-db:
+    image: postgres:15.3-alpine
+    container_name: employee_db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: employee
+    ports:
+      - "5101:5432"
+    networks:
+      - adminer
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U myuser -d employee" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+networks:
+  vault:
+  adminer:
+  authentik:

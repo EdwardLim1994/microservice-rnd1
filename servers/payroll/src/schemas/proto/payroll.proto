@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package payroll;
+
+message Payroll {
+  string id = 1;
+}
+
+service PayrollService {
+  rpc GetPayroll (Payroll) returns (Payroll);
+}

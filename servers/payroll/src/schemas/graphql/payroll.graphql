@@ -1,0 +1,9 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key", "@shareable"])
+
+type Query {
+  payroll: Payroll
+}
+
+type Payroll @key(fields: "id") {
+  id: ID!
+}

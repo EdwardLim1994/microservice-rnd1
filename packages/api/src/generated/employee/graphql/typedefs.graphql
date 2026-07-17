@@ -1,0 +1,49 @@
+schema
+  @link(
+    url: "https://specs.apollo.dev/federation/v2.14"
+    import: ["@key", "@shareable"]
+  )
+{
+  query: Query
+  mutation: Mutation
+}
+
+input AssignSupervisorInput {
+  employeeId: ID!
+  supervisorId: ID!
+}
+
+type Employee @key(fields: "id") {
+  createdAt: String!
+  department: String!
+  employeeId: String!
+  fullName: String!
+  grossSalary: Float!
+  id: ID!
+  role: String!
+  supervisor: Employee
+}
+
+type Mutation {
+  assignSupervisor(input: AssignSupervisorInput!): Employee!
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+}
+
+type Query {
+  employee(id: ID!): Employee
+  employees(department: String, role: String): [Employee!]!
+}
+
+input RegisterEmployeeInput {
+  department: String!
+  employeeId: String!
+  fullName: String!
+  grossSalary: Float!
+  role: String!
+  supervisorId: ID
+}
+
+type RegisterEmployeeResult {
+  employee: Employee!
+  temporaryPassword: String!
+}

@@ -7,6 +7,9 @@ export { BaseRepository } from './BaseRepository';
 export { BaseRouter } from './BaseRouter';
 export { BaseUseCase } from './BaseUseCase';
 export type { ProcedureOptions } from './ProcedureOrchestrator';
-export { ProcedureOrchestrator, ProcedureTimeoutError } from './ProcedureOrchestrator';
+export {
+  ProcedureOrchestrator,
+  ProcedureTimeoutError,
+} from './ProcedureOrchestrator';
 export type { Registrable } from './Registrable';
 export { isRegistrable } from './Registrable';

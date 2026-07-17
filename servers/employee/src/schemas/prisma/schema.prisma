@@ -1,0 +1,21 @@
+generator client {
+    provider = "prisma-client-js"
+    output   = "../../../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model Employee {
+    id            String     @id @default(uuid())
+    employeeId    String     @unique
+    fullName      String
+    role          String
+    department    String
+    grossSalary   Float
+    supervisorId  String?
+    supervisor    Employee?  @relation("EmployeeSupervisor", fields: [supervisorId], references: [id])
+    reports       Employee[] @relation("EmployeeSupervisor")
+    createdAt     DateTime   @default(now())
+}
