@@ -40,8 +40,8 @@ test("invalid reset token returns INVALID_TOKEN error", async () => {
 	expect(String(getGraphQLError(thrown).extensions?.code)).toBe("INVALID_TOKEN");
 });
 
-// [INT-10-4] Password not meeting policy returns validation error
-test("password not meeting policy returns VALIDATION_ERROR", async () => {
+// [INT-10-4] Password not meeting policy returns policy violation error
+test("password not meeting policy returns PASSWORD_POLICY_VIOLATION", async () => {
 	const useCase = new ConfirmPasswordResetUseCase({
 		authentik: createMockAuthentik(async () => {
 			throw new AuthentikPasswordPolicyError({ component: "ak-stage-prompt" });
@@ -55,7 +55,7 @@ test("password not meeting policy returns VALIDATION_ERROR", async () => {
 		thrown = error;
 	}
 
-	expect(String(getGraphQLError(thrown).extensions?.code)).toBe("VALIDATION_ERROR");
+	expect(String(getGraphQLError(thrown).extensions?.code)).toBe("PASSWORD_POLICY_VIOLATION");
 });
 
 test("Authentik unreachable returns INTERNAL_ERROR", async () => {

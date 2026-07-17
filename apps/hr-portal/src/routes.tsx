@@ -5,10 +5,12 @@ import {
   Outlet,
 } from '@tanstack/react-router';
 import { EmployeeRegistrationForm } from './components/EmployeeRegistrationForm';
+import { ForgotPasswordPage } from './components/ForgotPasswordPage';
 import { LeaveApprovalView } from './components/LeaveApprovalView';
 import { LeaveRequestForm } from './components/LeaveRequestForm';
 import { NotificationBell } from './components/NotificationBell';
 import { PayslipPage } from './components/PayslipPage';
+import { SetPasswordPage } from './components/SetPasswordPage';
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -71,12 +73,36 @@ const payslipsRoute = createRoute({
   ),
 });
 
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forgot-password',
+  component: () => (
+    <div>
+      <h1>Forgot Password</h1>
+      <ForgotPasswordPage />
+    </div>
+  ),
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: () => (
+    <div>
+      <h1>Set New Password</h1>
+      <SetPasswordPage />
+    </div>
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   employeesRoute,
   leaveRoute,
   leaveApprovalsRoute,
   payslipsRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
 ]);
 
 export const router = createRouter({ routeTree });
