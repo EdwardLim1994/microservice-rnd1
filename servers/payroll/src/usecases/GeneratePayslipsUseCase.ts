@@ -1,10 +1,9 @@
-import type { Client } from "minio";
 import { GraphQLError } from "graphql";
 import { BaseUseCase } from "server";
 import EmployeeServiceClient from "../clients/EmployeeServiceClient";
 import { generatePayslipPdf } from "../lib/generatePayslipPdf";
 import NotificationRepository from "../repositories/NotificationRepository";
-import PayslipRepository from "../repositories/PayslipRepository";
+import StorePayslipUseCase from "./StorePayslipUseCase";
 
 interface GeneratePayslipsInput {
 	month: number;
@@ -16,30 +15,24 @@ const MONTH_NAMES = [
 	"July", "August", "September", "October", "November", "December",
 ];
 
-const PAYSLIPS_BUCKET = "payslips";
-
 export default class GeneratePayslipsUseCase extends BaseUseCase<
 	{ input: GeneratePayslipsInput },
 	unknown
 > {
-	private readonly payslipRepository: PayslipRepository;
+	private readonly storePayslipUseCase: StorePayslipUseCase;
 	private readonly notificationRepository: NotificationRepository;
-	private readonly minio: Client;
 	private readonly employeeService: EmployeeServiceClient;
 
 	constructor({
-		payslipRepository,
+		storePayslipUseCase,
 		notificationRepository,
-		minio,
 	}: {
-		payslipRepository: PayslipRepository;
+		storePayslipUseCase: StorePayslipUseCase;
 		notificationRepository: NotificationRepository;
-		minio: Client;
 	}) {
 		super();
-		this.payslipRepository = payslipRepository;
+		this.storePayslipUseCase = storePayslipUseCase;
 		this.notificationRepository = notificationRepository;
-		this.minio = minio;
 		this.employeeService = new EmployeeServiceClient();
 	}
 
@@ -55,16 +48,11 @@ export default class GeneratePayslipsUseCase extends BaseUseCase<
 			});
 		}
 
-		const generated: Awaited<ReturnType<PayslipRepository["upsert"]>>[] = [];
+		const generated: unknown[] = [];
 		const failed: string[] = [];
-
-		if (!(await this.minio.bucketExists(PAYSLIPS_BUCKET))) {
-			await this.minio.makeBucket(PAYSLIPS_BUCKET);
-		}
 
 		for (const employee of employees) {
 			try {
-				const generatedAt = new Date();
 				const pdfBytes = await generatePayslipPdf({
 					fullName: employee.fullName,
 					employeeId: employee.employeeId,
@@ -73,17 +61,13 @@ export default class GeneratePayslipsUseCase extends BaseUseCase<
 					grossSalary: employee.grossSalary,
 					month,
 					year,
-					generatedAt,
+					generatedAt: new Date(),
 				});
 
-				const minioObjectKey = `${PAYSLIPS_BUCKET}/${employee.id}/${year}/${month}.pdf`;
-				await this.minio.putObject(PAYSLIPS_BUCKET, minioObjectKey, Buffer.from(pdfBytes));
-
-				const payslip = await this.payslipRepository.upsert({
-					employeeId: employee.id,
-					month,
-					year,
-					minioObjectKey,
+				// FEAT-4 — delegates to the standalone StorePayslip component (Minio upload +
+				// Postgres persist) rather than duplicating that logic here.
+				const payslip = await this.storePayslipUseCase.execute({
+					input: { employeeId: employee.id, month, year, pdfBytes },
 				});
 				generated.push(payslip);
 
