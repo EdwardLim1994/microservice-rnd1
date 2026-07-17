@@ -5,44 +5,48 @@
 // source: employee.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
 import {
   type CallOptions,
   type ChannelCredentials,
-  Client,
+  type Client,
   type ClientOptions,
   type ClientUnaryCall,
   type handleUnaryCall,
-  makeGenericClientConstructor,
   type Metadata,
+  makeGenericClientConstructor,
   type ServiceError,
   type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { messageTypeRegistry } from "./typeRegistry";
+} from '@grpc/grpc-js';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "employee";
+export const protobufPackage = 'employee';
 
 export interface Employee {
-  $type: "employee.Employee";
+  $type: 'employee.Employee';
   id: string;
 }
 
 function createBaseEmployee(): Employee {
-  return { $type: "employee.Employee", id: "" };
+  return { $type: 'employee.Employee', id: '' };
 }
 
-export const Employee: MessageFns<Employee, "employee.Employee"> = {
-  $type: "employee.Employee" as const,
+export const Employee: MessageFns<Employee, 'employee.Employee'> = {
+  $type: 'employee.Employee' as const,
 
-  encode(message: Employee, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: Employee,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Employee {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseEmployee();
     while (reader.pos < end) {
@@ -66,12 +70,15 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
   },
 
   fromJSON(object: any): Employee {
-    return { $type: Employee.$type, id: isSet(object.id) ? globalThis.String(object.id) : "" };
+    return {
+      $type: Employee.$type,
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
+    };
   },
 
   toJSON(message: Employee): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
     return obj;
@@ -82,7 +89,7 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
   },
   fromPartial<I extends Exact<DeepPartial<Employee>, I>>(object: I): Employee {
     const message = createBaseEmployee();
-    message.id = object.id ?? "";
+    message.id = object.id ?? '';
     return message;
   },
 };
@@ -92,12 +99,14 @@ messageTypeRegistry.set(Employee.$type, Employee);
 export type EmployeeServiceService = typeof EmployeeServiceService;
 export const EmployeeServiceService = {
   getEmployee: {
-    path: "/employee.EmployeeService/GetEmployee" as const,
+    path: '/employee.EmployeeService/GetEmployee' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: Employee): Buffer => Buffer.from(Employee.encode(value).finish()),
+    requestSerialize: (value: Employee): Buffer =>
+      Buffer.from(Employee.encode(value).finish()),
     requestDeserialize: (value: Buffer): Employee => Employee.decode(value),
-    responseSerialize: (value: Employee): Buffer => Buffer.from(Employee.encode(value).finish()),
+    responseSerialize: (value: Employee): Buffer =>
+      Buffer.from(Employee.encode(value).finish()),
     responseDeserialize: (value: Buffer): Employee => Employee.decode(value),
   },
 } as const;
@@ -107,7 +116,10 @@ export interface EmployeeServiceServer extends UntypedServiceImplementation {
 }
 
 export interface EmployeeServiceClient extends Client {
-  getEmployee(request: Employee, callback: (error: ServiceError | null, response: Employee) => void): ClientUnaryCall;
+  getEmployee(
+    request: Employee,
+    callback: (error: ServiceError | null, response: Employee) => void,
+  ): ClientUnaryCall;
   getEmployee(
     request: Employee,
     metadata: Metadata,
@@ -123,24 +135,42 @@ export interface EmployeeServiceClient extends Client {
 
 export const EmployeeServiceClient = makeGenericClientConstructor(
   EmployeeServiceService,
-  "employee.EmployeeService",
+  'employee.EmployeeService',
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): EmployeeServiceClient;
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): EmployeeServiceClient;
   service: typeof EmployeeServiceService;
   serviceName: string;
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function isSet(value: any): boolean {
   return value !== null && value !== undefined;

@@ -28,7 +28,8 @@ function withTimeout<T>(promise: Promise<T>, ms?: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new ProcedureTimeoutError(`procedure timed out after ${ms}ms`)),
+      () =>
+        reject(new ProcedureTimeoutError(`procedure timed out after ${ms}ms`)),
       ms,
     );
   });
