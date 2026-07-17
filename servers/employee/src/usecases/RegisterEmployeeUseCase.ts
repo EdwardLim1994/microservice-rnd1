@@ -29,7 +29,7 @@ function generateTemporaryPassword(): string {
 	// ponytail: random 16-char alphanumeric + symbol, good enough for a temporary/one-time
 	// credential the user resets on first login. Swap for a policy-aware generator if Authentik's
 	// password policy ever rejects this shape.
-	return `Tmp-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}!`;
+	return `Tmp-${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}!`;
 }
 
 export default class RegisterEmployeeUseCase extends BaseUseCase<
