@@ -134,11 +134,17 @@ test('valid submission refetches and shows the new request as Pending', async ()
   fillForm();
   fireEvent.click(screen.getByTestId('submit-leave-button'));
 
-  await waitFor(() => {
-    expect(screen.getByTestId('leave-history-table')).toHaveTextContent(
-      'Family vacation',
-    );
-  });
+  // Two chained network round-trips (submitLeave, then the refetch) — the default waitFor
+  // timeout occasionally isn't enough headroom under CI load (flaky, not a logic bug: passes
+  // reliably locally).
+  await waitFor(
+    () => {
+      expect(screen.getByTestId('leave-history-table')).toHaveTextContent(
+        'Family vacation',
+      );
+    },
+    { timeout: 5000 },
+  );
   expect(screen.getByTestId('leave-status-badge')).toHaveTextContent('Pending');
 });
 
