@@ -60,6 +60,20 @@ export interface StorePayslipRequest {
   pdfBytes: Uint8Array;
 }
 
+export interface GetPayslipURLRequest {
+  $type: 'payroll.GetPayslipURLRequest';
+  employeeId: string;
+  month: number;
+  year: number;
+}
+
+export interface PayslipDownloadURL {
+  $type: 'payroll.PayslipDownloadURL';
+  url: string;
+  /** ISO 8601 */
+  expiresAt: string;
+}
+
 function createBasePayslip(): Payslip {
   return {
     $type: 'payroll.Payslip',
@@ -562,6 +576,221 @@ export const StorePayslipRequest: MessageFns<
 
 messageTypeRegistry.set(StorePayslipRequest.$type, StorePayslipRequest);
 
+function createBaseGetPayslipURLRequest(): GetPayslipURLRequest {
+  return {
+    $type: 'payroll.GetPayslipURLRequest',
+    employeeId: '',
+    month: 0,
+    year: 0,
+  };
+}
+
+export const GetPayslipURLRequest: MessageFns<
+  GetPayslipURLRequest,
+  'payroll.GetPayslipURLRequest'
+> = {
+  $type: 'payroll.GetPayslipURLRequest' as const,
+
+  encode(
+    message: GetPayslipURLRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
+      writer.uint32(10).string(message.employeeId);
+    }
+    if (message.month !== 0) {
+      writer.uint32(16).int32(message.month);
+    }
+    if (message.year !== 0) {
+      writer.uint32(24).int32(message.year);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetPayslipURLRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetPayslipURLRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.month = reader.int32();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.year = reader.int32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GetPayslipURLRequest {
+    return {
+      $type: GetPayslipURLRequest.$type,
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      month: isSet(object.month) ? globalThis.Number(object.month) : 0,
+      year: isSet(object.year) ? globalThis.Number(object.year) : 0,
+    };
+  },
+
+  toJSON(message: GetPayslipURLRequest): unknown {
+    const obj: any = {};
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.month !== 0) {
+      obj.month = Math.round(message.month);
+    }
+    if (message.year !== 0) {
+      obj.year = Math.round(message.year);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetPayslipURLRequest>, I>>(
+    base?: I,
+  ): GetPayslipURLRequest {
+    return GetPayslipURLRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetPayslipURLRequest>, I>>(
+    object: I,
+  ): GetPayslipURLRequest {
+    const message = createBaseGetPayslipURLRequest();
+    message.employeeId = object.employeeId ?? '';
+    message.month = object.month ?? 0;
+    message.year = object.year ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GetPayslipURLRequest.$type, GetPayslipURLRequest);
+
+function createBasePayslipDownloadURL(): PayslipDownloadURL {
+  return { $type: 'payroll.PayslipDownloadURL', url: '', expiresAt: '' };
+}
+
+export const PayslipDownloadURL: MessageFns<
+  PayslipDownloadURL,
+  'payroll.PayslipDownloadURL'
+> = {
+  $type: 'payroll.PayslipDownloadURL' as const,
+
+  encode(
+    message: PayslipDownloadURL,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.url !== '') {
+      writer.uint32(10).string(message.url);
+    }
+    if (message.expiresAt !== '') {
+      writer.uint32(18).string(message.expiresAt);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): PayslipDownloadURL {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBasePayslipDownloadURL();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.url = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.expiresAt = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): PayslipDownloadURL {
+    return {
+      $type: PayslipDownloadURL.$type,
+      url: isSet(object.url) ? globalThis.String(object.url) : '',
+      expiresAt: isSet(object.expiresAt)
+        ? globalThis.String(object.expiresAt)
+        : '',
+    };
+  },
+
+  toJSON(message: PayslipDownloadURL): unknown {
+    const obj: any = {};
+    if (message.url !== '') {
+      obj.url = message.url;
+    }
+    if (message.expiresAt !== '') {
+      obj.expiresAt = message.expiresAt;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<PayslipDownloadURL>, I>>(
+    base?: I,
+  ): PayslipDownloadURL {
+    return PayslipDownloadURL.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<PayslipDownloadURL>, I>>(
+    object: I,
+  ): PayslipDownloadURL {
+    const message = createBasePayslipDownloadURL();
+    message.url = object.url ?? '';
+    message.expiresAt = object.expiresAt ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(PayslipDownloadURL.$type, PayslipDownloadURL);
+
 export type PayrollServiceService = typeof PayrollServiceService;
 export const PayrollServiceService = {
   generatePayslips: {
@@ -589,6 +818,19 @@ export const PayrollServiceService = {
       Buffer.from(Payslip.encode(value).finish()),
     responseDeserialize: (value: Buffer): Payslip => Payslip.decode(value),
   },
+  getPayslipUrl: {
+    path: '/payroll.PayrollService/GetPayslipURL' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: GetPayslipURLRequest): Buffer =>
+      Buffer.from(GetPayslipURLRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetPayslipURLRequest =>
+      GetPayslipURLRequest.decode(value),
+    responseSerialize: (value: PayslipDownloadURL): Buffer =>
+      Buffer.from(PayslipDownloadURL.encode(value).finish()),
+    responseDeserialize: (value: Buffer): PayslipDownloadURL =>
+      PayslipDownloadURL.decode(value),
+  },
 } as const;
 
 export interface PayrollServiceServer extends UntypedServiceImplementation {
@@ -597,6 +839,7 @@ export interface PayrollServiceServer extends UntypedServiceImplementation {
     GeneratePayslipsResponse
   >;
   storePayslip: handleUnaryCall<StorePayslipRequest, Payslip>;
+  getPayslipUrl: handleUnaryCall<GetPayslipURLRequest, PayslipDownloadURL>;
 }
 
 export interface PayrollServiceClient extends Client {
@@ -638,6 +881,30 @@ export interface PayrollServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: Payslip) => void,
+  ): ClientUnaryCall;
+  getPayslipUrl(
+    request: GetPayslipURLRequest,
+    callback: (
+      error: ServiceError | null,
+      response: PayslipDownloadURL,
+    ) => void,
+  ): ClientUnaryCall;
+  getPayslipUrl(
+    request: GetPayslipURLRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: PayslipDownloadURL,
+    ) => void,
+  ): ClientUnaryCall;
+  getPayslipUrl(
+    request: GetPayslipURLRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: PayslipDownloadURL,
+    ) => void,
   ): ClientUnaryCall;
 }
 

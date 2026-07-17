@@ -15,6 +15,7 @@ import PayrollCronRouter from "./routers/PayrollCronRouter";
 import PayrollGraphqlRouter from "./routers/PayrollGraphqlRouter";
 import PayrollGrpcRouter from "./routers/PayrollGrpcRouter";
 import GeneratePayslipsUseCase from "./usecases/GeneratePayslipsUseCase";
+import GetPayslipURLUseCase from "./usecases/GetPayslipURLUseCase";
 import StorePayslipUseCase from "./usecases/StorePayslipUseCase";
 
 export default async function main() {
@@ -44,6 +45,7 @@ export default async function main() {
 			// Explicitly registered — see servers/employee/src/app.ts's equivalent comment.
 			storePayslipUseCase: transient(StorePayslipUseCase),
 			generatePayslipsUseCase: transient(GeneratePayslipsUseCase),
+			getPayslipURLUseCase: transient(GetPayslipURLUseCase),
 		})
 		.routers([PayrollGraphqlRouter, PayrollGrpcRouter, PayrollCronRouter])
 		.run(() => `Server is running`);

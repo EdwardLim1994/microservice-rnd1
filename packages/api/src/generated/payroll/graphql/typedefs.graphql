@@ -37,6 +37,24 @@ type GeneratePayslipsResult {
   generated: [Payslip!]!
 }
 
+"""
+Input for fetching a payslip presigned download URL.
+"""
+input GetPayslipURLInput {
+  """
+  Internal ID of the employee.
+  """
+  employeeId: ID!
+  """
+  Month of the payslip (1–12).
+  """
+  month: Int!
+  """
+  Year of the payslip (e.g. 2026).
+  """
+  year: Int!
+}
+
 type Mutation {
   """
   Trigger monthly payslip generation for all active employees. Called by the
@@ -107,9 +125,28 @@ type Payslip @key(fields: "id") {
   year: Int!
 }
 
+"""
+A short-lived presigned Minio URL for downloading a payslip PDF.
+"""
+type PayslipDownloadURL {
+  """
+  Timestamp when the presigned URL expires.
+  """
+  expiresAt: String!
+  """
+  The presigned URL. Valid for 15 minutes from generation.
+  """
+  url: String!
+}
+
 type Query {
   """
   Fetch all notifications for a given employee. Sorted by createdAt descending.
   """
   notifications(employeeId: ID!): [Notification!]!
+  """
+  Generate and return a short-lived presigned Minio URL for downloading a specific payslip PDF.
+  URL is valid for 15 minutes.
+  """
+  payslipDownloadURL(input: GetPayslipURLInput!): PayslipDownloadURL!
 }
