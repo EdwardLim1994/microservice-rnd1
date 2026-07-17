@@ -1,0 +1,37 @@
+---
+title: Leave Subgraph API
+description: Leave request submission and supervisor review
+version: 0.1.0
+draft: true
+---
+
+## Mutations
+
+### `submitLeave(input: SubmitLeaveInput!): LeaveRequest!`
+
+Submits a new leave request for an employee. Validates `startDate <= endDate`, that `reason` is
+non-empty, that the employee exists (via employee-subgraph), and that there's no overlapping
+`APPROVED` leave for the same employee/period. Returns the created request with `status: PENDING`.
+
+### `reviewLeave(input: ReviewLeaveInput!): LeaveRequest!`
+
+Approves or rejects a `PENDING` leave request. Only the requester's direct supervisor may review
+it (checked via employee-subgraph's `supervisor` relation). On success, creates a notification for
+the employee via payroll-subgraph's internal `createNotification` mutation.
+
+## Queries
+
+### `leaveRequests(employeeId: ID!): [LeaveRequest!]!`
+
+All leave requests submitted by an employee, sorted by `submittedAt` descending.
+
+### `pendingLeaveRequestsForSupervisor(supervisorId: ID!): [LeaveRequest!]!`
+
+All `PENDING` leave requests belonging to a supervisor's direct reports.
+
+## Cross-subgraph dependency
+
+`servers/leave` calls `employee-subgraph` (`EmployeeServiceClient`) to resolve employee identity
+and supervisor relationships, and `payroll-subgraph` (`PayrollServiceClient`) to raise a
+notification on review. Both are plain-fetch GraphQL clients against the subgraph directly (not
+through Apollo Router) — the established server-to-server convention in this framework.
