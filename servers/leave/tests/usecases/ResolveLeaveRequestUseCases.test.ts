@@ -8,7 +8,9 @@ test("ResolveLeaveRequestReferenceUseCase looks up the leave request by id", asy
 	const repo = {
 		findById: async (id: string) => ({ id, employeeId: "emp-1" }),
 	} as unknown as LeaveRequestRepository;
-	const useCase = new ResolveLeaveRequestReferenceUseCase({ leaveRequestRepository: repo });
+	const useCase = new ResolveLeaveRequestReferenceUseCase({
+		leaveRequestRepository: repo,
+	});
 
 	const result = await useCase.execute({ id: "leave-1" });
 

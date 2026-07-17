@@ -1,10 +1,15 @@
 import { BaseUseCase } from "server";
-import LeaveRequestRepository from "../repositories/LeaveRequestRepository";
+import type LeaveRequestRepository from "../repositories/LeaveRequestRepository";
 
-export default class ListLeaveRequestsUseCase extends BaseUseCase<{ employeeId: string }, unknown> {
+export default class ListLeaveRequestsUseCase extends BaseUseCase<
+	{ employeeId: string },
+	unknown
+> {
 	private readonly leaveRequestRepository: LeaveRequestRepository;
 
-	constructor({ leaveRequestRepository }: { leaveRequestRepository: LeaveRequestRepository }) {
+	constructor({
+		leaveRequestRepository,
+	}: { leaveRequestRepository: LeaveRequestRepository }) {
 		super();
 		this.leaveRequestRepository = leaveRequestRepository;
 	}

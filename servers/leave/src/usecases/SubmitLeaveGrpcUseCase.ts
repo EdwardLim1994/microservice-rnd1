@@ -1,7 +1,9 @@
 import type { LeaveLeaveProto } from "api";
 import { BaseUseCase } from "server";
-import SubmitLeaveUseCase from "./SubmitLeaveUseCase";
-import toLeaveRequestMessage, { type LeaveRequestDomain } from "./toLeaveRequestMessage";
+import type SubmitLeaveUseCase from "./SubmitLeaveUseCase";
+import toLeaveRequestMessage, {
+	type LeaveRequestDomain,
+} from "./toLeaveRequestMessage";
 
 type SubmitLeaveRequest = LeaveLeaveProto.SubmitLeaveRequest;
 type LeaveRequestMessage = LeaveLeaveProto.LeaveRequest;
@@ -11,10 +13,15 @@ type LeaveRequestMessage = LeaveLeaveProto.LeaveRequest;
  * Reshapes proto's flat wire format (date strings, numeric enum) to/from the domain use case's
  * GraphQL-oriented shape — same pattern as employee-subgraph's RegisterEmployeeGrpcUseCase.
  */
-export default class SubmitLeaveGrpcUseCase extends BaseUseCase<SubmitLeaveRequest, LeaveRequestMessage> {
+export default class SubmitLeaveGrpcUseCase extends BaseUseCase<
+	SubmitLeaveRequest,
+	LeaveRequestMessage
+> {
 	private readonly submitLeaveUseCase: SubmitLeaveUseCase;
 
-	constructor({ submitLeaveUseCase }: { submitLeaveUseCase: SubmitLeaveUseCase }) {
+	constructor({
+		submitLeaveUseCase,
+	}: { submitLeaveUseCase: SubmitLeaveUseCase }) {
 		super();
 		this.submitLeaveUseCase = submitLeaveUseCase;
 	}

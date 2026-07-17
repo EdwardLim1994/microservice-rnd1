@@ -29,7 +29,9 @@ const EMPLOYEES_QUERY = `
 export default class EmployeeServiceClient {
 	private readonly baseUrl: string;
 
-	constructor(baseUrl = process.env.EMPLOYEE_GRAPHQL_URL ?? "http://localhost:4001") {
+	constructor(
+		baseUrl = process.env.EMPLOYEE_GRAPHQL_URL ?? "http://localhost:4001",
+	) {
 		this.baseUrl = baseUrl.replace(/\/$/, "");
 	}
 
@@ -42,9 +44,14 @@ export default class EmployeeServiceClient {
 		if (!response.ok) {
 			throw new Error(`employee-subgraph returned ${response.status}`);
 		}
-		const body = (await response.json()) as { data?: Record<string, unknown>; errors?: unknown[] };
+		const body = (await response.json()) as {
+			data?: Record<string, unknown>;
+			errors?: unknown[];
+		};
 		if (body.errors?.length) {
-			throw new Error(`employee-subgraph returned errors: ${JSON.stringify(body.errors)}`);
+			throw new Error(
+				`employee-subgraph returned errors: ${JSON.stringify(body.errors)}`,
+			);
 		}
 		return body.data;
 	}
@@ -64,6 +71,9 @@ export default class EmployeeServiceClient {
 		};
 		return data.employees
 			.filter((employee) => employee.supervisor?.id === supervisorId)
-			.map((employee) => ({ id: employee.id, supervisorId: employee.supervisor?.id ?? null }));
+			.map((employee) => ({
+				id: employee.id,
+				supervisorId: employee.supervisor?.id ?? null,
+			}));
 	}
 }

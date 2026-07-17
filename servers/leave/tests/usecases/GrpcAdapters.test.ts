@@ -53,7 +53,9 @@ test("SubmitLeaveGrpcUseCase delegates to SubmitLeaveUseCase and maps the respon
 	const mockUseCase = {
 		execute: async () => domainLeaveRequest,
 	} as unknown as SubmitLeaveUseCase;
-	const grpcUseCase = new SubmitLeaveGrpcUseCase({ submitLeaveUseCase: mockUseCase });
+	const grpcUseCase = new SubmitLeaveGrpcUseCase({
+		submitLeaveUseCase: mockUseCase,
+	});
 
 	const result = await grpcUseCase.execute({
 		$type: "leave.SubmitLeaveRequest",
@@ -69,11 +71,18 @@ test("SubmitLeaveGrpcUseCase delegates to SubmitLeaveUseCase and maps the respon
 });
 
 test("ReviewLeaveGrpcUseCase delegates to ReviewLeaveUseCase and maps the response", async () => {
-	const reviewed = { ...domainLeaveRequest, status: "APPROVED", reviewedById: "sup-1", reviewedAt: new Date() };
+	const reviewed = {
+		...domainLeaveRequest,
+		status: "APPROVED",
+		reviewedById: "sup-1",
+		reviewedAt: new Date(),
+	};
 	const mockUseCase = {
 		execute: async () => reviewed,
 	} as unknown as ReviewLeaveUseCase;
-	const grpcUseCase = new ReviewLeaveGrpcUseCase({ reviewLeaveUseCase: mockUseCase });
+	const grpcUseCase = new ReviewLeaveGrpcUseCase({
+		reviewLeaveUseCase: mockUseCase,
+	});
 
 	const result = await grpcUseCase.execute({
 		$type: "leave.ReviewLeaveRequest",

@@ -1,27 +1,42 @@
 import { expect, test } from "@rstest/core";
-import type EmployeeServiceClient from "../../src/clients/EmployeeServiceClient";
 import type LeaveRequestRepository from "../../src/repositories/LeaveRequestRepository";
 import ListPendingLeaveRequestsForSupervisorUseCase from "../../src/usecases/ListPendingLeaveRequestsForSupervisorUseCase";
 
+// EmployeeServiceClient is constructed internally (not injected) — stub global fetch instead,
+// same convention as payroll's GeneratePayslipsUseCase.test.ts.
+function stubEmployeesFetch(
+	employees: { id: string; supervisor: { id: string } | null }[],
+) {
+	globalThis.fetch = (async () =>
+		new Response(JSON.stringify({ data: { employees } }), {
+			status: 200,
+			headers: { "Content-Type": "application/json" },
+		})) as unknown as typeof fetch;
+}
+
 test("returns pending leave requests for the supervisor's direct reports", async () => {
+	stubEmployeesFetch([{ id: "emp-1", supervisor: { id: "sup-1" } }]);
 	const repo = {
 		findPendingForEmployees: async (employeeIds: string[]) =>
-			employeeIds.map((employeeId) => ({ id: `leave-${employeeId}`, employeeId, status: "PENDING" })),
+			employeeIds.map((employeeId) => ({
+				id: `leave-${employeeId}`,
+				employeeId,
+				status: "PENDING",
+			})),
 	} as unknown as LeaveRequestRepository;
-	const employeeServiceClient = {
-		listDirectReports: async () => [{ id: "emp-1", supervisorId: "sup-1" }],
-	} as unknown as EmployeeServiceClient;
 	const useCase = new ListPendingLeaveRequestsForSupervisorUseCase({
 		leaveRequestRepository: repo,
-		employeeServiceClient,
 	});
 
 	const result = await useCase.execute({ supervisorId: "sup-1" });
 
-	expect(result).toEqual([{ id: "leave-emp-1", employeeId: "emp-1", status: "PENDING" }]);
+	expect(result).toEqual([
+		{ id: "leave-emp-1", employeeId: "emp-1", status: "PENDING" },
+	]);
 });
 
 test("returns an empty list without querying the repository when there are no direct reports", async () => {
+	stubEmployeesFetch([]);
 	let called = false;
 	const repo = {
 		findPendingForEmployees: async () => {
@@ -29,12 +44,8 @@ test("returns an empty list without querying the repository when there are no di
 			return [];
 		},
 	} as unknown as LeaveRequestRepository;
-	const employeeServiceClient = {
-		listDirectReports: async () => [],
-	} as unknown as EmployeeServiceClient;
 	const useCase = new ListPendingLeaveRequestsForSupervisorUseCase({
 		leaveRequestRepository: repo,
-		employeeServiceClient,
 	});
 
 	const result = await useCase.execute({ supervisorId: "sup-1" });

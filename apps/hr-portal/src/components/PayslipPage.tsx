@@ -11,11 +11,22 @@ interface PayslipPageProps {
   employeeId?: string;
 }
 
-function triggerDownload(url: string) {
+// Fetches the presigned URL as a blob (rather than a plain `<a href>` click) so a non-2xx
+// response — e.g. Minio's 403 when the URL expires mid-download — is actually visible to JS and
+// can be surfaced as download-error/retry, instead of silently failing as a native browser
+// download the component has no visibility into.
+async function triggerDownload(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`presigned URL download failed with ${response.status}`);
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = url;
+  link.href = objectUrl;
   link.download = '';
   link.click();
+  URL.revokeObjectURL(objectUrl);
 }
 
 export function PayslipPage({ employeeId }: PayslipPageProps = {}) {
@@ -47,7 +58,7 @@ export function PayslipPage({ employeeId }: PayslipPageProps = {}) {
         },
       });
       if (!urlData) throw new Error('payslipDownloadURL returned no data');
-      triggerDownload(urlData.payslipDownloadURL.url);
+      await triggerDownload(urlData.payslipDownloadURL.url);
     } catch {
       setErrorId(payslip.id);
     } finally {

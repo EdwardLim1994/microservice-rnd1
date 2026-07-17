@@ -1,6 +1,6 @@
 import type { PayrollPayrollProto } from "api";
 import { BaseUseCase } from "server";
-import GeneratePayslipsUseCase from "./GeneratePayslipsUseCase";
+import type GeneratePayslipsUseCase from "./GeneratePayslipsUseCase";
 
 type GeneratePayslipsRequest = PayrollPayrollProto.GeneratePayslipsRequest;
 type GeneratePayslipsResponse = PayrollPayrollProto.GeneratePayslipsResponse;
@@ -12,12 +12,16 @@ export default class GeneratePayslipsGrpcUseCase extends BaseUseCase<
 > {
 	private readonly generatePayslipsUseCase: GeneratePayslipsUseCase;
 
-	constructor({ generatePayslipsUseCase }: { generatePayslipsUseCase: GeneratePayslipsUseCase }) {
+	constructor({
+		generatePayslipsUseCase,
+	}: { generatePayslipsUseCase: GeneratePayslipsUseCase }) {
 		super();
 		this.generatePayslipsUseCase = generatePayslipsUseCase;
 	}
 
-	async execute(request: GeneratePayslipsRequest): Promise<GeneratePayslipsResponse> {
+	async execute(
+		request: GeneratePayslipsRequest,
+	): Promise<GeneratePayslipsResponse> {
 		const result = (await this.generatePayslipsUseCase.execute({
 			input: { month: request.month, year: request.year },
 		})) as {

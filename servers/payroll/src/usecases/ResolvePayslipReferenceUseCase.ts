@@ -1,7 +1,10 @@
 import { BaseUseCase } from "server";
-import PayslipRepository from "../repositories/PayslipRepository";
+import type PayslipRepository from "../repositories/PayslipRepository";
 
-export default class ResolvePayslipReferenceUseCase extends BaseUseCase<{ id: string }, unknown> {
+export default class ResolvePayslipReferenceUseCase extends BaseUseCase<
+	{ id: string },
+	unknown
+> {
 	private readonly payslipRepository: PayslipRepository;
 
 	constructor({ payslipRepository }: { payslipRepository: PayslipRepository }) {

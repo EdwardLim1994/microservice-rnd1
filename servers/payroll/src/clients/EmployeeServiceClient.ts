@@ -20,6 +20,14 @@ const EMPLOYEES_QUERY = `
   }
 `;
 
+const EMPLOYEE_QUERY = `
+  query Employee($id: ID!) {
+    employee(id: $id) {
+      id
+    }
+  }
+`;
+
 /**
  * Thin fetch client over employee-subgraph's GraphQL endpoint — same "plain fetch, no SDK"
  * convention as AuthentikClient/VaultPgAdapter (see packages/server/CLAUDE.md). Talks to the
@@ -29,7 +37,9 @@ const EMPLOYEES_QUERY = `
 export default class EmployeeServiceClient {
 	private readonly baseUrl: string;
 
-	constructor(baseUrl = process.env.EMPLOYEE_GRAPHQL_URL ?? "http://localhost:4001") {
+	constructor(
+		baseUrl = process.env.EMPLOYEE_GRAPHQL_URL ?? "http://localhost:4001",
+	) {
 		this.baseUrl = baseUrl.replace(/\/$/, "");
 	}
 
@@ -42,10 +52,36 @@ export default class EmployeeServiceClient {
 		if (!response.ok) {
 			throw new Error(`employee-subgraph returned ${response.status}`);
 		}
-		const body = (await response.json()) as { data?: { employees?: RemoteEmployee[] }; errors?: unknown[] };
+		const body = (await response.json()) as {
+			data?: { employees?: RemoteEmployee[] };
+			errors?: unknown[];
+		};
 		if (body.errors?.length) {
-			throw new Error(`employee-subgraph returned errors: ${JSON.stringify(body.errors)}`);
+			throw new Error(
+				`employee-subgraph returned errors: ${JSON.stringify(body.errors)}`,
+			);
 		}
 		return body.data?.employees ?? [];
+	}
+
+	async findEmployee(id: string): Promise<{ id: string } | null> {
+		const response = await fetch(`${this.baseUrl}/graphql`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ query: EMPLOYEE_QUERY, variables: { id } }),
+		});
+		if (!response.ok) {
+			throw new Error(`employee-subgraph returned ${response.status}`);
+		}
+		const body = (await response.json()) as {
+			data?: { employee: { id: string } | null };
+			errors?: unknown[];
+		};
+		if (body.errors?.length) {
+			throw new Error(
+				`employee-subgraph returned errors: ${JSON.stringify(body.errors)}`,
+			);
+		}
+		return body.data?.employee ?? null;
 	}
 }

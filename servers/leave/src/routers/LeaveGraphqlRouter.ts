@@ -17,7 +17,8 @@ export default class LeaveGraphqlRouter extends GraphqlRouter {
 		return {
 			Query: {
 				leaveRequests: ListLeaveRequestsUseCase,
-				pendingLeaveRequestsForSupervisor: ListPendingLeaveRequestsForSupervisorUseCase,
+				pendingLeaveRequestsForSupervisor:
+					ListPendingLeaveRequestsForSupervisorUseCase,
 			},
 			Mutation: {
 				submitLeave: SubmitLeaveUseCase,

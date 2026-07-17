@@ -1,5 +1,5 @@
 import { BaseUseCase } from "server";
-import NotificationRepository from "../repositories/NotificationRepository";
+import type NotificationRepository from "../repositories/NotificationRepository";
 
 export interface CreateNotificationInput {
 	employeeId: string;
@@ -11,15 +11,23 @@ export interface CreateNotificationInput {
  * a notification without owning payroll's Postgres database directly. See payroll.graphql's
  * createNotification docstring.
  */
-export default class CreateNotificationUseCase extends BaseUseCase<{ input: CreateNotificationInput }, unknown> {
+export default class CreateNotificationUseCase extends BaseUseCase<
+	{ input: CreateNotificationInput },
+	unknown
+> {
 	private readonly notificationRepository: NotificationRepository;
 
-	constructor({ notificationRepository }: { notificationRepository: NotificationRepository }) {
+	constructor({
+		notificationRepository,
+	}: { notificationRepository: NotificationRepository }) {
 		super();
 		this.notificationRepository = notificationRepository;
 	}
 
 	async execute({ input }: { input: CreateNotificationInput }) {
-		return this.notificationRepository.create({ employeeId: input.employeeId, message: input.message });
+		return this.notificationRepository.create({
+			employeeId: input.employeeId,
+			message: input.message,
+		});
 	}
 }

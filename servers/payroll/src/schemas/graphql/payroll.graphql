@@ -1,4 +1,5 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key"])
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
 
 # Owned by employee-subgraph. Federation v2 (unlike v1) does NOT mark a stub entity's own @key
 # field @external — that directive is reserved for fields pulled in via @requires/@provides, not
@@ -6,97 +7,137 @@ extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@
 # every query that jumps from payroll to employee-subgraph via this key with "the key field(s)
 # cannot be resolved from subgraph 'payroll'" (confirmed with a minimal 2-subgraph repro).
 type Employee @key(fields: "id") {
-  id: ID!
+	id: ID!
 }
 
 """
 Represents a generated payslip record stored in Minio.
 """
 type Payslip @key(fields: "id") {
-  """Unique internal identifier for the payslip record."""
-  id: ID!
+	"""
+	Unique internal identifier for the payslip record.
+	"""
+	id: ID!
 
-  """The employee this payslip was generated for."""
-  employee: Employee!
+	"""
+	The employee this payslip was generated for.
+	"""
+	employee: Employee!
 
-  """Calendar month the payslip covers (1–12)."""
-  month: Int!
+	"""
+	Calendar month the payslip covers (1–12).
+	"""
+	month: Int!
 
-  """Calendar year the payslip covers (e.g. 2026)."""
-  year: Int!
+	"""
+	Calendar year the payslip covers (e.g. 2026).
+	"""
+	year: Int!
 
-  """Minio object key where the PDF is stored (e.g. payslips/{employeeId}/{year}/{month}.pdf)."""
-  minioObjectKey: String!
+	"""
+	Minio object key where the PDF is stored (e.g. payslips/{employeeId}/{year}/{month}.pdf).
+	"""
+	minioObjectKey: String!
 
-  """Timestamp when the payslip PDF was generated and stored."""
-  generatedAt: String!
+	"""
+	Timestamp when the payslip PDF was generated and stored.
+	"""
+	generatedAt: String!
 }
 
 """
 Result of triggering the monthly payslip generation job.
 """
 type GeneratePayslipsResult {
-  """List of successfully generated payslip records."""
-  generated: [Payslip!]!
+	"""
+	List of successfully generated payslip records.
+	"""
+	generated: [Payslip!]!
 
-  """List of employee IDs for which generation failed. Empty if all succeeded."""
-  failed: [ID!]!
+	"""
+	List of employee IDs for which generation failed. Empty if all succeeded.
+	"""
+	failed: [ID!]!
 }
 
 """
 An in-app notification record for an employee.
 """
 type Notification @key(fields: "id") {
-  """Unique internal identifier for the notification."""
-  id: ID!
+	"""
+	Unique internal identifier for the notification.
+	"""
+	id: ID!
 
-  """The employee this notification is addressed to."""
-  employee: Employee!
+	"""
+	The employee this notification is addressed to.
+	"""
+	employee: Employee!
 
-  """Human-readable notification message (e.g. 'Your January 2026 payslip is ready')."""
-  message: String!
+	"""
+	Human-readable notification message (e.g. 'Your January 2026 payslip is ready').
+	"""
+	message: String!
 
-  """Whether the employee has read/dismissed this notification."""
-  read: Boolean!
+	"""
+	Whether the employee has read/dismissed this notification.
+	"""
+	read: Boolean!
 
-  """Timestamp when the notification was created."""
-  createdAt: String!
+	"""
+	Timestamp when the notification was created.
+	"""
+	createdAt: String!
 }
 
 """
 Input for triggering the monthly payslip generation job.
 """
 input GeneratePayslipsInput {
-  """Month to generate payslips for (1–12)."""
-  month: Int!
+	"""
+	Month to generate payslips for (1–12).
+	"""
+	month: Int!
 
-  """Year to generate payslips for (e.g. 2026)."""
-  year: Int!
+	"""
+	Year to generate payslips for (e.g. 2026).
+	"""
+	year: Int!
 }
 
 """
 A short-lived presigned Minio URL for downloading a payslip PDF.
 """
 type PayslipDownloadURL {
-  """The presigned URL. Valid for 15 minutes from generation."""
-  url: String!
+	"""
+	The presigned URL. Valid for 15 minutes from generation.
+	"""
+	url: String!
 
-  """Timestamp when the presigned URL expires."""
-  expiresAt: String!
+	"""
+	Timestamp when the presigned URL expires.
+	"""
+	expiresAt: String!
 }
 
 """
 Input for fetching a payslip presigned download URL.
 """
 input GetPayslipURLInput {
-  """Internal ID of the employee."""
-  employeeId: ID!
+	"""
+	Internal ID of the employee.
+	"""
+	employeeId: ID!
 
-  """Month of the payslip (1–12)."""
-  month: Int!
+	"""
+	Month of the payslip (1–12).
+	"""
+	month: Int!
 
-  """Year of the payslip (e.g. 2026)."""
-  year: Int!
+	"""
+	Year of the payslip (e.g. 2026).
+	"""
+	year: Int!
 }
 
 """
@@ -104,40 +145,48 @@ Input for creating a notification for an employee. Used internally by other subg
 (e.g. leave-subgraph's ReviewLeave) — not part of the OpenSpec-authored public contract.
 """
 input CreateNotificationInput {
-  """Internal ID of the employee to notify."""
-  employeeId: ID!
+	"""
+	Internal ID of the employee to notify.
+	"""
+	employeeId: ID!
 
-  """Human-readable notification message."""
-  message: String!
+	"""
+	Human-readable notification message.
+	"""
+	message: String!
 }
 
 type Query {
-  """Fetch all notifications for a given employee. Sorted by createdAt descending."""
-  notifications(employeeId: ID!): [Notification!]!
+	"""
+	Fetch all notifications for a given employee. Sorted by createdAt descending.
+	"""
+	notifications(employeeId: ID!): [Notification!]!
 
-  """
-  Generate and return a short-lived presigned Minio URL for downloading a specific payslip PDF.
-  URL is valid for 15 minutes.
-  """
-  payslipDownloadURL(input: GetPayslipURLInput!): PayslipDownloadURL!
+	"""
+	Generate and return a short-lived presigned Minio URL for downloading a specific payslip PDF.
+	URL is valid for 15 minutes.
+	"""
+	payslipDownloadURL(input: GetPayslipURLInput!): PayslipDownloadURL!
 }
 
 type Mutation {
-  """
-  Trigger monthly payslip generation for all active employees. Called by the
-  cron server. Generates a PDF per employee via the standalone StorePayslip
-  component, and creates a notification per employee. Returns lists of
-  succeeded and failed employee IDs.
-  """
-  generatePayslips(input: GeneratePayslipsInput!): GeneratePayslipsResult!
+	"""
+	Trigger monthly payslip generation for all active employees. Called by the
+	cron server. Generates a PDF per employee via the standalone StorePayslip
+	component, and creates a notification per employee. Returns lists of
+	succeeded and failed employee IDs.
+	"""
+	generatePayslips(input: GeneratePayslipsInput!): GeneratePayslipsResult!
 
-  """Mark a specific notification as read."""
-  markNotificationRead(id: ID!): Notification!
+	"""
+	Mark a specific notification as read.
+	"""
+	markNotificationRead(id: ID!): Notification!
 
-  """
-  Create a notification for an employee. Internal-use mutation for other subgraphs
-  (e.g. leave-subgraph's reviewLeave) to raise a notification without owning payroll's
-  Postgres database directly.
-  """
-  createNotification(input: CreateNotificationInput!): Notification!
+	"""
+	Create a notification for an employee. Internal-use mutation for other subgraphs
+	(e.g. leave-subgraph's reviewLeave) to raise a notification without owning payroll's
+	Postgres database directly.
+	"""
+	createNotification(input: CreateNotificationInput!): Notification!
 }

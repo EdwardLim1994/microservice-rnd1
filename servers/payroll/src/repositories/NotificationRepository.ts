@@ -22,6 +22,9 @@ export default class NotificationRepository extends BaseRepository<PrismaClient>
 	}
 
 	markRead(id: string) {
-		return this.prisma.notification.update({ where: { id }, data: { read: true } });
+		return this.prisma.notification.update({
+			where: { id },
+			data: { read: true },
+		});
 	}
 }

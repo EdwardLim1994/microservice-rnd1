@@ -1,7 +1,7 @@
 import { expect, test } from "@rstest/core";
 import type { Client } from "minio";
-import StorePayslipUseCase from "../../src/usecases/StorePayslipUseCase";
 import type PayslipRepository from "../../src/repositories/PayslipRepository";
+import StorePayslipUseCase from "../../src/usecases/StorePayslipUseCase";
 
 function createMockMinio(options: { putObjectThrows?: boolean } = {}) {
 	const uploaded: { bucket: string; key: string }[] = [];
@@ -27,7 +27,10 @@ function createMockPayslipRepository() {
 			return payslip;
 		},
 	};
-	return { payslipRepository: repo as unknown as PayslipRepository, upserted: () => upserted };
+	return {
+		payslipRepository: repo as unknown as PayslipRepository,
+		upserted: () => upserted,
+	};
 }
 
 function validInput(overrides: Record<string, unknown> = {}) {
@@ -46,7 +49,9 @@ test("uploads the PDF to Minio and persists the record", async () => {
 	const { payslipRepository, upserted } = createMockPayslipRepository();
 	const useCase = new StorePayslipUseCase({ payslipRepository, minio });
 
-	const result = (await useCase.execute({ input: validInput() })) as { minioObjectKey: string };
+	const result = (await useCase.execute({ input: validInput() })) as {
+		minioObjectKey: string;
+	};
 
 	expect(uploaded()).toHaveLength(1);
 	expect(upserted()).toHaveLength(1);
@@ -93,7 +98,9 @@ test("empty pdfBytes throws a validation error", async () => {
 
 	let thrown: unknown;
 	try {
-		await useCase.execute({ input: validInput({ pdfBytes: new Uint8Array() }) });
+		await useCase.execute({
+			input: validInput({ pdfBytes: new Uint8Array() }),
+		});
 	} catch (error) {
 		thrown = error;
 	}

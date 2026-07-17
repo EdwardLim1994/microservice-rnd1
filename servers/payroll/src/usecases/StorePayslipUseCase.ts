@@ -1,6 +1,6 @@
 import type { Client } from "minio";
 import { BaseUseCase } from "server";
-import PayslipRepository from "../repositories/PayslipRepository";
+import type PayslipRepository from "../repositories/PayslipRepository";
 
 interface StorePayslipInput {
 	employeeId: string;
@@ -47,10 +47,16 @@ export default class StorePayslipUseCase extends BaseUseCase<
 		}
 
 		try {
-			await this.minio.putObject(PAYSLIPS_BUCKET, minioObjectKey, Buffer.from(input.pdfBytes));
+			await this.minio.putObject(
+				PAYSLIPS_BUCKET,
+				minioObjectKey,
+				Buffer.from(input.pdfBytes),
+			);
 		} catch (error) {
 			// Edge case: Minio upload failure — return error, do not persist to Postgres.
-			throw new Error("failed to upload payslip PDF to Minio", { cause: error });
+			throw new Error("failed to upload payslip PDF to Minio", {
+				cause: error,
+			});
 		}
 
 		return this.payslipRepository.upsert({

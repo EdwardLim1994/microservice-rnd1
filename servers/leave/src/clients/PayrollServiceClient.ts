@@ -14,7 +14,9 @@ const CREATE_NOTIFICATION_MUTATION = `
 export default class PayrollServiceClient {
 	private readonly baseUrl: string;
 
-	constructor(baseUrl = process.env.PAYROLL_GRAPHQL_URL ?? "http://localhost:4002") {
+	constructor(
+		baseUrl = process.env.PAYROLL_GRAPHQL_URL ?? "http://localhost:4002",
+	) {
 		this.baseUrl = baseUrl.replace(/\/$/, "");
 	}
 
@@ -22,14 +24,19 @@ export default class PayrollServiceClient {
 		const response = await fetch(`${this.baseUrl}/graphql`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ query: CREATE_NOTIFICATION_MUTATION, variables: { input: { employeeId, message } } }),
+			body: JSON.stringify({
+				query: CREATE_NOTIFICATION_MUTATION,
+				variables: { input: { employeeId, message } },
+			}),
 		});
 		if (!response.ok) {
 			throw new Error(`payroll-subgraph returned ${response.status}`);
 		}
 		const body = (await response.json()) as { errors?: unknown[] };
 		if (body.errors?.length) {
-			throw new Error(`payroll-subgraph returned errors: ${JSON.stringify(body.errors)}`);
+			throw new Error(
+				`payroll-subgraph returned errors: ${JSON.stringify(body.errors)}`,
+			);
 		}
 	}
 }

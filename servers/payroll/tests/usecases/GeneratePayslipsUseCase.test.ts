@@ -1,6 +1,6 @@
 import { expect, test } from "@rstest/core";
-import GeneratePayslipsUseCase from "../../src/usecases/GeneratePayslipsUseCase";
 import type NotificationRepository from "../../src/repositories/NotificationRepository";
+import GeneratePayslipsUseCase from "../../src/usecases/GeneratePayslipsUseCase";
 import type StorePayslipUseCase from "../../src/usecases/StorePayslipUseCase";
 
 // EmployeeServiceClient is constructed internally by GeneratePayslipsUseCase (not injected) — we
@@ -8,18 +8,27 @@ import type StorePayslipUseCase from "../../src/usecases/StorePayslipUseCase";
 // use case test in this repo (see packages/server/CLAUDE.md's Testing section).
 function stubEmployeesFetch(employees: unknown[]) {
 	globalThis.fetch = (async () =>
-		new Response(JSON.stringify({ data: { employees } }), { status: 200 })) as unknown as typeof fetch;
+		new Response(JSON.stringify({ data: { employees } }), {
+			status: 200,
+		})) as unknown as typeof fetch;
 }
 
 function stubFailingFetch() {
-	globalThis.fetch = (async () => new Response("", { status: 503 })) as unknown as typeof fetch;
+	globalThis.fetch = (async () =>
+		new Response("", { status: 503 })) as unknown as typeof fetch;
 }
 
-function createMockStorePayslipUseCase(impl?: (employeeId: string) => Promise<unknown>) {
+function createMockStorePayslipUseCase(
+	impl?: (employeeId: string) => Promise<unknown>,
+) {
 	const calls: string[] = [];
 	const stored: Record<string, unknown>[] = [];
 	const useCase = {
-		async execute({ input }: { input: { employeeId: string; month: number; year: number } }) {
+		async execute({
+			input,
+		}: {
+			input: { employeeId: string; month: number; year: number };
+		}) {
 			calls.push(input.employeeId);
 			if (impl) return impl(input.employeeId);
 			const payslip = { id: `payslip-${stored.length + 1}`, ...input };
@@ -38,13 +47,18 @@ function createMockNotificationRepository() {
 	const notifications: Record<string, unknown>[] = [];
 	const notificationRepository = {
 		async create(data: Record<string, unknown>) {
-			const notification = { id: `notif-${notifications.length + 1}`, read: false, ...data };
+			const notification = {
+				id: `notif-${notifications.length + 1}`,
+				read: false,
+				...data,
+			};
 			notifications.push(notification);
 			return notification;
 		},
 	};
 	return {
-		notificationRepository: notificationRepository as unknown as NotificationRepository,
+		notificationRepository:
+			notificationRepository as unknown as NotificationRepository,
 		notifications: () => notifications,
 	};
 }
@@ -52,13 +66,30 @@ function createMockNotificationRepository() {
 // [E2E-2 / INT-3-1] Monthly job generates one payslip PDF per active employee
 test("stores a payslip and creates a notification per employee", async () => {
 	stubEmployeesFetch([
-		{ id: "emp-1", employeeId: "EMP-001", fullName: "Ada Lovelace", role: "Engineer", department: "Eng", grossSalary: 5000 },
+		{
+			id: "emp-1",
+			employeeId: "EMP-001",
+			fullName: "Ada Lovelace",
+			role: "Engineer",
+			department: "Eng",
+			grossSalary: 5000,
+		},
 	]);
-	const { useCase: storePayslipUseCase, calls, stored } = createMockStorePayslipUseCase();
-	const { notificationRepository, notifications } = createMockNotificationRepository();
-	const useCase = new GeneratePayslipsUseCase({ storePayslipUseCase, notificationRepository });
+	const {
+		useCase: storePayslipUseCase,
+		calls,
+		stored,
+	} = createMockStorePayslipUseCase();
+	const { notificationRepository, notifications } =
+		createMockNotificationRepository();
+	const useCase = new GeneratePayslipsUseCase({
+		storePayslipUseCase,
+		notificationRepository,
+	});
 
-	const result = (await useCase.execute({ input: { month: 1, year: 2026 } })) as {
+	const result = (await useCase.execute({
+		input: { month: 1, year: 2026 },
+	})) as {
 		generated: unknown[];
 		failed: string[];
 	};
@@ -75,9 +106,14 @@ test("returns an empty generated list without error when there are no employees"
 	stubEmployeesFetch([]);
 	const { useCase: storePayslipUseCase } = createMockStorePayslipUseCase();
 	const { notificationRepository } = createMockNotificationRepository();
-	const useCase = new GeneratePayslipsUseCase({ storePayslipUseCase, notificationRepository });
+	const useCase = new GeneratePayslipsUseCase({
+		storePayslipUseCase,
+		notificationRepository,
+	});
 
-	const result = (await useCase.execute({ input: { month: 1, year: 2026 } })) as {
+	const result = (await useCase.execute({
+		input: { month: 1, year: 2026 },
+	})) as {
 		generated: unknown[];
 		failed: string[];
 	};
@@ -89,19 +125,40 @@ test("returns an empty generated list without error when there are no employees"
 // [INT-3-2] Per-employee failure doesn't stop the remaining generation
 test("a failure for one employee is reported in failed[] without stopping the rest", async () => {
 	stubEmployeesFetch([
-		{ id: "emp-1", employeeId: "EMP-001", fullName: "A", role: "Eng", department: "Eng", grossSalary: 5000 },
-		{ id: "emp-2", employeeId: "EMP-002", fullName: "B", role: "Eng", department: "Eng", grossSalary: 5000 },
+		{
+			id: "emp-1",
+			employeeId: "EMP-001",
+			fullName: "A",
+			role: "Eng",
+			department: "Eng",
+			grossSalary: 5000,
+		},
+		{
+			id: "emp-2",
+			employeeId: "EMP-002",
+			fullName: "B",
+			role: "Eng",
+			department: "Eng",
+			grossSalary: 5000,
+		},
 	]);
 	let calls = 0;
-	const { useCase: storePayslipUseCase } = createMockStorePayslipUseCase(async (employeeId) => {
-		calls++;
-		if (calls === 1) throw new Error("boom");
-		return { id: `payslip-${calls}`, employeeId };
-	});
+	const { useCase: storePayslipUseCase } = createMockStorePayslipUseCase(
+		async (employeeId) => {
+			calls++;
+			if (calls === 1) throw new Error("boom");
+			return { id: `payslip-${calls}`, employeeId };
+		},
+	);
 	const { notificationRepository } = createMockNotificationRepository();
-	const useCase = new GeneratePayslipsUseCase({ storePayslipUseCase, notificationRepository });
+	const useCase = new GeneratePayslipsUseCase({
+		storePayslipUseCase,
+		notificationRepository,
+	});
 
-	const result = (await useCase.execute({ input: { month: 1, year: 2026 } })) as {
+	const result = (await useCase.execute({
+		input: { month: 1, year: 2026 },
+	})) as {
 		generated: unknown[];
 		failed: string[];
 	};
@@ -115,7 +172,10 @@ test("employee service being unreachable throws instead of silently returning em
 	stubFailingFetch();
 	const { useCase: storePayslipUseCase } = createMockStorePayslipUseCase();
 	const { notificationRepository } = createMockNotificationRepository();
-	const useCase = new GeneratePayslipsUseCase({ storePayslipUseCase, notificationRepository });
+	const useCase = new GeneratePayslipsUseCase({
+		storePayslipUseCase,
+		notificationRepository,
+	});
 
 	let thrown: unknown;
 	try {
