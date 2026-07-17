@@ -17,7 +17,7 @@ account exists.
 
 Step 2 of password reset. Submits the new password against Authentik's recovery flow using the
 token from the reset email link. Returns `INVALID_TOKEN` if the token is invalid/expired, or
-`VALIDATION_ERROR` if the new password fails Authentik's password policy.
+`PASSWORD_POLICY_VIOLATION` if the new password fails Authentik's password policy.
 
 Both mutations are also exposed as gRPC RPCs (`RequestPasswordReset`/`ConfirmPasswordReset` on
 `EmployeeService`), same dual GraphQL+gRPC pattern as `registerEmployee`/`assignSupervisor`.

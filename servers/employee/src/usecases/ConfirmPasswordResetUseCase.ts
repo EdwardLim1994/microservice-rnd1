@@ -39,7 +39,7 @@ export default class ConfirmPasswordResetUseCase extends BaseUseCase<
 			}
 			if (error instanceof AuthentikPasswordPolicyError) {
 				throw new GraphQLError("newPassword does not meet the password policy", {
-					extensions: { code: "VALIDATION_ERROR" },
+					extensions: { code: "PASSWORD_POLICY_VIOLATION" },
 				});
 			}
 			throw new GraphQLError("failed to confirm password reset", {
