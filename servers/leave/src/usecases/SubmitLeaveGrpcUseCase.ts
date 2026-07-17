@@ -1,6 +1,7 @@
 import type { LeaveLeaveProto } from "api";
 import { BaseUseCase } from "server";
 import SubmitLeaveUseCase from "./SubmitLeaveUseCase";
+import toLeaveRequestMessage, { type LeaveRequestDomain } from "./toLeaveRequestMessage";
 
 type SubmitLeaveRequest = LeaveLeaveProto.SubmitLeaveRequest;
 type LeaveRequestMessage = LeaveLeaveProto.LeaveRequest;
@@ -27,31 +28,8 @@ export default class SubmitLeaveGrpcUseCase extends BaseUseCase<SubmitLeaveReque
 				endDate: request.endDate,
 				reason: request.reason,
 			},
-		})) as {
-			id: string;
-			employeeId: string;
-			leaveType: string;
-			startDate: Date;
-			endDate: Date;
-			reason: string;
-			status: string;
-			submittedAt: Date;
-			reviewedById: string | null;
-			reviewedAt: Date | null;
-		};
+		})) as LeaveRequestDomain;
 
-		return {
-			$type: "leave.LeaveRequest",
-			id: leaveRequest.id,
-			employeeId: leaveRequest.employeeId,
-			leaveType: leaveRequest.leaveType as LeaveRequestMessage["leaveType"],
-			startDate: leaveRequest.startDate.toISOString().slice(0, 10),
-			endDate: leaveRequest.endDate.toISOString().slice(0, 10),
-			reason: leaveRequest.reason,
-			status: leaveRequest.status as LeaveRequestMessage["status"],
-			submittedAt: leaveRequest.submittedAt.toISOString(),
-			reviewedById: leaveRequest.reviewedById ?? "",
-			reviewedAt: leaveRequest.reviewedAt?.toISOString() ?? "",
-		};
+		return toLeaveRequestMessage(leaveRequest);
 	}
 }
