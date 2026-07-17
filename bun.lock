@@ -229,6 +229,7 @@
         "@rstest/core": "^0.10.6",
         "@rstest/coverage-istanbul": "0.10.6",
         "@types/bun": "latest",
+        "awilix": "^13.0.5",
         "prisma": "^7.8.0",
         "protoc": "^35.1.0",
       },

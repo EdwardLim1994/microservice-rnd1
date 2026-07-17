@@ -15,7 +15,8 @@
 		"@graphql-codegen/typescript-resolvers": "^6.0.2",
 		"prisma": "^7.8.0",
 		"@rstest/core": "^0.10.6",
-		"@rstest/coverage-istanbul": "0.10.6"
+		"@rstest/coverage-istanbul": "0.10.6",
+		"awilix": "^13.0.5"
 	},
 	"dependencies": {
 		"server": "workspace:*",
