@@ -1,0 +1,43 @@
+---
+title: Employee Self-Service — Architecture
+description: Service boundaries and ownership for US-2
+version: 0.1.0
+draft: true
+---
+
+## Services
+
+- **`servers/leave`** (gRPC + GraphQL, Postgres) — new subgraph, owns the `LeaveRequest` entity.
+  `SubmitLeave`/`ReviewLeave` gRPC RPCs, mirrored via `leave-subgraph` GraphQL mutations.
+  Resolves employee identity/supervisor relationships via `EmployeeServiceClient` (plain-fetch
+  GraphQL client against `employee-subgraph`) and raises leave-status notifications via
+  `PayrollServiceClient` calling payroll-subgraph's internal `createNotification` mutation.
+- **`servers/payroll`** — extended with `GetPayslipURLUseCase` (`payslipDownloadURL` query,
+  short-lived Minio presigned URL) and an internal-only `createNotification` mutation (not part
+  of the OpenSpec-authored public contract — called only by other subgraphs, e.g. leave-subgraph's
+  `reviewLeave`).
+- **`servers/employee`** — extended with `RequestPasswordResetUseCase`/
+  `ConfirmPasswordResetUseCase`, delegating entirely to `AuthentikClient`'s new
+  `requestPasswordReset()`/`confirmPasswordReset()` methods (Authentik's Admin API recovery-email
+  action + the `default-recovery-flow` Flow Executor API). No custom password storage.
+- **`apps/hr-portal`** — four new views: `LeaveRequestForm` (`/leave`), `LeaveApprovalView`
+  (`/leave/approvals`), `PayslipPage` (`/payslips`), `ForgotPasswordPage`/`SetPasswordPage`
+  (`/forgot-password`, `/reset-password`). `NotificationBell` (from US-1) extended to navigate to
+  `/leave` on click.
+
+## Ownership boundary
+
+Same as US-1: `leave-subgraph`, `payroll-subgraph`, `employee-subgraph` each own a separate
+Postgres database — no cross-service DB access. All cross-subgraph reads/writes go through plain
+GraphQL HTTP calls between subgraphs (`EmployeeServiceClient`/`PayrollServiceClient`), never a
+direct DB join or gRPC-to-gRPC call — consistent with `payroll`'s own `EmployeeServiceClient`
+convention from US-1.
+
+## Known gaps (not covered by this release's features)
+
+- No login/session flow or role-based view gating exists yet — every hr-portal route is
+  reachable regardless of "role." Every new component falls back to a stub
+  `localStorage.getItem('currentEmployeeId')` identity, same convention as US-1's
+  `NotificationBell`/`EmployeeRegistrationForm`.
+- `PayslipPage`'s download uses a native `<a download>` click — a presigned URL expiring
+  mid-download surfaces as a browser-level failure the frontend can't intercept or retry.
