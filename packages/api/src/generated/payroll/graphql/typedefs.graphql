@@ -5,6 +5,21 @@ schema
   mutation: Mutation
 }
 
+"""
+Input for creating a notification for an employee. Used internally by other subgraphs
+(e.g. leave-subgraph's ReviewLeave) — not part of the OpenSpec-authored public contract.
+"""
+input CreateNotificationInput {
+  """
+  Internal ID of the employee to notify.
+  """
+  employeeId: ID!
+  """
+  Human-readable notification message.
+  """
+  message: String!
+}
+
 type Employee @key(fields: "id") {
   id: ID!
 }
@@ -56,6 +71,12 @@ input GetPayslipURLInput {
 }
 
 type Mutation {
+  """
+  Create a notification for an employee. Internal-use mutation for other subgraphs
+  (e.g. leave-subgraph's reviewLeave) to raise a notification without owning payroll's
+  Postgres database directly.
+  """
+  createNotification(input: CreateNotificationInput!): Notification!
   """
   Trigger monthly payslip generation for all active employees. Called by the
   cron server. Generates a PDF per employee via the standalone StorePayslip

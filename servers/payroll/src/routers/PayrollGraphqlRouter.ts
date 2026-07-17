@@ -1,5 +1,6 @@
 import { PayrollGraphql } from "api";
 import { type GraphqlHandlerMap, GraphqlRouter } from "server";
+import CreateNotificationUseCase from "../usecases/CreateNotificationUseCase";
 import GeneratePayslipsUseCase from "../usecases/GeneratePayslipsUseCase";
 import GetPayslipURLUseCase from "../usecases/GetPayslipURLUseCase";
 import ListNotificationsUseCase from "../usecases/ListNotificationsUseCase";
@@ -23,6 +24,7 @@ export default class PayrollGraphqlRouter extends GraphqlRouter {
 			Mutation: {
 				generatePayslips: GeneratePayslipsUseCase,
 				markNotificationRead: MarkNotificationReadUseCase,
+				createNotification: CreateNotificationUseCase,
 			},
 			Payslip: {
 				__resolveReference: ResolvePayslipReferenceUseCase,

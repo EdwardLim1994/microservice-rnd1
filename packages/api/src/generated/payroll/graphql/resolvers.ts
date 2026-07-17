@@ -15,6 +15,17 @@ export type Scalars = {
   _FieldSet: { input: unknown; output: unknown };
 };
 
+/**
+ * Input for creating a notification for an employee. Used internally by other subgraphs
+ * (e.g. leave-subgraph's ReviewLeave) — not part of the OpenSpec-authored public contract.
+ */
+export type CreateNotificationInput = {
+  /** Internal ID of the employee to notify. */
+  employeeId: Scalars['ID']['input'];
+  /** Human-readable notification message. */
+  message: Scalars['String']['input'];
+};
+
 export type Employee = {
   __typename?: 'Employee';
   id: Scalars['ID']['output'];
@@ -50,6 +61,12 @@ export type GetPayslipUrlInput = {
 export type Mutation = {
   __typename?: 'Mutation';
   /**
+   * Create a notification for an employee. Internal-use mutation for other subgraphs
+   * (e.g. leave-subgraph's reviewLeave) to raise a notification without owning payroll's
+   * Postgres database directly.
+   */
+  createNotification: Notification;
+  /**
    * Trigger monthly payslip generation for all active employees. Called by the
    * cron server. Generates a PDF per employee via the standalone StorePayslip
    * component, and creates a notification per employee. Returns lists of
@@ -58,6 +75,10 @@ export type Mutation = {
   generatePayslips: GeneratePayslipsResult;
   /** Mark a specific notification as read. */
   markNotificationRead: Notification;
+};
+
+export type MutationCreateNotificationArgs = {
+  input: CreateNotificationInput;
 };
 
 export type MutationGeneratePayslipsArgs = {
@@ -289,15 +310,16 @@ export type FederationReferenceTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
-  Employee: ResolverTypeWrapper<Employee>;
+  CreateNotificationInput: CreateNotificationInput;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  String: ResolverTypeWrapper<Scalars['String']['output']>;
+  Employee: ResolverTypeWrapper<Employee>;
   GeneratePayslipsInput: GeneratePayslipsInput;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   GeneratePayslipsResult: ResolverTypeWrapper<GeneratePayslipsResult>;
   GetPayslipURLInput: GetPayslipUrlInput;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Notification: ResolverTypeWrapper<Notification>;
-  String: ResolverTypeWrapper<Scalars['String']['output']>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Payslip: ResolverTypeWrapper<Payslip>;
   PayslipDownloadURL: ResolverTypeWrapper<PayslipDownloadUrl>;
@@ -306,15 +328,16 @@ export type ResolversTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
-  Employee: Employee | FederationReferenceTypes['Employee'];
+  CreateNotificationInput: CreateNotificationInput;
   ID: Scalars['ID']['output'];
+  String: Scalars['String']['output'];
+  Employee: Employee | FederationReferenceTypes['Employee'];
   GeneratePayslipsInput: GeneratePayslipsInput;
   Int: Scalars['Int']['output'];
   GeneratePayslipsResult: GeneratePayslipsResult;
   GetPayslipURLInput: GetPayslipUrlInput;
   Mutation: Record<PropertyKey, never>;
   Notification: Notification | FederationReferenceTypes['Notification'];
-  String: Scalars['String']['output'];
   Boolean: Scalars['Boolean']['output'];
   Payslip: Payslip | FederationReferenceTypes['Payslip'];
   PayslipDownloadURL: PayslipDownloadUrl;
@@ -354,6 +377,12 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
+  createNotification?: Resolver<
+    ResolversTypes['Notification'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationCreateNotificationArgs, 'input'>
+  >;
   generatePayslips?: Resolver<
     ResolversTypes['GeneratePayslipsResult'],
     ParentType,
