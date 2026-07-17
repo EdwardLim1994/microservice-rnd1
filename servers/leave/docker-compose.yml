@@ -1,0 +1,62 @@
+services:
+  leave:
+    build:
+      context: ../..
+      dockerfile: servers/leave/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-x64}
+    container_name: leave_server
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      DB_HOST: leave-db
+      DB_PORT: 5432
+      DB_NAME: leave
+      VAULT_ADDR: http://vault:8200
+      VAULT_DB_ROLE: leave-role
+    networks:
+      - adminer
+      - vault
+    depends_on:
+      leave-db:
+        condition: service_healthy
+
+  leave-migrate:
+    build:
+      context: ../..
+      dockerfile: servers/leave/Dockerfile
+      target: migrate
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
+    container_name: leave_migrate
+    env_file:
+      - .env
+    networks:
+      - adminer
+    depends_on:
+      leave-db:
+        condition: service_healthy
+    restart: "no"
+
+  leave-db:
+    image: postgres:15.3-alpine
+    container_name: leave_db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: leave
+    ports:
+      - "5104:5432"
+    networks:
+      - adminer
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U myuser -d leave" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+networks:
+  vault:
+  adminer:

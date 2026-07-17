@@ -555,3 +555,39 @@ userStories:
             scenario: Notification appears in bell dropdown with correct status message
           - id: INT-15-3
             scenario: Clicking notification marks it as read and navigates to leave page
+
+      - id: FEAT-16
+        title: Login and role-based views
+        type: fullstack
+        description: Custom hr-portal login page authenticating against Authentik (via auth-subgraph's existing login mutation). On success, resolves the logged-in employee's internal identity and whether they supervise anyone (any employee whose supervisor is them), storing both client-side. Every existing hr-portal route requires an active session; the supervisor-only leave approval view additionally requires the supervisor flag. Fills the US-2 acceptance criterion "Employee logs in via Authentik and sees role-appropriate views (Employee or Supervisor)" that FEAT-7 through FEAT-15 didn't cover — found as a gap during /review 84.
+        component: hr-portal LoginPage
+        input:
+          - email (text input, the Authentik account email — employeeId@employees.local)
+          - password (password input)
+        output:
+          - Success — session established (employeeId, isSupervisor, accessToken stored), redirect to /
+          - Error — inline invalid-credentials message; unauthenticated users redirected to /login from any protected route; non-supervisors redirected away from /leave/approvals
+        edgeCases:
+          - Invalid email or password — inline error, no session established
+          - Authentik unreachable — generic error banner
+          - No matching employee record for the authenticated Authentik account — inline error, no session established
+          - Direct navigation to a protected route while unauthenticated — redirect to /login
+          - Employee (non-supervisor) navigates to /leave/approvals — redirected away, not shown the view
+        graphqlChanges: false
+        affectedSubgraphs: []
+        claudeDesignURL: https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share
+        uiInteractions:
+          - Submit button disabled while request is in flight
+          - Logout control clears the session and returns to /login
+        responsiveBreakpoints:
+          - Desktop (1280px+) — centered card layout
+          - Tablet/Mobile (768px and below) — full-width card
+        integrationTestPlan:
+          - id: INT-16-1
+            scenario: Valid login establishes a session and redirects to /
+          - id: INT-16-2
+            scenario: Invalid credentials shows an inline error, no session established
+          - id: INT-16-3
+            scenario: Unauthenticated access to a protected route redirects to /login
+          - id: INT-16-4
+            scenario: Non-supervisor access to /leave/approvals is redirected away

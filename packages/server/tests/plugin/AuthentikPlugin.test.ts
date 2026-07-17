@@ -3,6 +3,8 @@ import { createContainer, InjectionMode } from 'awilix';
 import {
   AuthentikApiError,
   AuthentikClient,
+  AuthentikInvalidTokenError,
+  AuthentikPasswordPolicyError,
   AuthentikPlugin,
 } from '../../src/plugin/AuthentikPlugin';
 
@@ -371,6 +373,87 @@ test('logout() does not throw when best-effort session termination fails', async
     ],
     () => client.logout('a-valid-access-token'),
   );
+});
+
+// --- requestPasswordReset() ----------------------------------------------------------------------
+
+test('requestPasswordReset() looks up the user then triggers a recovery email', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await withMockFetch(
+    [
+      jsonResponse(200, { results: [{ pk: 1 }] }), // lookup by email
+      new Response(null, { status: 204 }), // recovery_email
+    ],
+    () => client.requestPasswordReset('jane@example.com'),
+  );
+});
+
+test('requestPasswordReset() silently no-ops when no user matches the email', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await withMockFetch([jsonResponse(200, { results: [] })], () =>
+    client.requestPasswordReset('unknown@example.com'),
+  );
+});
+
+test('requestPasswordReset() throws AuthentikApiError when the lookup itself fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(503, { detail: 'unavailable' })], () =>
+      client.requestPasswordReset('jane@example.com'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('requestPasswordReset() throws AuthentikApiError when the recovery-email call fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch(
+      [
+        jsonResponse(200, { results: [{ pk: 1 }] }),
+        jsonResponse(500, { detail: 'internal' }),
+      ],
+      () => client.requestPasswordReset('jane@example.com'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+// --- confirmPasswordReset() ----------------------------------------------------------------------
+
+test('confirmPasswordReset() submits the new password once the flow reaches the prompt stage', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await withMockFetch(
+    [
+      jsonResponse(200, { component: 'ak-stage-prompt' }),
+      jsonResponse(200, { component: 'xak-flow-redirect' }),
+    ],
+    () => client.confirmPasswordReset('a-valid-token', 'N3wP@ssword!'),
+  );
+});
+
+test('confirmPasswordReset() throws AuthentikInvalidTokenError when the flow never reaches the prompt stage', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch(
+      [jsonResponse(200, { component: 'ak-stage-access-denied' })],
+      () => client.confirmPasswordReset('bad-token', 'N3wP@ssword!'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikInvalidTokenError);
+});
+
+test('confirmPasswordReset() throws AuthentikPasswordPolicyError when the stage re-renders itself', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch(
+      [
+        jsonResponse(200, { component: 'ak-stage-prompt' }),
+        jsonResponse(200, {
+          component: 'ak-stage-prompt',
+          response_errors: {},
+        }),
+      ],
+      () => client.confirmPasswordReset('a-valid-token', 'weak'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikPasswordPolicyError);
 });
 
 // --- AuthentikPlugin ----------------------------------------------------------------------------

@@ -1,8 +1,18 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
 
 const MONTH_NAMES = [
-	"January", "February", "March", "April", "May", "June",
-	"July", "August", "September", "October", "November", "December",
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
 ];
 
 export interface PayslipPdfInput {
@@ -16,7 +26,9 @@ export interface PayslipPdfInput {
 	generatedAt: Date;
 }
 
-export async function generatePayslipPdf(input: PayslipPdfInput): Promise<Uint8Array> {
+export async function generatePayslipPdf(
+	input: PayslipPdfInput,
+): Promise<Uint8Array> {
 	const doc = await PDFDocument.create();
 	const page = doc.addPage([400, 500]);
 	const font = await doc.embedFont(StandardFonts.Helvetica);

@@ -1,0 +1,27 @@
+---
+title: Payroll Subgraph API
+description: Payslip generation, download, and notifications
+version: 0.1.0
+draft: true
+---
+
+## Queries
+
+### `notifications(employeeId: ID!): [Notification!]!`
+
+All notifications for an employee, sorted by `createdAt` descending.
+
+### `payslipDownloadURL(input: GetPayslipURLInput!): PayslipDownloadURL!`
+
+Generates a 15-minute presigned Minio URL for downloading a specific payslip PDF
+(`employeeId`/`month`/`year`). Returns `NOT_FOUND` if no matching payslip record exists.
+
+## Mutations
+
+### `generatePayslips(input: GeneratePayslipsInput!): GeneratePayslipsResult!`
+
+Triggers monthly payslip generation for all employees. Called by the cron server.
+
+### `markNotificationRead(id: ID!): Notification!`
+
+Marks a notification as read.

@@ -1,0 +1,42 @@
+---
+title: Employee Self-Service — Data Flows
+description: Leave request, payslip download, and password reset flows for US-2
+version: 0.1.0
+draft: true
+---
+
+## E2E-3/4 — Submit and review a leave request
+
+1. `hr-portal`'s `LeaveRequestForm` submits `submitLeave(input)` to `leave-subgraph`.
+2. `SubmitLeaveUseCase` validates the date range and reason, checks the employee exists (via
+   `EmployeeServiceClient`), and checks for overlapping `APPROVED` leave before inserting the
+   `LeaveRequest` row with `status: PENDING`.
+3. `hr-portal`'s `LeaveApprovalView` (supervisor) polls `pendingLeaveRequestsForSupervisor`,
+   resolved by listing the supervisor's direct reports via `EmployeeServiceClient` then filtering
+   `LeaveRequest`s by those employee IDs.
+4. Approve/Reject calls `reviewLeave(input)`. `ReviewLeaveUseCase` checks the requester's
+   `supervisor` relation (via `EmployeeServiceClient`) matches the caller, updates the status,
+   then calls `PayrollServiceClient.createNotification` to raise a notification for the employee.
+5. `hr-portal`'s `NotificationBell` polls `notifications(employeeId)` and surfaces the new
+   leave-status notification; clicking it marks it read and navigates to `/leave`.
+
+## E2E-5 — Download a payslip
+
+1. `hr-portal`'s `PayslipPage` fetches `payslips(employeeId)` from `payroll-subgraph`.
+2. Clicking Download calls `payslipDownloadURL(input)`. `GetPayslipURLUseCase` looks up the
+   payslip's Minio object key, generates a 15-minute presigned URL (`minio.presignedGetObject`).
+3. The frontend triggers the download via a hidden `<a download>` element pointed at the
+   presigned URL — a direct browser-to-Minio transfer, not proxied through payroll-subgraph.
+
+## E2E-6 — Reset a password
+
+1. `hr-portal`'s `ForgotPasswordPage` calls `requestPasswordReset(input)` on `employee-subgraph`.
+2. `RequestPasswordResetUseCase` delegates to `AuthentikClient.requestPasswordReset`, which looks
+   up the user by email via Authentik's Admin API and triggers its `recovery_email` action.
+   Always returns success, even for an unregistered email.
+3. The employee follows the emailed link to `hr-portal`'s `SetPasswordPage`
+   (`/reset-password?token=...`), which calls `confirmPasswordReset(input)`.
+4. `ConfirmPasswordResetUseCase` delegates to `AuthentikClient.confirmPasswordReset`, which drives
+   Authentik's `default-recovery-flow` Flow Executor API with the token, submitting the new
+   password. Maps `AuthentikInvalidTokenError`/`AuthentikPasswordPolicyError` to
+   `INVALID_TOKEN`/`PASSWORD_POLICY_VIOLATION` GraphQL error codes.

@@ -1,15 +1,20 @@
 import type { PayrollPayrollProto } from "api";
 import { BaseUseCase } from "server";
-import StorePayslipUseCase from "./StorePayslipUseCase";
+import type StorePayslipUseCase from "./StorePayslipUseCase";
 
 type StorePayslipRequest = PayrollPayrollProto.StorePayslipRequest;
 type Payslip = PayrollPayrollProto.Payslip;
 
 /** gRPC adapter over StorePayslipUseCase — see employee server's RegisterEmployeeGrpcUseCase. */
-export default class StorePayslipGrpcUseCase extends BaseUseCase<StorePayslipRequest, Payslip> {
+export default class StorePayslipGrpcUseCase extends BaseUseCase<
+	StorePayslipRequest,
+	Payslip
+> {
 	private readonly storePayslipUseCase: StorePayslipUseCase;
 
-	constructor({ storePayslipUseCase }: { storePayslipUseCase: StorePayslipUseCase }) {
+	constructor({
+		storePayslipUseCase,
+	}: { storePayslipUseCase: StorePayslipUseCase }) {
 		super();
 		this.storePayslipUseCase = storePayslipUseCase;
 	}

@@ -9,7 +9,9 @@ async function run() {
     case 'cut-release': {
       const [releaseBranch, baseRef] = args;
       if (!releaseBranch) {
-        throw new Error('Usage: release-manager cut-release <release-branch> [baseRef=main]');
+        throw new Error(
+          'Usage: release-manager cut-release <release-branch> [baseRef=main]',
+        );
       }
       return manager.cutRelease(releaseBranch, baseRef);
     }

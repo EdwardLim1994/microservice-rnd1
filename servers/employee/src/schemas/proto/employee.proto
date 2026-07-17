@@ -35,7 +35,23 @@ message AssignSupervisorRequest {
   string supervisorId = 2;
 }
 
+message RequestPasswordResetRequest {
+  string email = 1;
+}
+
+message ConfirmPasswordResetRequest {
+  string resetToken = 1;
+  string newPassword = 2;
+}
+
+message AcknowledgementResponse {
+  bool success = 1;
+  string message = 2; // empty string if none
+}
+
 service EmployeeService {
   rpc RegisterEmployee (RegisterEmployeeRequest) returns (RegisterEmployeeResponse);
   rpc AssignSupervisor (AssignSupervisorRequest) returns (Employee);
+  rpc RequestPasswordReset (RequestPasswordResetRequest) returns (AcknowledgementResponse);
+  rpc ConfirmPasswordReset (ConfirmPasswordResetRequest) returns (AcknowledgementResponse);
 }

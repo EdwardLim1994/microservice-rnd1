@@ -84,6 +84,36 @@ input AssignSupervisorInput {
   supervisorId: ID!
 }
 
+"""
+Input for step 1 of the password reset flow — request a reset email.
+"""
+input RequestPasswordResetInput {
+  """Registered email address of the employee."""
+  email: String!
+}
+
+"""
+Input for step 2 of the password reset flow — confirm and set new password.
+"""
+input ConfirmPasswordResetInput {
+  """Reset token received via email link from Authentik."""
+  resetToken: String!
+
+  """New password to set. Must meet Authentik password policy."""
+  newPassword: String!
+}
+
+"""
+Generic acknowledgement result for operations that do not return domain data.
+"""
+type AcknowledgementResult {
+  """True if the operation was accepted successfully."""
+  success: Boolean!
+
+  """Optional human-readable message for the caller."""
+  message: String
+}
+
 type Query {
   """Fetch a single employee by their internal ID."""
   employee(id: ID!): Employee
@@ -105,4 +135,16 @@ type Mutation {
   must be an existing employee. An employee cannot be their own supervisor.
   """
   assignSupervisor(input: AssignSupervisorInput!): Employee!
+
+  """
+  Step 1 of password reset — request a reset email via Authentik.
+  Always returns success to avoid leaking whether an email is registered.
+  """
+  requestPasswordReset(input: RequestPasswordResetInput!): AcknowledgementResult!
+
+  """
+  Step 2 of password reset — confirm reset token and set new password via Authentik.
+  Returns error if token is invalid, expired, or password does not meet policy.
+  """
+  confirmPasswordReset(input: ConfirmPasswordResetInput!): AcknowledgementResult!
 }

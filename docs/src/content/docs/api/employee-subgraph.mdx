@@ -1,0 +1,23 @@
+---
+title: Employee Subgraph API
+description: Employee registration, supervisor assignment, and password reset
+version: 0.1.0
+draft: true
+---
+
+## Mutations
+
+### `requestPasswordReset(input: RequestPasswordResetInput!): AcknowledgementResult!`
+
+Step 1 of password reset. Triggers Authentik's recovery-email send for the given email. Always
+returns `{ success: true }`, even for an unregistered email — the response never leaks whether an
+account exists.
+
+### `confirmPasswordReset(input: ConfirmPasswordResetInput!): AcknowledgementResult!`
+
+Step 2 of password reset. Submits the new password against Authentik's recovery flow using the
+token from the reset email link. Returns `INVALID_TOKEN` if the token is invalid/expired, or
+`PASSWORD_POLICY_VIOLATION` if the new password fails Authentik's password policy.
+
+Both mutations are also exposed as gRPC RPCs (`RequestPasswordReset`/`ConfirmPasswordReset` on
+`EmployeeService`), same dual GraphQL+gRPC pattern as `registerEmployee`/`assignSupervisor`.
