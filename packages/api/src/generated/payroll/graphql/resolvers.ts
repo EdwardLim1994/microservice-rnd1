@@ -20,20 +20,33 @@ export type Employee = {
   id: Scalars['ID']['output'];
 };
 
+/** Input for triggering the monthly payslip generation job. */
 export type GeneratePayslipsInput = {
+  /** Month to generate payslips for (1–12). */
   month: Scalars['Int']['input'];
+  /** Year to generate payslips for (e.g. 2026). */
   year: Scalars['Int']['input'];
 };
 
+/** Result of triggering the monthly payslip generation job. */
 export type GeneratePayslipsResult = {
   __typename?: 'GeneratePayslipsResult';
+  /** List of employee IDs for which generation failed. Empty if all succeeded. */
   failed: Array<Scalars['ID']['output']>;
+  /** List of successfully generated payslip records. */
   generated: Array<Payslip>;
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /**
+   * Trigger monthly payslip generation for all active employees. Called by the
+   * cron server. Generates a PDF per employee via the standalone StorePayslip
+   * component, and creates a notification per employee. Returns lists of
+   * succeeded and failed employee IDs.
+   */
   generatePayslips: GeneratePayslipsResult;
+  /** Mark a specific notification as read. */
   markNotificationRead: Notification;
 };
 
@@ -45,27 +58,41 @@ export type MutationMarkNotificationReadArgs = {
   id: Scalars['ID']['input'];
 };
 
+/** An in-app notification record for an employee. */
 export type Notification = {
   __typename?: 'Notification';
+  /** Timestamp when the notification was created. */
   createdAt: Scalars['String']['output'];
+  /** The employee this notification is addressed to. */
   employee: Employee;
+  /** Unique internal identifier for the notification. */
   id: Scalars['ID']['output'];
+  /** Human-readable notification message (e.g. 'Your January 2026 payslip is ready'). */
   message: Scalars['String']['output'];
+  /** Whether the employee has read/dismissed this notification. */
   read: Scalars['Boolean']['output'];
 };
 
+/** Represents a generated payslip record stored in Minio. */
 export type Payslip = {
   __typename?: 'Payslip';
+  /** The employee this payslip was generated for. */
   employee: Employee;
+  /** Timestamp when the payslip PDF was generated and stored. */
   generatedAt: Scalars['String']['output'];
+  /** Unique internal identifier for the payslip record. */
   id: Scalars['ID']['output'];
+  /** Minio object key where the PDF is stored (e.g. payslips/{employeeId}/{year}/{month}.pdf). */
   minioObjectKey: Scalars['String']['output'];
+  /** Calendar month the payslip covers (1–12). */
   month: Scalars['Int']['output'];
+  /** Calendar year the payslip covers (e.g. 2026). */
   year: Scalars['Int']['output'];
 };
 
 export type Query = {
   __typename?: 'Query';
+  /** Fetch all notifications for a given employee. Sorted by createdAt descending. */
   notifications: Array<Notification>;
 };
 

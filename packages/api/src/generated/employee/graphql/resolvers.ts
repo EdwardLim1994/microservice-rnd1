@@ -15,26 +15,50 @@ export type Scalars = {
   _FieldSet: { input: unknown; output: unknown };
 };
 
+/** Input for assigning or reassigning a supervisor to an employee. */
 export type AssignSupervisorInput = {
+  /** Internal ID of the employee to update. */
   employeeId: Scalars['ID']['input'];
+  /** Internal ID of the employee to assign as supervisor. */
   supervisorId: Scalars['ID']['input'];
 };
 
+/** Represents an employee registered in the HR system. */
 export type Employee = {
   __typename?: 'Employee';
+  /** Timestamp when the employee record was created. */
   createdAt: Scalars['String']['output'];
+  /** Department the employee belongs to (e.g. Engineering, Finance). */
   department: Scalars['String']['output'];
+  /** Human-readable employee identifier assigned by HR (e.g. EMP-001). */
   employeeId: Scalars['String']['output'];
+  /** Full name of the employee. */
   fullName: Scalars['String']['output'];
+  /** Gross monthly salary of the employee in the base currency. */
   grossSalary: Scalars['Float']['output'];
+  /** Unique internal identifier for the employee (UUID). */
   id: Scalars['ID']['output'];
+  /** Job role or title of the employee (e.g. Software Engineer). */
   role: Scalars['String']['output'];
+  /**
+   * The employee who is assigned as this employee's supervisor.
+   * Null if no supervisor has been assigned. Supports hierarchical assignment.
+   */
   supervisor?: Maybe<Employee>;
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /**
+   * Assign or reassign a supervisor for an existing employee. The supervisor
+   * must be an existing employee. An employee cannot be their own supervisor.
+   */
   assignSupervisor: Employee;
+  /**
+   * Register a new employee in the system. Creates a Postgres record and an
+   * Authentik account with an auto-generated temporary password. Returns the
+   * employee record and the temporary password (shown once).
+   */
   registerEmployee: RegisterEmployeeResult;
 };
 
@@ -48,7 +72,9 @@ export type MutationRegisterEmployeeArgs = {
 
 export type Query = {
   __typename?: 'Query';
+  /** Fetch a single employee by their internal ID. */
   employee?: Maybe<Employee>;
+  /** Fetch all employees. Supports filtering by department or role. */
   employees: Array<Employee>;
 };
 
@@ -61,18 +87,37 @@ export type QueryEmployeesArgs = {
   role?: InputMaybe<Scalars['String']['input']>;
 };
 
+/** Input for registering a new employee. */
 export type RegisterEmployeeInput = {
+  /** Department name. */
   department: Scalars['String']['input'];
+  /** Unique human-readable employee identifier (e.g. EMP-001). */
   employeeId: Scalars['String']['input'];
+  /** Full name of the employee. */
   fullName: Scalars['String']['input'];
+  /** Gross monthly salary. Must be a positive number. */
   grossSalary: Scalars['Float']['input'];
+  /** Job role or title. */
   role: Scalars['String']['input'];
+  /**
+   * Internal ID of the employee to assign as supervisor.
+   * Optional — can be assigned later via assignSupervisor.
+   */
   supervisorId?: InputMaybe<Scalars['ID']['input']>;
 };
 
+/**
+ * Result returned after successfully registering a new employee. Includes the
+ * auto-generated temporary password, returned only once.
+ */
 export type RegisterEmployeeResult = {
   __typename?: 'RegisterEmployeeResult';
+  /** The newly created employee record. */
   employee: Employee;
+  /**
+   * Auto-generated temporary password for the employee's Authentik account.
+   * Shown once to HR — not stored in the system after this response.
+   */
   temporaryPassword: Scalars['String']['output'];
 };
 
