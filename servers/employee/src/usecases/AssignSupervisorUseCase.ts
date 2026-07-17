@@ -7,7 +7,10 @@ interface AssignSupervisorInput {
 	supervisorId: string;
 }
 
-export default class AssignSupervisorUseCase extends BaseUseCase<AssignSupervisorInput, unknown> {
+export default class AssignSupervisorUseCase extends BaseUseCase<
+	{ input: AssignSupervisorInput },
+	unknown
+> {
 	private readonly employeeRepository: EmployeeRepository;
 
 	constructor({ employeeRepository }: { employeeRepository: EmployeeRepository }) {
@@ -15,7 +18,9 @@ export default class AssignSupervisorUseCase extends BaseUseCase<AssignSuperviso
 		this.employeeRepository = employeeRepository;
 	}
 
-	async execute({ employeeId, supervisorId }: AssignSupervisorInput) {
+	// See RegisterEmployeeUseCase's comment — GraphQL's wrapped `input:` argument arrives as
+	// `{ input: {...} }`, not the flat fields.
+	async execute({ input: { employeeId, supervisorId } }: { input: AssignSupervisorInput }) {
 		if (employeeId === supervisorId) {
 			throw new GraphQLError("An employee cannot be assigned as their own supervisor", {
 				extensions: { code: "VALIDATION_ERROR" },

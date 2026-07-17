@@ -5,6 +5,7 @@ import {
 	MinioPlugin,
 	ServerApp,
 	singleton,
+	transient,
 	VaultPgAdapter,
 } from "server";
 import { PrismaClient } from "../generated/prisma";
@@ -12,6 +13,9 @@ import NotificationRepository from "./repositories/NotificationRepository";
 import PayslipRepository from "./repositories/PayslipRepository";
 import PayrollCronRouter from "./routers/PayrollCronRouter";
 import PayrollGraphqlRouter from "./routers/PayrollGraphqlRouter";
+import PayrollGrpcRouter from "./routers/PayrollGrpcRouter";
+import GeneratePayslipsUseCase from "./usecases/GeneratePayslipsUseCase";
+import StorePayslipUseCase from "./usecases/StorePayslipUseCase";
 
 export default async function main() {
 	await ServerApp.init([
@@ -37,7 +41,10 @@ export default async function main() {
 		.containers({
 			payslipRepository: singleton(PayslipRepository),
 			notificationRepository: singleton(NotificationRepository),
+			// Explicitly registered — see servers/employee/src/app.ts's equivalent comment.
+			storePayslipUseCase: transient(StorePayslipUseCase),
+			generatePayslipsUseCase: transient(GeneratePayslipsUseCase),
 		})
-		.routers([PayrollGraphqlRouter, PayrollCronRouter])
+		.routers([PayrollGraphqlRouter, PayrollGrpcRouter, PayrollCronRouter])
 		.run(() => `Server is running`);
 }

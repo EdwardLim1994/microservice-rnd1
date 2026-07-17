@@ -8,42 +8,127 @@ schema
   mutation: Mutation
 }
 
+"""
+Input for assigning or reassigning a supervisor to an employee.
+"""
 input AssignSupervisorInput {
+  """
+  Internal ID of the employee to update.
+  """
   employeeId: ID!
+  """
+  Internal ID of the employee to assign as supervisor.
+  """
   supervisorId: ID!
 }
 
+"""
+Represents an employee registered in the HR system.
+"""
 type Employee @key(fields: "id") {
+  """
+  Timestamp when the employee record was created.
+  """
   createdAt: String!
+  """
+  Department the employee belongs to (e.g. Engineering, Finance).
+  """
   department: String!
+  """
+  Human-readable employee identifier assigned by HR (e.g. EMP-001).
+  """
   employeeId: String!
+  """
+  Full name of the employee.
+  """
   fullName: String!
+  """
+  Gross monthly salary of the employee in the base currency.
+  """
   grossSalary: Float!
+  """
+  Unique internal identifier for the employee (UUID).
+  """
   id: ID!
+  """
+  Job role or title of the employee (e.g. Software Engineer).
+  """
   role: String!
+  """
+  The employee who is assigned as this employee's supervisor.
+  Null if no supervisor has been assigned. Supports hierarchical assignment.
+  """
   supervisor: Employee
 }
 
 type Mutation {
+  """
+  Assign or reassign a supervisor for an existing employee. The supervisor
+  must be an existing employee. An employee cannot be their own supervisor.
+  """
   assignSupervisor(input: AssignSupervisorInput!): Employee!
+  """
+  Register a new employee in the system. Creates a Postgres record and an
+  Authentik account with an auto-generated temporary password. Returns the
+  employee record and the temporary password (shown once).
+  """
   registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
 }
 
 type Query {
+  """
+  Fetch a single employee by their internal ID.
+  """
   employee(id: ID!): Employee
+  """
+  Fetch all employees. Supports filtering by department or role.
+  """
   employees(department: String, role: String): [Employee!]!
 }
 
+"""
+Input for registering a new employee.
+"""
 input RegisterEmployeeInput {
+  """
+  Department name.
+  """
   department: String!
+  """
+  Unique human-readable employee identifier (e.g. EMP-001).
+  """
   employeeId: String!
+  """
+  Full name of the employee.
+  """
   fullName: String!
+  """
+  Gross monthly salary. Must be a positive number.
+  """
   grossSalary: Float!
+  """
+  Job role or title.
+  """
   role: String!
+  """
+  Internal ID of the employee to assign as supervisor.
+  Optional — can be assigned later via assignSupervisor.
+  """
   supervisorId: ID
 }
 
+"""
+Result returned after successfully registering a new employee. Includes the
+auto-generated temporary password, returned only once.
+"""
 type RegisterEmployeeResult {
+  """
+  The newly created employee record.
+  """
   employee: Employee!
+  """
+  Auto-generated temporary password for the employee's Authentik account.
+  Shown once to HR — not stored in the system after this response.
+  """
   temporaryPassword: String!
 }

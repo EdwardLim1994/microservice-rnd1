@@ -22,13 +22,59 @@ import { messageTypeRegistry } from './typeRegistry';
 
 export const protobufPackage = 'employee';
 
+/**
+ * supervisorId is an empty string when the employee has no supervisor — proto3 has no bare
+ * nullable string without wrapper types/oneof, and this is simpler than either for a single
+ * optional foreign key.
+ */
 export interface Employee {
   $type: 'employee.Employee';
   id: string;
+  employeeId: string;
+  fullName: string;
+  role: string;
+  department: string;
+  grossSalary: number;
+  supervisorId: string;
+  /** ISO 8601 */
+  createdAt: string;
+}
+
+export interface RegisterEmployeeRequest {
+  $type: 'employee.RegisterEmployeeRequest';
+  fullName: string;
+  employeeId: string;
+  role: string;
+  department: string;
+  grossSalary: number;
+  /** empty string if none */
+  supervisorId: string;
+}
+
+export interface RegisterEmployeeResponse {
+  $type: 'employee.RegisterEmployeeResponse';
+  employee?: Employee | undefined;
+  temporaryPassword: string;
+}
+
+export interface AssignSupervisorRequest {
+  $type: 'employee.AssignSupervisorRequest';
+  employeeId: string;
+  supervisorId: string;
 }
 
 function createBaseEmployee(): Employee {
-  return { $type: 'employee.Employee', id: '' };
+  return {
+    $type: 'employee.Employee',
+    id: '',
+    employeeId: '',
+    fullName: '',
+    role: '',
+    department: '',
+    grossSalary: 0,
+    supervisorId: '',
+    createdAt: '',
+  };
 }
 
 export const Employee: MessageFns<Employee, 'employee.Employee'> = {
@@ -40,6 +86,27 @@ export const Employee: MessageFns<Employee, 'employee.Employee'> = {
   ): BinaryWriter {
     if (message.id !== '') {
       writer.uint32(10).string(message.id);
+    }
+    if (message.employeeId !== '') {
+      writer.uint32(18).string(message.employeeId);
+    }
+    if (message.fullName !== '') {
+      writer.uint32(26).string(message.fullName);
+    }
+    if (message.role !== '') {
+      writer.uint32(34).string(message.role);
+    }
+    if (message.department !== '') {
+      writer.uint32(42).string(message.department);
+    }
+    if (message.grossSalary !== 0) {
+      writer.uint32(49).double(message.grossSalary);
+    }
+    if (message.supervisorId !== '') {
+      writer.uint32(58).string(message.supervisorId);
+    }
+    if (message.createdAt !== '') {
+      writer.uint32(66).string(message.createdAt);
     }
     return writer;
   },
@@ -60,6 +127,62 @@ export const Employee: MessageFns<Employee, 'employee.Employee'> = {
           message.id = reader.string();
           continue;
         }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.fullName = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.role = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.department = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 49) {
+            break;
+          }
+
+          message.grossSalary = reader.double();
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.supervisorId = reader.string();
+          continue;
+        }
+        case 8: {
+          if (tag !== 66) {
+            break;
+          }
+
+          message.createdAt = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -73,6 +196,25 @@ export const Employee: MessageFns<Employee, 'employee.Employee'> = {
     return {
       $type: Employee.$type,
       id: isSet(object.id) ? globalThis.String(object.id) : '',
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      fullName: isSet(object.fullName)
+        ? globalThis.String(object.fullName)
+        : '',
+      role: isSet(object.role) ? globalThis.String(object.role) : '',
+      department: isSet(object.department)
+        ? globalThis.String(object.department)
+        : '',
+      grossSalary: isSet(object.grossSalary)
+        ? globalThis.Number(object.grossSalary)
+        : 0,
+      supervisorId: isSet(object.supervisorId)
+        ? globalThis.String(object.supervisorId)
+        : '',
+      createdAt: isSet(object.createdAt)
+        ? globalThis.String(object.createdAt)
+        : '',
     };
   },
 
@@ -80,6 +222,27 @@ export const Employee: MessageFns<Employee, 'employee.Employee'> = {
     const obj: any = {};
     if (message.id !== '') {
       obj.id = message.id;
+    }
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.fullName !== '') {
+      obj.fullName = message.fullName;
+    }
+    if (message.role !== '') {
+      obj.role = message.role;
+    }
+    if (message.department !== '') {
+      obj.department = message.department;
+    }
+    if (message.grossSalary !== 0) {
+      obj.grossSalary = message.grossSalary;
+    }
+    if (message.supervisorId !== '') {
+      obj.supervisorId = message.supervisorId;
+    }
+    if (message.createdAt !== '') {
+      obj.createdAt = message.createdAt;
     }
     return obj;
   },
@@ -90,21 +253,431 @@ export const Employee: MessageFns<Employee, 'employee.Employee'> = {
   fromPartial<I extends Exact<DeepPartial<Employee>, I>>(object: I): Employee {
     const message = createBaseEmployee();
     message.id = object.id ?? '';
+    message.employeeId = object.employeeId ?? '';
+    message.fullName = object.fullName ?? '';
+    message.role = object.role ?? '';
+    message.department = object.department ?? '';
+    message.grossSalary = object.grossSalary ?? 0;
+    message.supervisorId = object.supervisorId ?? '';
+    message.createdAt = object.createdAt ?? '';
     return message;
   },
 };
 
 messageTypeRegistry.set(Employee.$type, Employee);
 
+function createBaseRegisterEmployeeRequest(): RegisterEmployeeRequest {
+  return {
+    $type: 'employee.RegisterEmployeeRequest',
+    fullName: '',
+    employeeId: '',
+    role: '',
+    department: '',
+    grossSalary: 0,
+    supervisorId: '',
+  };
+}
+
+export const RegisterEmployeeRequest: MessageFns<
+  RegisterEmployeeRequest,
+  'employee.RegisterEmployeeRequest'
+> = {
+  $type: 'employee.RegisterEmployeeRequest' as const,
+
+  encode(
+    message: RegisterEmployeeRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.fullName !== '') {
+      writer.uint32(10).string(message.fullName);
+    }
+    if (message.employeeId !== '') {
+      writer.uint32(18).string(message.employeeId);
+    }
+    if (message.role !== '') {
+      writer.uint32(26).string(message.role);
+    }
+    if (message.department !== '') {
+      writer.uint32(34).string(message.department);
+    }
+    if (message.grossSalary !== 0) {
+      writer.uint32(41).double(message.grossSalary);
+    }
+    if (message.supervisorId !== '') {
+      writer.uint32(50).string(message.supervisorId);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): RegisterEmployeeRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRegisterEmployeeRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.fullName = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.role = reader.string();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.department = reader.string();
+          continue;
+        }
+        case 5: {
+          if (tag !== 41) {
+            break;
+          }
+
+          message.grossSalary = reader.double();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.supervisorId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RegisterEmployeeRequest {
+    return {
+      $type: RegisterEmployeeRequest.$type,
+      fullName: isSet(object.fullName)
+        ? globalThis.String(object.fullName)
+        : '',
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      role: isSet(object.role) ? globalThis.String(object.role) : '',
+      department: isSet(object.department)
+        ? globalThis.String(object.department)
+        : '',
+      grossSalary: isSet(object.grossSalary)
+        ? globalThis.Number(object.grossSalary)
+        : 0,
+      supervisorId: isSet(object.supervisorId)
+        ? globalThis.String(object.supervisorId)
+        : '',
+    };
+  },
+
+  toJSON(message: RegisterEmployeeRequest): unknown {
+    const obj: any = {};
+    if (message.fullName !== '') {
+      obj.fullName = message.fullName;
+    }
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.role !== '') {
+      obj.role = message.role;
+    }
+    if (message.department !== '') {
+      obj.department = message.department;
+    }
+    if (message.grossSalary !== 0) {
+      obj.grossSalary = message.grossSalary;
+    }
+    if (message.supervisorId !== '') {
+      obj.supervisorId = message.supervisorId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RegisterEmployeeRequest>, I>>(
+    base?: I,
+  ): RegisterEmployeeRequest {
+    return RegisterEmployeeRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RegisterEmployeeRequest>, I>>(
+    object: I,
+  ): RegisterEmployeeRequest {
+    const message = createBaseRegisterEmployeeRequest();
+    message.fullName = object.fullName ?? '';
+    message.employeeId = object.employeeId ?? '';
+    message.role = object.role ?? '';
+    message.department = object.department ?? '';
+    message.grossSalary = object.grossSalary ?? 0;
+    message.supervisorId = object.supervisorId ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(RegisterEmployeeRequest.$type, RegisterEmployeeRequest);
+
+function createBaseRegisterEmployeeResponse(): RegisterEmployeeResponse {
+  return {
+    $type: 'employee.RegisterEmployeeResponse',
+    employee: undefined,
+    temporaryPassword: '',
+  };
+}
+
+export const RegisterEmployeeResponse: MessageFns<
+  RegisterEmployeeResponse,
+  'employee.RegisterEmployeeResponse'
+> = {
+  $type: 'employee.RegisterEmployeeResponse' as const,
+
+  encode(
+    message: RegisterEmployeeResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employee !== undefined) {
+      Employee.encode(message.employee, writer.uint32(10).fork()).join();
+    }
+    if (message.temporaryPassword !== '') {
+      writer.uint32(18).string(message.temporaryPassword);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): RegisterEmployeeResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRegisterEmployeeResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employee = Employee.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.temporaryPassword = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RegisterEmployeeResponse {
+    return {
+      $type: RegisterEmployeeResponse.$type,
+      employee: isSet(object.employee)
+        ? Employee.fromJSON(object.employee)
+        : undefined,
+      temporaryPassword: isSet(object.temporaryPassword)
+        ? globalThis.String(object.temporaryPassword)
+        : '',
+    };
+  },
+
+  toJSON(message: RegisterEmployeeResponse): unknown {
+    const obj: any = {};
+    if (message.employee !== undefined) {
+      obj.employee = Employee.toJSON(message.employee);
+    }
+    if (message.temporaryPassword !== '') {
+      obj.temporaryPassword = message.temporaryPassword;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RegisterEmployeeResponse>, I>>(
+    base?: I,
+  ): RegisterEmployeeResponse {
+    return RegisterEmployeeResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RegisterEmployeeResponse>, I>>(
+    object: I,
+  ): RegisterEmployeeResponse {
+    const message = createBaseRegisterEmployeeResponse();
+    message.employee =
+      object.employee !== undefined && object.employee !== null
+        ? Employee.fromPartial(object.employee)
+        : undefined;
+    message.temporaryPassword = object.temporaryPassword ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(
+  RegisterEmployeeResponse.$type,
+  RegisterEmployeeResponse,
+);
+
+function createBaseAssignSupervisorRequest(): AssignSupervisorRequest {
+  return {
+    $type: 'employee.AssignSupervisorRequest',
+    employeeId: '',
+    supervisorId: '',
+  };
+}
+
+export const AssignSupervisorRequest: MessageFns<
+  AssignSupervisorRequest,
+  'employee.AssignSupervisorRequest'
+> = {
+  $type: 'employee.AssignSupervisorRequest' as const,
+
+  encode(
+    message: AssignSupervisorRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
+      writer.uint32(10).string(message.employeeId);
+    }
+    if (message.supervisorId !== '') {
+      writer.uint32(18).string(message.supervisorId);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): AssignSupervisorRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAssignSupervisorRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.supervisorId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AssignSupervisorRequest {
+    return {
+      $type: AssignSupervisorRequest.$type,
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      supervisorId: isSet(object.supervisorId)
+        ? globalThis.String(object.supervisorId)
+        : '',
+    };
+  },
+
+  toJSON(message: AssignSupervisorRequest): unknown {
+    const obj: any = {};
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.supervisorId !== '') {
+      obj.supervisorId = message.supervisorId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AssignSupervisorRequest>, I>>(
+    base?: I,
+  ): AssignSupervisorRequest {
+    return AssignSupervisorRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AssignSupervisorRequest>, I>>(
+    object: I,
+  ): AssignSupervisorRequest {
+    const message = createBaseAssignSupervisorRequest();
+    message.employeeId = object.employeeId ?? '';
+    message.supervisorId = object.supervisorId ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AssignSupervisorRequest.$type, AssignSupervisorRequest);
+
 export type EmployeeServiceService = typeof EmployeeServiceService;
 export const EmployeeServiceService = {
-  getEmployee: {
-    path: '/employee.EmployeeService/GetEmployee' as const,
+  registerEmployee: {
+    path: '/employee.EmployeeService/RegisterEmployee' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: Employee): Buffer =>
-      Buffer.from(Employee.encode(value).finish()),
-    requestDeserialize: (value: Buffer): Employee => Employee.decode(value),
+    requestSerialize: (value: RegisterEmployeeRequest): Buffer =>
+      Buffer.from(RegisterEmployeeRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RegisterEmployeeRequest =>
+      RegisterEmployeeRequest.decode(value),
+    responseSerialize: (value: RegisterEmployeeResponse): Buffer =>
+      Buffer.from(RegisterEmployeeResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): RegisterEmployeeResponse =>
+      RegisterEmployeeResponse.decode(value),
+  },
+  assignSupervisor: {
+    path: '/employee.EmployeeService/AssignSupervisor' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AssignSupervisorRequest): Buffer =>
+      Buffer.from(AssignSupervisorRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AssignSupervisorRequest =>
+      AssignSupervisorRequest.decode(value),
     responseSerialize: (value: Employee): Buffer =>
       Buffer.from(Employee.encode(value).finish()),
     responseDeserialize: (value: Buffer): Employee => Employee.decode(value),
@@ -112,21 +685,49 @@ export const EmployeeServiceService = {
 } as const;
 
 export interface EmployeeServiceServer extends UntypedServiceImplementation {
-  getEmployee: handleUnaryCall<Employee, Employee>;
+  registerEmployee: handleUnaryCall<
+    RegisterEmployeeRequest,
+    RegisterEmployeeResponse
+  >;
+  assignSupervisor: handleUnaryCall<AssignSupervisorRequest, Employee>;
 }
 
 export interface EmployeeServiceClient extends Client {
-  getEmployee(
-    request: Employee,
+  registerEmployee(
+    request: RegisterEmployeeRequest,
+    callback: (
+      error: ServiceError | null,
+      response: RegisterEmployeeResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  registerEmployee(
+    request: RegisterEmployeeRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: RegisterEmployeeResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  registerEmployee(
+    request: RegisterEmployeeRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: RegisterEmployeeResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  assignSupervisor(
+    request: AssignSupervisorRequest,
     callback: (error: ServiceError | null, response: Employee) => void,
   ): ClientUnaryCall;
-  getEmployee(
-    request: Employee,
+  assignSupervisor(
+    request: AssignSupervisorRequest,
     metadata: Metadata,
     callback: (error: ServiceError | null, response: Employee) => void,
   ): ClientUnaryCall;
-  getEmployee(
-    request: Employee,
+  assignSupervisor(
+    request: AssignSupervisorRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: Employee) => void,

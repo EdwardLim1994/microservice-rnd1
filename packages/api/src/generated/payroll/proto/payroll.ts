@@ -22,33 +22,89 @@ import { messageTypeRegistry } from './typeRegistry';
 
 export const protobufPackage = 'payroll';
 
-export interface Payroll {
-  $type: 'payroll.Payroll';
+export interface Payslip {
+  $type: 'payroll.Payslip';
   id: string;
+  employeeId: string;
+  month: number;
+  year: number;
+  minioObjectKey: string;
+  /** ISO 8601 */
+  generatedAt: string;
 }
 
-function createBasePayroll(): Payroll {
-  return { $type: 'payroll.Payroll', id: '' };
+export interface GeneratePayslipsRequest {
+  $type: 'payroll.GeneratePayslipsRequest';
+  month: number;
+  year: number;
 }
 
-export const Payroll: MessageFns<Payroll, 'payroll.Payroll'> = {
-  $type: 'payroll.Payroll' as const,
+export interface GeneratePayslipsResponse {
+  $type: 'payroll.GeneratePayslipsResponse';
+  generated: Payslip[];
+  /** employee ids */
+  failed: string[];
+}
+
+/**
+ * FEAT-4 — a standalone RPC (not folded into GeneratePayslips), matching the OpenSpec component
+ * payroll-subgraph.PayrollService.StorePayslip. GeneratePayslipsUseCase calls the same
+ * StorePayslipUseCase in-process for each employee rather than duplicating the Minio/Postgres
+ * logic.
+ */
+export interface StorePayslipRequest {
+  $type: 'payroll.StorePayslipRequest';
+  employeeId: string;
+  month: number;
+  year: number;
+  pdfBytes: Uint8Array;
+}
+
+function createBasePayslip(): Payslip {
+  return {
+    $type: 'payroll.Payslip',
+    id: '',
+    employeeId: '',
+    month: 0,
+    year: 0,
+    minioObjectKey: '',
+    generatedAt: '',
+  };
+}
+
+export const Payslip: MessageFns<Payslip, 'payroll.Payslip'> = {
+  $type: 'payroll.Payslip' as const,
 
   encode(
-    message: Payroll,
+    message: Payslip,
     writer: BinaryWriter = new BinaryWriter(),
   ): BinaryWriter {
     if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
+    if (message.employeeId !== '') {
+      writer.uint32(18).string(message.employeeId);
+    }
+    if (message.month !== 0) {
+      writer.uint32(24).int32(message.month);
+    }
+    if (message.year !== 0) {
+      writer.uint32(32).int32(message.year);
+    }
+    if (message.minioObjectKey !== '') {
+      writer.uint32(42).string(message.minioObjectKey);
+    }
+    if (message.generatedAt !== '') {
+      writer.uint32(50).string(message.generatedAt);
+    }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): Payroll {
+  decode(input: BinaryReader | Uint8Array, length?: number): Payslip {
     const reader =
       input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBasePayroll();
+    const message = createBasePayslip();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -60,6 +116,46 @@ export const Payroll: MessageFns<Payroll, 'payroll.Payroll'> = {
           message.id = reader.string();
           continue;
         }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.month = reader.int32();
+          continue;
+        }
+        case 4: {
+          if (tag !== 32) {
+            break;
+          }
+
+          message.year = reader.int32();
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.minioObjectKey = reader.string();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.generatedAt = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -69,67 +165,479 @@ export const Payroll: MessageFns<Payroll, 'payroll.Payroll'> = {
     return message;
   },
 
-  fromJSON(object: any): Payroll {
+  fromJSON(object: any): Payslip {
     return {
-      $type: Payroll.$type,
+      $type: Payslip.$type,
       id: isSet(object.id) ? globalThis.String(object.id) : '',
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      month: isSet(object.month) ? globalThis.Number(object.month) : 0,
+      year: isSet(object.year) ? globalThis.Number(object.year) : 0,
+      minioObjectKey: isSet(object.minioObjectKey)
+        ? globalThis.String(object.minioObjectKey)
+        : '',
+      generatedAt: isSet(object.generatedAt)
+        ? globalThis.String(object.generatedAt)
+        : '',
     };
   },
 
-  toJSON(message: Payroll): unknown {
+  toJSON(message: Payslip): unknown {
     const obj: any = {};
     if (message.id !== '') {
       obj.id = message.id;
     }
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.month !== 0) {
+      obj.month = Math.round(message.month);
+    }
+    if (message.year !== 0) {
+      obj.year = Math.round(message.year);
+    }
+    if (message.minioObjectKey !== '') {
+      obj.minioObjectKey = message.minioObjectKey;
+    }
+    if (message.generatedAt !== '') {
+      obj.generatedAt = message.generatedAt;
+    }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<Payroll>, I>>(base?: I): Payroll {
-    return Payroll.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<Payslip>, I>>(base?: I): Payslip {
+    return Payslip.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Payroll>, I>>(object: I): Payroll {
-    const message = createBasePayroll();
+  fromPartial<I extends Exact<DeepPartial<Payslip>, I>>(object: I): Payslip {
+    const message = createBasePayslip();
     message.id = object.id ?? '';
+    message.employeeId = object.employeeId ?? '';
+    message.month = object.month ?? 0;
+    message.year = object.year ?? 0;
+    message.minioObjectKey = object.minioObjectKey ?? '';
+    message.generatedAt = object.generatedAt ?? '';
     return message;
   },
 };
 
-messageTypeRegistry.set(Payroll.$type, Payroll);
+messageTypeRegistry.set(Payslip.$type, Payslip);
+
+function createBaseGeneratePayslipsRequest(): GeneratePayslipsRequest {
+  return { $type: 'payroll.GeneratePayslipsRequest', month: 0, year: 0 };
+}
+
+export const GeneratePayslipsRequest: MessageFns<
+  GeneratePayslipsRequest,
+  'payroll.GeneratePayslipsRequest'
+> = {
+  $type: 'payroll.GeneratePayslipsRequest' as const,
+
+  encode(
+    message: GeneratePayslipsRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.month !== 0) {
+      writer.uint32(8).int32(message.month);
+    }
+    if (message.year !== 0) {
+      writer.uint32(16).int32(message.year);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GeneratePayslipsRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGeneratePayslipsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.month = reader.int32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.year = reader.int32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GeneratePayslipsRequest {
+    return {
+      $type: GeneratePayslipsRequest.$type,
+      month: isSet(object.month) ? globalThis.Number(object.month) : 0,
+      year: isSet(object.year) ? globalThis.Number(object.year) : 0,
+    };
+  },
+
+  toJSON(message: GeneratePayslipsRequest): unknown {
+    const obj: any = {};
+    if (message.month !== 0) {
+      obj.month = Math.round(message.month);
+    }
+    if (message.year !== 0) {
+      obj.year = Math.round(message.year);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GeneratePayslipsRequest>, I>>(
+    base?: I,
+  ): GeneratePayslipsRequest {
+    return GeneratePayslipsRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GeneratePayslipsRequest>, I>>(
+    object: I,
+  ): GeneratePayslipsRequest {
+    const message = createBaseGeneratePayslipsRequest();
+    message.month = object.month ?? 0;
+    message.year = object.year ?? 0;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(GeneratePayslipsRequest.$type, GeneratePayslipsRequest);
+
+function createBaseGeneratePayslipsResponse(): GeneratePayslipsResponse {
+  return {
+    $type: 'payroll.GeneratePayslipsResponse',
+    generated: [],
+    failed: [],
+  };
+}
+
+export const GeneratePayslipsResponse: MessageFns<
+  GeneratePayslipsResponse,
+  'payroll.GeneratePayslipsResponse'
+> = {
+  $type: 'payroll.GeneratePayslipsResponse' as const,
+
+  encode(
+    message: GeneratePayslipsResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    for (const v of message.generated) {
+      Payslip.encode(v!, writer.uint32(10).fork()).join();
+    }
+    for (const v of message.failed) {
+      writer.uint32(18).string(v!);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GeneratePayslipsResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGeneratePayslipsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.generated.push(Payslip.decode(reader, reader.uint32()));
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.failed.push(reader.string());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): GeneratePayslipsResponse {
+    return {
+      $type: GeneratePayslipsResponse.$type,
+      generated: globalThis.Array.isArray(object?.generated)
+        ? object.generated.map((e: any) => Payslip.fromJSON(e))
+        : [],
+      failed: globalThis.Array.isArray(object?.failed)
+        ? object.failed.map((e: any) => globalThis.String(e))
+        : [],
+    };
+  },
+
+  toJSON(message: GeneratePayslipsResponse): unknown {
+    const obj: any = {};
+    if (message.generated?.length) {
+      obj.generated = message.generated.map((e) => Payslip.toJSON(e));
+    }
+    if (message.failed?.length) {
+      obj.failed = message.failed;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GeneratePayslipsResponse>, I>>(
+    base?: I,
+  ): GeneratePayslipsResponse {
+    return GeneratePayslipsResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GeneratePayslipsResponse>, I>>(
+    object: I,
+  ): GeneratePayslipsResponse {
+    const message = createBaseGeneratePayslipsResponse();
+    message.generated =
+      object.generated?.map((e) => Payslip.fromPartial(e)) || [];
+    message.failed = object.failed?.map((e) => e) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(
+  GeneratePayslipsResponse.$type,
+  GeneratePayslipsResponse,
+);
+
+function createBaseStorePayslipRequest(): StorePayslipRequest {
+  return {
+    $type: 'payroll.StorePayslipRequest',
+    employeeId: '',
+    month: 0,
+    year: 0,
+    pdfBytes: new Uint8Array(0),
+  };
+}
+
+export const StorePayslipRequest: MessageFns<
+  StorePayslipRequest,
+  'payroll.StorePayslipRequest'
+> = {
+  $type: 'payroll.StorePayslipRequest' as const,
+
+  encode(
+    message: StorePayslipRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
+      writer.uint32(10).string(message.employeeId);
+    }
+    if (message.month !== 0) {
+      writer.uint32(16).int32(message.month);
+    }
+    if (message.year !== 0) {
+      writer.uint32(24).int32(message.year);
+    }
+    if (message.pdfBytes.length !== 0) {
+      writer.uint32(34).bytes(message.pdfBytes);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): StorePayslipRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStorePayslipRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.month = reader.int32();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.year = reader.int32();
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.pdfBytes = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): StorePayslipRequest {
+    return {
+      $type: StorePayslipRequest.$type,
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      month: isSet(object.month) ? globalThis.Number(object.month) : 0,
+      year: isSet(object.year) ? globalThis.Number(object.year) : 0,
+      pdfBytes: isSet(object.pdfBytes)
+        ? bytesFromBase64(object.pdfBytes)
+        : new Uint8Array(0),
+    };
+  },
+
+  toJSON(message: StorePayslipRequest): unknown {
+    const obj: any = {};
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.month !== 0) {
+      obj.month = Math.round(message.month);
+    }
+    if (message.year !== 0) {
+      obj.year = Math.round(message.year);
+    }
+    if (message.pdfBytes.length !== 0) {
+      obj.pdfBytes = base64FromBytes(message.pdfBytes);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<StorePayslipRequest>, I>>(
+    base?: I,
+  ): StorePayslipRequest {
+    return StorePayslipRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<StorePayslipRequest>, I>>(
+    object: I,
+  ): StorePayslipRequest {
+    const message = createBaseStorePayslipRequest();
+    message.employeeId = object.employeeId ?? '';
+    message.month = object.month ?? 0;
+    message.year = object.year ?? 0;
+    message.pdfBytes = object.pdfBytes ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+messageTypeRegistry.set(StorePayslipRequest.$type, StorePayslipRequest);
 
 export type PayrollServiceService = typeof PayrollServiceService;
 export const PayrollServiceService = {
-  getPayroll: {
-    path: '/payroll.PayrollService/GetPayroll' as const,
+  generatePayslips: {
+    path: '/payroll.PayrollService/GeneratePayslips' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: Payroll): Buffer =>
-      Buffer.from(Payroll.encode(value).finish()),
-    requestDeserialize: (value: Buffer): Payroll => Payroll.decode(value),
-    responseSerialize: (value: Payroll): Buffer =>
-      Buffer.from(Payroll.encode(value).finish()),
-    responseDeserialize: (value: Buffer): Payroll => Payroll.decode(value),
+    requestSerialize: (value: GeneratePayslipsRequest): Buffer =>
+      Buffer.from(GeneratePayslipsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GeneratePayslipsRequest =>
+      GeneratePayslipsRequest.decode(value),
+    responseSerialize: (value: GeneratePayslipsResponse): Buffer =>
+      Buffer.from(GeneratePayslipsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): GeneratePayslipsResponse =>
+      GeneratePayslipsResponse.decode(value),
+  },
+  storePayslip: {
+    path: '/payroll.PayrollService/StorePayslip' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: StorePayslipRequest): Buffer =>
+      Buffer.from(StorePayslipRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): StorePayslipRequest =>
+      StorePayslipRequest.decode(value),
+    responseSerialize: (value: Payslip): Buffer =>
+      Buffer.from(Payslip.encode(value).finish()),
+    responseDeserialize: (value: Buffer): Payslip => Payslip.decode(value),
   },
 } as const;
 
 export interface PayrollServiceServer extends UntypedServiceImplementation {
-  getPayroll: handleUnaryCall<Payroll, Payroll>;
+  generatePayslips: handleUnaryCall<
+    GeneratePayslipsRequest,
+    GeneratePayslipsResponse
+  >;
+  storePayslip: handleUnaryCall<StorePayslipRequest, Payslip>;
 }
 
 export interface PayrollServiceClient extends Client {
-  getPayroll(
-    request: Payroll,
-    callback: (error: ServiceError | null, response: Payroll) => void,
+  generatePayslips(
+    request: GeneratePayslipsRequest,
+    callback: (
+      error: ServiceError | null,
+      response: GeneratePayslipsResponse,
+    ) => void,
   ): ClientUnaryCall;
-  getPayroll(
-    request: Payroll,
+  generatePayslips(
+    request: GeneratePayslipsRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: Payroll) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GeneratePayslipsResponse,
+    ) => void,
   ): ClientUnaryCall;
-  getPayroll(
-    request: Payroll,
+  generatePayslips(
+    request: GeneratePayslipsRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: Payroll) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GeneratePayslipsResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  storePayslip(
+    request: StorePayslipRequest,
+    callback: (error: ServiceError | null, response: Payslip) => void,
+  ): ClientUnaryCall;
+  storePayslip(
+    request: StorePayslipRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: Payslip) => void,
+  ): ClientUnaryCall;
+  storePayslip(
+    request: StorePayslipRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: Payslip) => void,
   ): ClientUnaryCall;
 }
 
@@ -145,6 +653,31 @@ export const PayrollServiceClient = makeGenericClientConstructor(
   service: typeof PayrollServiceService;
   serviceName: string;
 };
+
+function bytesFromBase64(b64: string): Uint8Array {
+  if ((globalThis as any).Buffer) {
+    return Uint8Array.from((globalThis as any).Buffer.from(b64, 'base64'));
+  } else {
+    const bin = globalThis.atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; ++i) {
+      arr[i] = bin.charCodeAt(i);
+    }
+    return arr;
+  }
+}
+
+function base64FromBytes(arr: Uint8Array): string {
+  if ((globalThis as any).Buffer) {
+    return (globalThis as any).Buffer.from(arr).toString('base64');
+  } else {
+    const bin: string[] = [];
+    arr.forEach((byte) => {
+      bin.push(globalThis.String.fromCharCode(byte));
+    });
+    return globalThis.btoa(bin.join(''));
+  }
+}
 
 type Builtin =
   | Date

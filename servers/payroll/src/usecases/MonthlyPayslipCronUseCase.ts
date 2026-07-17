@@ -18,8 +18,10 @@ export default class MonthlyPayslipCronUseCase extends BaseUseCase<void, void> {
 	async execute(): Promise<void> {
 		const now = new Date();
 		const result = await this.generatePayslipsUseCase.execute({
-			month: now.getUTCMonth() + 1,
-			year: now.getUTCFullYear(),
+			input: {
+				month: now.getUTCMonth() + 1,
+				year: now.getUTCFullYear(),
+			},
 		});
 		console.log(
 			`MonthlyPayslipCronUseCase: generated ${(result as { generated: unknown[] }).generated.length}, failed ${(result as { failed: unknown[] }).failed.length}`,
