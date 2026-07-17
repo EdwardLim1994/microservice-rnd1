@@ -4,7 +4,9 @@ import EmployeeRepository from "./repositories/EmployeeRepository";
 import EmployeeGraphqlRouter from "./routers/EmployeeGraphqlRouter";
 import EmployeeGrpcRouter from "./routers/EmployeeGrpcRouter";
 import AssignSupervisorUseCase from "./usecases/AssignSupervisorUseCase";
+import ConfirmPasswordResetUseCase from "./usecases/ConfirmPasswordResetUseCase";
 import RegisterEmployeeUseCase from "./usecases/RegisterEmployeeUseCase";
+import RequestPasswordResetUseCase from "./usecases/RequestPasswordResetUseCase";
 
 export default async function main() {
 	await ServerApp.init([
@@ -32,6 +34,8 @@ export default async function main() {
 			// couple gRPC's DI graph to GraphQL router startup ordering.
 			registerEmployeeUseCase: transient(RegisterEmployeeUseCase),
 			assignSupervisorUseCase: transient(AssignSupervisorUseCase),
+			requestPasswordResetUseCase: transient(RequestPasswordResetUseCase),
+			confirmPasswordResetUseCase: transient(ConfirmPasswordResetUseCase),
 		})
 		.routers([EmployeeGraphqlRouter, EmployeeGrpcRouter])
 		.run(() => `Server is running`);

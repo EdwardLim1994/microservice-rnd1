@@ -15,12 +15,29 @@ export type Scalars = {
   _FieldSet: { input: unknown; output: unknown };
 };
 
+/** Generic acknowledgement result for operations that do not return domain data. */
+export type AcknowledgementResult = {
+  __typename?: 'AcknowledgementResult';
+  /** Optional human-readable message for the caller. */
+  message?: Maybe<Scalars['String']['output']>;
+  /** True if the operation was accepted successfully. */
+  success: Scalars['Boolean']['output'];
+};
+
 /** Input for assigning or reassigning a supervisor to an employee. */
 export type AssignSupervisorInput = {
   /** Internal ID of the employee to update. */
   employeeId: Scalars['ID']['input'];
   /** Internal ID of the employee to assign as supervisor. */
   supervisorId: Scalars['ID']['input'];
+};
+
+/** Input for step 2 of the password reset flow — confirm and set new password. */
+export type ConfirmPasswordResetInput = {
+  /** New password to set. Must meet Authentik password policy. */
+  newPassword: Scalars['String']['input'];
+  /** Reset token received via email link from Authentik. */
+  resetToken: Scalars['String']['input'];
 };
 
 /** Represents an employee registered in the HR system. */
@@ -55,19 +72,37 @@ export type Mutation = {
    */
   assignSupervisor: Employee;
   /**
+   * Step 2 of password reset — confirm reset token and set new password via Authentik.
+   * Returns error if token is invalid, expired, or password does not meet policy.
+   */
+  confirmPasswordReset: AcknowledgementResult;
+  /**
    * Register a new employee in the system. Creates a Postgres record and an
    * Authentik account with an auto-generated temporary password. Returns the
    * employee record and the temporary password (shown once).
    */
   registerEmployee: RegisterEmployeeResult;
+  /**
+   * Step 1 of password reset — request a reset email via Authentik.
+   * Always returns success to avoid leaking whether an email is registered.
+   */
+  requestPasswordReset: AcknowledgementResult;
 };
 
 export type MutationAssignSupervisorArgs = {
   input: AssignSupervisorInput;
 };
 
+export type MutationConfirmPasswordResetArgs = {
+  input: ConfirmPasswordResetInput;
+};
+
 export type MutationRegisterEmployeeArgs = {
   input: RegisterEmployeeInput;
+};
+
+export type MutationRequestPasswordResetArgs = {
+  input: RequestPasswordResetInput;
 };
 
 export type Query = {
@@ -119,6 +154,12 @@ export type RegisterEmployeeResult = {
    * Shown once to HR — not stored in the system after this response.
    */
   temporaryPassword: Scalars['String']['output'];
+};
+
+/** Input for step 1 of the password reset flow — request a reset email. */
+export type RequestPasswordResetInput = {
+  /** Registered email address of the employee. */
+  email: Scalars['String']['input'];
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -272,30 +313,45 @@ export type FederationReferenceTypes = ResolversObject<{
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
+  AcknowledgementResult: ResolverTypeWrapper<AcknowledgementResult>;
+  String: ResolverTypeWrapper<Scalars['String']['output']>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   AssignSupervisorInput: AssignSupervisorInput;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  ConfirmPasswordResetInput: ConfirmPasswordResetInput;
   Employee: ResolverTypeWrapper<Employee>;
-  String: ResolverTypeWrapper<Scalars['String']['output']>;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RegisterEmployeeInput: RegisterEmployeeInput;
   RegisterEmployeeResult: ResolverTypeWrapper<RegisterEmployeeResult>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  RequestPasswordResetInput: RequestPasswordResetInput;
 }>;
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
+  AcknowledgementResult: AcknowledgementResult;
+  String: Scalars['String']['output'];
+  Boolean: Scalars['Boolean']['output'];
   AssignSupervisorInput: AssignSupervisorInput;
   ID: Scalars['ID']['output'];
+  ConfirmPasswordResetInput: ConfirmPasswordResetInput;
   Employee: Employee | FederationReferenceTypes['Employee'];
-  String: Scalars['String']['output'];
   Float: Scalars['Float']['output'];
   Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
   RegisterEmployeeInput: RegisterEmployeeInput;
   RegisterEmployeeResult: RegisterEmployeeResult;
-  Boolean: Scalars['Boolean']['output'];
+  RequestPasswordResetInput: RequestPasswordResetInput;
+}>;
+
+export type AcknowledgementResultResolvers<
+  ContextType = EmployeeContextType,
+  ParentType extends
+    ResolversParentTypes['AcknowledgementResult'] = ResolversParentTypes['AcknowledgementResult'],
+> = ResolversObject<{
+  message?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
 }>;
 
 export type EmployeeResolvers<
@@ -335,11 +391,23 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationAssignSupervisorArgs, 'input'>
   >;
+  confirmPasswordReset?: Resolver<
+    ResolversTypes['AcknowledgementResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationConfirmPasswordResetArgs, 'input'>
+  >;
   registerEmployee?: Resolver<
     ResolversTypes['RegisterEmployeeResult'],
     ParentType,
     ContextType,
     RequireFields<MutationRegisterEmployeeArgs, 'input'>
+  >;
+  requestPasswordReset?: Resolver<
+    ResolversTypes['AcknowledgementResult'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRequestPasswordResetArgs, 'input'>
   >;
 }>;
 
@@ -376,6 +444,7 @@ export type RegisterEmployeeResultResolvers<
 }>;
 
 export type Resolvers<ContextType = EmployeeContextType> = ResolversObject<{
+  AcknowledgementResult?: AcknowledgementResultResolvers<ContextType>;
   Employee?: EmployeeResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;

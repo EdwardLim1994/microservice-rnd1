@@ -63,6 +63,24 @@ export interface AssignSupervisorRequest {
   supervisorId: string;
 }
 
+export interface RequestPasswordResetRequest {
+  $type: 'employee.RequestPasswordResetRequest';
+  email: string;
+}
+
+export interface ConfirmPasswordResetRequest {
+  $type: 'employee.ConfirmPasswordResetRequest';
+  resetToken: string;
+  newPassword: string;
+}
+
+export interface AcknowledgementResponse {
+  $type: 'employee.AcknowledgementResponse';
+  success: boolean;
+  /** empty string if none */
+  message: string;
+}
+
 function createBaseEmployee(): Employee {
   return {
     $type: 'employee.Employee',
@@ -655,6 +673,295 @@ export const AssignSupervisorRequest: MessageFns<
 
 messageTypeRegistry.set(AssignSupervisorRequest.$type, AssignSupervisorRequest);
 
+function createBaseRequestPasswordResetRequest(): RequestPasswordResetRequest {
+  return { $type: 'employee.RequestPasswordResetRequest', email: '' };
+}
+
+export const RequestPasswordResetRequest: MessageFns<
+  RequestPasswordResetRequest,
+  'employee.RequestPasswordResetRequest'
+> = {
+  $type: 'employee.RequestPasswordResetRequest' as const,
+
+  encode(
+    message: RequestPasswordResetRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.email !== '') {
+      writer.uint32(10).string(message.email);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): RequestPasswordResetRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRequestPasswordResetRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.email = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RequestPasswordResetRequest {
+    return {
+      $type: RequestPasswordResetRequest.$type,
+      email: isSet(object.email) ? globalThis.String(object.email) : '',
+    };
+  },
+
+  toJSON(message: RequestPasswordResetRequest): unknown {
+    const obj: any = {};
+    if (message.email !== '') {
+      obj.email = message.email;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RequestPasswordResetRequest>, I>>(
+    base?: I,
+  ): RequestPasswordResetRequest {
+    return RequestPasswordResetRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RequestPasswordResetRequest>, I>>(
+    object: I,
+  ): RequestPasswordResetRequest {
+    const message = createBaseRequestPasswordResetRequest();
+    message.email = object.email ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(
+  RequestPasswordResetRequest.$type,
+  RequestPasswordResetRequest,
+);
+
+function createBaseConfirmPasswordResetRequest(): ConfirmPasswordResetRequest {
+  return {
+    $type: 'employee.ConfirmPasswordResetRequest',
+    resetToken: '',
+    newPassword: '',
+  };
+}
+
+export const ConfirmPasswordResetRequest: MessageFns<
+  ConfirmPasswordResetRequest,
+  'employee.ConfirmPasswordResetRequest'
+> = {
+  $type: 'employee.ConfirmPasswordResetRequest' as const,
+
+  encode(
+    message: ConfirmPasswordResetRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.resetToken !== '') {
+      writer.uint32(10).string(message.resetToken);
+    }
+    if (message.newPassword !== '') {
+      writer.uint32(18).string(message.newPassword);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ConfirmPasswordResetRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseConfirmPasswordResetRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.resetToken = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.newPassword = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ConfirmPasswordResetRequest {
+    return {
+      $type: ConfirmPasswordResetRequest.$type,
+      resetToken: isSet(object.resetToken)
+        ? globalThis.String(object.resetToken)
+        : '',
+      newPassword: isSet(object.newPassword)
+        ? globalThis.String(object.newPassword)
+        : '',
+    };
+  },
+
+  toJSON(message: ConfirmPasswordResetRequest): unknown {
+    const obj: any = {};
+    if (message.resetToken !== '') {
+      obj.resetToken = message.resetToken;
+    }
+    if (message.newPassword !== '') {
+      obj.newPassword = message.newPassword;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ConfirmPasswordResetRequest>, I>>(
+    base?: I,
+  ): ConfirmPasswordResetRequest {
+    return ConfirmPasswordResetRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ConfirmPasswordResetRequest>, I>>(
+    object: I,
+  ): ConfirmPasswordResetRequest {
+    const message = createBaseConfirmPasswordResetRequest();
+    message.resetToken = object.resetToken ?? '';
+    message.newPassword = object.newPassword ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(
+  ConfirmPasswordResetRequest.$type,
+  ConfirmPasswordResetRequest,
+);
+
+function createBaseAcknowledgementResponse(): AcknowledgementResponse {
+  return {
+    $type: 'employee.AcknowledgementResponse',
+    success: false,
+    message: '',
+  };
+}
+
+export const AcknowledgementResponse: MessageFns<
+  AcknowledgementResponse,
+  'employee.AcknowledgementResponse'
+> = {
+  $type: 'employee.AcknowledgementResponse' as const,
+
+  encode(
+    message: AcknowledgementResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.success !== false) {
+      writer.uint32(8).bool(message.success);
+    }
+    if (message.message !== '') {
+      writer.uint32(18).string(message.message);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): AcknowledgementResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAcknowledgementResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.success = reader.bool();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.message = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AcknowledgementResponse {
+    return {
+      $type: AcknowledgementResponse.$type,
+      success: isSet(object.success)
+        ? globalThis.Boolean(object.success)
+        : false,
+      message: isSet(object.message) ? globalThis.String(object.message) : '',
+    };
+  },
+
+  toJSON(message: AcknowledgementResponse): unknown {
+    const obj: any = {};
+    if (message.success !== false) {
+      obj.success = message.success;
+    }
+    if (message.message !== '') {
+      obj.message = message.message;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AcknowledgementResponse>, I>>(
+    base?: I,
+  ): AcknowledgementResponse {
+    return AcknowledgementResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AcknowledgementResponse>, I>>(
+    object: I,
+  ): AcknowledgementResponse {
+    const message = createBaseAcknowledgementResponse();
+    message.success = object.success ?? false;
+    message.message = object.message ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AcknowledgementResponse.$type, AcknowledgementResponse);
+
 export type EmployeeServiceService = typeof EmployeeServiceService;
 export const EmployeeServiceService = {
   registerEmployee: {
@@ -682,6 +989,32 @@ export const EmployeeServiceService = {
       Buffer.from(Employee.encode(value).finish()),
     responseDeserialize: (value: Buffer): Employee => Employee.decode(value),
   },
+  requestPasswordReset: {
+    path: '/employee.EmployeeService/RequestPasswordReset' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: RequestPasswordResetRequest): Buffer =>
+      Buffer.from(RequestPasswordResetRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): RequestPasswordResetRequest =>
+      RequestPasswordResetRequest.decode(value),
+    responseSerialize: (value: AcknowledgementResponse): Buffer =>
+      Buffer.from(AcknowledgementResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AcknowledgementResponse =>
+      AcknowledgementResponse.decode(value),
+  },
+  confirmPasswordReset: {
+    path: '/employee.EmployeeService/ConfirmPasswordReset' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ConfirmPasswordResetRequest): Buffer =>
+      Buffer.from(ConfirmPasswordResetRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ConfirmPasswordResetRequest =>
+      ConfirmPasswordResetRequest.decode(value),
+    responseSerialize: (value: AcknowledgementResponse): Buffer =>
+      Buffer.from(AcknowledgementResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AcknowledgementResponse =>
+      AcknowledgementResponse.decode(value),
+  },
 } as const;
 
 export interface EmployeeServiceServer extends UntypedServiceImplementation {
@@ -690,6 +1023,14 @@ export interface EmployeeServiceServer extends UntypedServiceImplementation {
     RegisterEmployeeResponse
   >;
   assignSupervisor: handleUnaryCall<AssignSupervisorRequest, Employee>;
+  requestPasswordReset: handleUnaryCall<
+    RequestPasswordResetRequest,
+    AcknowledgementResponse
+  >;
+  confirmPasswordReset: handleUnaryCall<
+    ConfirmPasswordResetRequest,
+    AcknowledgementResponse
+  >;
 }
 
 export interface EmployeeServiceClient extends Client {
@@ -731,6 +1072,54 @@ export interface EmployeeServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: Employee) => void,
+  ): ClientUnaryCall;
+  requestPasswordReset(
+    request: RequestPasswordResetRequest,
+    callback: (
+      error: ServiceError | null,
+      response: AcknowledgementResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  requestPasswordReset(
+    request: RequestPasswordResetRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: AcknowledgementResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  requestPasswordReset(
+    request: RequestPasswordResetRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: AcknowledgementResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  confirmPasswordReset(
+    request: ConfirmPasswordResetRequest,
+    callback: (
+      error: ServiceError | null,
+      response: AcknowledgementResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  confirmPasswordReset(
+    request: ConfirmPasswordResetRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: AcknowledgementResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  confirmPasswordReset(
+    request: ConfirmPasswordResetRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: AcknowledgementResponse,
+    ) => void,
   ): ClientUnaryCall;
 }
 

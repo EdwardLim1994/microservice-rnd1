@@ -3,6 +3,8 @@ export {
   AuthentikClient,
   type AuthentikClientConfig,
   type AuthentikCreatedUser,
+  AuthentikInvalidTokenError,
+  AuthentikPasswordPolicyError,
   AuthentikPlugin,
   type AuthentikTokenResponse,
 } from './AuthentikPlugin';
