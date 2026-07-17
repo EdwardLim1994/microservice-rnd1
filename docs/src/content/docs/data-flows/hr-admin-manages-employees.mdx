@@ -1,0 +1,26 @@
+---
+title: HR Admin Manages Employees — Data Flows
+description: Registration and monthly payslip generation flows for US-1
+version: 0.1.0
+draft: true
+---
+
+## E2E-1 — Register an employee
+
+1. `hr-portal`'s `EmployeeRegistrationForm` submits `registerEmployee(input)` to `employee-subgraph`.
+2. `RegisterEmployeeUseCase` validates input, checks `employeeId` uniqueness and `supervisorId`
+   existence via `EmployeeRepository`, inserts the `Employee` row.
+3. Calls Authentik's API to create the account with an auto-generated temporary password. On
+   failure, rolls back the Postgres insert.
+4. Returns the employee record and temporary password; the form displays it in a copyable field.
+
+## E2E-2 — Monthly payslip generation
+
+1. `servers/payroll`'s `PayrollCronRouter` fires `MonthlyPayslipCronUseCase` on schedule.
+2. `GeneratePayslipsUseCase` lists employees via `EmployeeServiceClient` (GraphQL call into
+   `employee-subgraph`), generates a PDF per employee (`generatePayslipPdf`).
+3. `StorePayslipUseCase` uploads the PDF to Minio (`payslips/{employeeId}/{year}/{month}.pdf`) and
+   upserts the `Payslip` record.
+4. `NotificationRepository.create` inserts a `Notification` for the employee.
+5. `hr-portal`'s `NotificationBell` polls `payroll-subgraph.notifications(employeeId)` and surfaces
+   the new notification.
