@@ -5,6 +5,7 @@ import {
   Outlet,
 } from '@tanstack/react-router';
 import { EmployeeRegistrationForm } from './components/EmployeeRegistrationForm';
+import { LeaveApprovalView } from './components/LeaveApprovalView';
 import { LeaveRequestForm } from './components/LeaveRequestForm';
 import { NotificationBell } from './components/NotificationBell';
 
@@ -47,10 +48,22 @@ const leaveRoute = createRoute({
   ),
 });
 
+const leaveApprovalsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/leave/approvals',
+  component: () => (
+    <div>
+      <h1>Leave Approvals</h1>
+      <LeaveApprovalView />
+    </div>
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   employeesRoute,
   leaveRoute,
+  leaveApprovalsRoute,
 ]);
 
 export const router = createRouter({ routeTree });
