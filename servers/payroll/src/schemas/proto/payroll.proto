@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package payroll;
+
+message Payslip {
+  string id = 1;
+  string employeeId = 2;
+  int32 month = 3;
+  int32 year = 4;
+  string minioObjectKey = 5;
+  string generatedAt = 6; // ISO 8601
+}
+
+message GeneratePayslipsRequest {
+  int32 month = 1;
+  int32 year = 2;
+}
+
+message GeneratePayslipsResponse {
+  repeated Payslip generated = 1;
+  repeated string failed = 2; // employee ids
+}
+
+// FEAT-4 — a standalone RPC (not folded into GeneratePayslips), matching the OpenSpec component
+// payroll-subgraph.PayrollService.StorePayslip. GeneratePayslipsUseCase calls the same
+// StorePayslipUseCase in-process for each employee rather than duplicating the Minio/Postgres
+// logic.
+message StorePayslipRequest {
+  string employeeId = 1;
+  int32 month = 2;
+  int32 year = 3;
+  bytes pdfBytes = 4;
+}
+
+service PayrollService {
+  rpc GeneratePayslips (GeneratePayslipsRequest) returns (GeneratePayslipsResponse);
+  rpc StorePayslip (StorePayslipRequest) returns (Payslip);
+}

@@ -1,0 +1,25 @@
+---
+title: HR Admin Manages Employees — Architecture
+description: Service boundaries and ownership for US-1
+version: 0.1.0
+draft: true
+---
+
+## Services
+
+- **`servers/employee`** (gRPC + GraphQL, Postgres) — owns the `Employee` entity. `RegisterEmployee`
+  and `AssignSupervisor` gRPC RPCs, mirrored via `employee-subgraph` GraphQL mutations. Creates the
+  Authentik account for a new employee via the Authentik API (no credential storage of its own).
+- **`servers/payroll`** (gRPC + GraphQL + Cron, Postgres, Minio) — owns `Payslip` and `Notification`.
+  `PayrollCronRouter` fires `MonthlyPayslipCronUseCase` monthly, which calls `GeneratePayslipsUseCase`
+  per employee (resolved via `EmployeeServiceClient`, a plain-fetch GraphQL client against
+  `employee-subgraph`). Each payslip PDF is rendered, stored via `StorePayslipUseCase` (Minio +
+  Postgres), and a `Notification` record is created for the employee.
+- **`apps/hr-portal`** — the HR-facing frontend. `EmployeeRegistrationForm` calls
+  `employee-subgraph.registerEmployee`; `NotificationBell` polls `payroll-subgraph.notifications`.
+
+## Ownership boundary
+
+`employee-subgraph` and `payroll-subgraph` each own a separate Postgres database — no
+cross-service DB access. Payroll resolves employee identity/relations via
+`EmployeeServiceClient`'s GraphQL calls into employee-subgraph, never a direct DB join.

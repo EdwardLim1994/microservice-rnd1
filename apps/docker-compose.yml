@@ -1,2 +1,3 @@
 include:
   - ./docs/docker-compose.yml
+  - ./hr-portal/docker-compose.yml

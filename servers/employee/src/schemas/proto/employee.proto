@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package employee;
+
+// supervisorId is an empty string when the employee has no supervisor — proto3 has no bare
+// nullable string without wrapper types/oneof, and this is simpler than either for a single
+// optional foreign key.
+message Employee {
+  string id = 1;
+  string employeeId = 2;
+  string fullName = 3;
+  string role = 4;
+  string department = 5;
+  double grossSalary = 6;
+  string supervisorId = 7;
+  string createdAt = 8; // ISO 8601
+}
+
+message RegisterEmployeeRequest {
+  string fullName = 1;
+  string employeeId = 2;
+  string role = 3;
+  string department = 4;
+  double grossSalary = 5;
+  string supervisorId = 6; // empty string if none
+}
+
+message RegisterEmployeeResponse {
+  Employee employee = 1;
+  string temporaryPassword = 2;
+}
+
+message AssignSupervisorRequest {
+  string employeeId = 1;
+  string supervisorId = 2;
+}
+
+service EmployeeService {
+  rpc RegisterEmployee (RegisterEmployeeRequest) returns (RegisterEmployeeResponse);
+  rpc AssignSupervisor (AssignSupervisorRequest) returns (Employee);
+}
