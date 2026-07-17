@@ -13,9 +13,7 @@
 		"@graphql-codegen/schema-ast": "^6.0.1",
 		"@graphql-codegen/typescript": "^6.0.2",
 		"@graphql-codegen/typescript-resolvers": "^6.0.2",
-		"prisma": "^7.8.0",
-		"@rstest/core": "^0.10.6",
-		"@rstest/coverage-istanbul": "0.10.6"
+		"prisma": "^7.8.0"
 	},
 	"dependencies": {
 		"server": "workspace:*",
@@ -32,7 +30,6 @@
 		"dev": "bun run index.ts --watch --verbose",
 		"k8s:build": "cd ../.. && docker build -f servers/payroll/Dockerfile -t payroll:local . && docker build -f servers/payroll/Dockerfile --target migrate -t payroll-migrate:local .",
 		"gen": "bun ../../packages/script/src/bin/generate-api.ts",
-		"test": "rstest",
 		"postinstall": "prisma generate",
 		"vault:provision": "cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @servers/payroll/ansible/vars.yml"
 	}
