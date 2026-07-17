@@ -1,0 +1,41 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key", "@shareable"])
+
+type Employee @key(fields: "id") {
+  id: ID!
+  employeeId: String!
+  fullName: String!
+  role: String!
+  department: String!
+  grossSalary: Float!
+  supervisor: Employee
+  createdAt: String!
+}
+
+type RegisterEmployeeResult {
+  employee: Employee!
+  temporaryPassword: String!
+}
+
+input RegisterEmployeeInput {
+  fullName: String!
+  employeeId: String!
+  role: String!
+  department: String!
+  grossSalary: Float!
+  supervisorId: ID
+}
+
+input AssignSupervisorInput {
+  employeeId: ID!
+  supervisorId: ID!
+}
+
+type Query {
+  employee(id: ID!): Employee
+  employees(department: String, role: String): [Employee!]!
+}
+
+type Mutation {
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+  assignSupervisor(input: AssignSupervisorInput!): Employee!
+}

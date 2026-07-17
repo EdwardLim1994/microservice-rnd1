@@ -1,0 +1,66 @@
+services:
+  payroll:
+    build:
+      context: ../..
+      dockerfile: servers/payroll/Dockerfile
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-x64}
+    container_name: payroll_server
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      DB_HOST: payroll-db
+      DB_PORT: 5432
+      DB_NAME: payroll
+      VAULT_ADDR: http://vault:8200
+      VAULT_DB_ROLE: payroll-role
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+    networks:
+      - adminer
+      - vault
+      - minio
+    depends_on:
+      payroll-db:
+        condition: service_healthy
+
+  payroll-migrate:
+    build:
+      context: ../..
+      dockerfile: servers/payroll/Dockerfile
+      target: migrate
+      args:
+        BUN_TARGET: ${BUN_TARGET:-bun-linux-arm64}
+    container_name: payroll_migrate
+    env_file:
+      - .env
+    networks:
+      - adminer
+    depends_on:
+      payroll-db:
+        condition: service_healthy
+    restart: "no"
+
+  payroll-db:
+    image: postgres:15.3-alpine
+    container_name: payroll_db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: payroll
+    ports:
+      - "5102:5432"
+    networks:
+      - adminer
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U myuser -d payroll" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+networks:
+  vault:
+  adminer:
+  minio:

@@ -1,2 +1,4 @@
 include:
   - ./auth/docker-compose.yml
+  - ./employee/docker-compose.yml
+  - ./payroll/docker-compose.yml

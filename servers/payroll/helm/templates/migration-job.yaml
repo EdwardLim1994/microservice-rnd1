@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # No release-name templating quirk to worry about here (unlike Deployment/Service, which reuse
+  # "server.fullname" across upgrades) — but a Job's spec is immutable, so re-running `helm
+  # upgrade` after a real schema change needs this Job deleted first (`kubectl delete job
+  # {{ include "server.fullname" . }}-migrate -n <namespace>`) or Helm's apply will fail trying to
+  # update a field it can't change in place.
+  name: {{ include "server.fullname" . }}-migrate
+  labels:
+    {{- include "server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+spec:
+  # Postgres's own readinessProbe gates whether its Service has any endpoints at all — until it
+  # does, connections here just fail outright rather than queueing, so this Job relies on
+  # backoffLimit's retries (with backoff) rather than an initContainer wait-loop.
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        {{- include "server.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.migrate.repository }}:{{ .Values.image.migrate.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:{{ .Values.postgres.password }}@{{ include "server.fullname" . }}-postgres:5432/{{ .Values.postgres.database }}"

@@ -1,0 +1,22 @@
+services:
+  hr-portal:
+    build:
+      context: ../..
+      dockerfile: apps/hr-portal/Dockerfile
+      args:
+        # Build-time only — see Dockerfile's comment on why this can't be a plain `environment:`
+        # entry below. Points at the Apollo Router's Docker service name/port, not localhost.
+        PUBLIC_GRAPHQL_URL: http://router:4000/graphql
+    container_name: hr-portal_web
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - graphql
+    depends_on:
+      - router
+    restart: unless-stopped
+
+networks:
+  graphql:

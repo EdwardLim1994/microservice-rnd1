@@ -3,3 +3,13 @@ subgraphs:
       routing_url: https://auth:4003
       schema:
          file: ../../../../servers/auth/src/schemas/graphql/auth.graphql
+
+   employee:
+      routing_url: http://employee:4001
+      schema:
+         file: ../../../../servers/employee/src/schemas/graphql/employee.graphql
+
+   payroll:
+      routing_url: http://payroll:4002
+      schema:
+         file: ../../../../servers/payroll/src/schemas/graphql/payroll.graphql
