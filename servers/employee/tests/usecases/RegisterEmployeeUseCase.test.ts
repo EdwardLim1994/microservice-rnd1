@@ -51,14 +51,18 @@ function createMockAuthentik(
 	return { createUser: createUserImpl } as unknown as AuthentikClient;
 }
 
+// Wrapped in { input } — matches the `{ input: {...} }` shape GraphqlRouter actually passes
+// for a `registerEmployee(input: RegisterEmployeeInput!)` mutation's args.
 function validInput(overrides: Record<string, unknown> = {}) {
 	return {
-		fullName: "Ada Lovelace",
-		employeeId: "EMP-001",
-		role: "Engineer",
-		department: "Engineering",
-		grossSalary: 5000,
-		...overrides,
+		input: {
+			fullName: "Ada Lovelace",
+			employeeId: "EMP-001",
+			role: "Engineer",
+			department: "Engineering",
+			grossSalary: 5000,
+			...overrides,
+		},
 	};
 }
 

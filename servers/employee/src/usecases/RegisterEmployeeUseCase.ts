@@ -33,7 +33,7 @@ function generateTemporaryPassword(): string {
 }
 
 export default class RegisterEmployeeUseCase extends BaseUseCase<
-	RegisterEmployeeInput,
+	{ input: RegisterEmployeeInput },
 	RegisterEmployeeResult
 > {
 	private readonly employeeRepository: EmployeeRepository;
@@ -51,7 +51,11 @@ export default class RegisterEmployeeUseCase extends BaseUseCase<
 		this.authentik = authentik;
 	}
 
-	async execute(input: RegisterEmployeeInput): Promise<RegisterEmployeeResult> {
+	// GraphQL's `registerEmployee(input: RegisterEmployeeInput!)` resolves with a single
+	// wrapped `{ input: {...} }` args object (GraphqlRouter passes the raw GraphQL args
+	// object straight through) — not the flat fields directly. This must destructure `input`
+	// out of that wrapper, not treat the wrapper itself as the flat shape.
+	async execute({ input }: { input: RegisterEmployeeInput }): Promise<RegisterEmployeeResult> {
 		const fullName = input.fullName.trim();
 		const role = input.role.trim();
 		const department = input.department.trim();

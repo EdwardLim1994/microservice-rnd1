@@ -18,7 +18,10 @@ const MONTH_NAMES = [
 
 const PAYSLIPS_BUCKET = "payslips";
 
-export default class GeneratePayslipsUseCase extends BaseUseCase<GeneratePayslipsInput, unknown> {
+export default class GeneratePayslipsUseCase extends BaseUseCase<
+	{ input: GeneratePayslipsInput },
+	unknown
+> {
 	private readonly payslipRepository: PayslipRepository;
 	private readonly notificationRepository: NotificationRepository;
 	private readonly minio: Client;
@@ -40,7 +43,9 @@ export default class GeneratePayslipsUseCase extends BaseUseCase<GeneratePayslip
 		this.employeeService = new EmployeeServiceClient();
 	}
 
-	async execute({ month, year }: GeneratePayslipsInput) {
+	// See RegisterEmployeeUseCase's comment (employee server) — GraphQL's wrapped `input:`
+	// argument arrives as `{ input: {...} }`, not the flat fields.
+	async execute({ input: { month, year } }: { input: GeneratePayslipsInput }) {
 		let employees: Awaited<ReturnType<EmployeeServiceClient["listEmployees"]>>;
 		try {
 			employees = await this.employeeService.listEmployees();

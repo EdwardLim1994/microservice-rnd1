@@ -27,7 +27,7 @@ test("valid assignment updates the employee record", async () => {
 	const { repo, updated } = createMockRepo({ "emp-1": { id: "emp-1" }, "sup-1": { id: "sup-1" } });
 	const useCase = new AssignSupervisorUseCase({ employeeRepository: repo });
 
-	const result = await useCase.execute({ employeeId: "emp-1", supervisorId: "sup-1" });
+	const result = await useCase.execute({ input: { employeeId: "emp-1", supervisorId: "sup-1" } });
 
 	expect(updated()).toEqual([{ id: "emp-1", supervisorId: "sup-1" }]);
 	expect((result as { supervisorId: string }).supervisorId).toBe("sup-1");
@@ -40,7 +40,7 @@ test("non-existent supervisorId throws a not-found GraphQLError", async () => {
 
 	let thrown: unknown;
 	try {
-		await useCase.execute({ employeeId: "emp-1", supervisorId: "missing" });
+		await useCase.execute({ input: { employeeId: "emp-1", supervisorId: "missing" } });
 	} catch (error) {
 		thrown = error;
 	}
@@ -56,7 +56,7 @@ test("non-existent employeeId throws a not-found GraphQLError", async () => {
 
 	let thrown: unknown;
 	try {
-		await useCase.execute({ employeeId: "missing", supervisorId: "sup-1" });
+		await useCase.execute({ input: { employeeId: "missing", supervisorId: "sup-1" } });
 	} catch (error) {
 		thrown = error;
 	}
@@ -72,7 +72,7 @@ test("assigning an employee as their own supervisor throws a validation GraphQLE
 
 	let thrown: unknown;
 	try {
-		await useCase.execute({ employeeId: "emp-1", supervisorId: "emp-1" });
+		await useCase.execute({ input: { employeeId: "emp-1", supervisorId: "emp-1" } });
 	} catch (error) {
 		thrown = error;
 	}

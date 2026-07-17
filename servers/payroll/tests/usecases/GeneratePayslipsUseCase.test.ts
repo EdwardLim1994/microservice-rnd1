@@ -64,7 +64,7 @@ test("generates a payslip and notification per employee, uploaded to Minio", asy
 	const { payslipRepository, notificationRepository, payslips, notifications } = createMockRepos();
 	const useCase = new GeneratePayslipsUseCase({ payslipRepository, notificationRepository, minio });
 
-	const result = (await useCase.execute({ month: 1, year: 2026 })) as {
+	const result = (await useCase.execute({ input: { month: 1, year: 2026 } })) as {
 		generated: unknown[];
 		failed: string[];
 	};
@@ -83,7 +83,7 @@ test("returns an empty generated list without error when there are no employees"
 	const { payslipRepository, notificationRepository } = createMockRepos();
 	const useCase = new GeneratePayslipsUseCase({ payslipRepository, notificationRepository, minio });
 
-	const result = (await useCase.execute({ month: 1, year: 2026 })) as {
+	const result = (await useCase.execute({ input: { month: 1, year: 2026 } })) as {
 		generated: unknown[];
 		failed: string[];
 	};
@@ -114,7 +114,7 @@ test("a failure for one employee is reported in failed[] without stopping the re
 		minio,
 	});
 
-	const result = (await useCase.execute({ month: 1, year: 2026 })) as {
+	const result = (await useCase.execute({ input: { month: 1, year: 2026 } })) as {
 		generated: unknown[];
 		failed: string[];
 	};
@@ -133,7 +133,7 @@ test("employee service being unreachable throws instead of silently returning em
 
 	let thrown: unknown;
 	try {
-		await useCase.execute({ month: 1, year: 2026 });
+		await useCase.execute({ input: { month: 1, year: 2026 } });
 	} catch (error) {
 		thrown = error;
 	}
