@@ -1,0 +1,22 @@
+---
+title: HR Admin manages employees
+description: HR registers employees with Authentik accounts; payslips are generated monthly and delivered via notification.
+version: 0.1.0
+draft: true
+---
+
+## Overview
+HR Admin registers employees into the system with an auto-created Authentik account and temporary password. A monthly cron job generates PDF payslips per employee, stores them in Minio, and notifies each employee via a bell notification.
+
+## Acceptance Criteria
+- HR can register an employee with name, employee ID, role, department, and gross salary
+- HR assigns a supervisor (also an employee) at registration time; one supervisor can manage many employees; employees can themselves have a supervisor (hierarchical)
+- System auto-generates a temporary password and creates the Authentik account for the new employee
+- The temporary password is displayed in a copyable field after successful registration
+- Cron server triggers monthly payslip generation for all employees
+- Payslip is a PDF containing employee name, employee ID, role, department, gross salary, month/year, and generated timestamp
+- Payslip PDF is uploaded to Minio after generation
+- Employee receives a bell notification that a new payslip is available
+
+## Related
+- OpenSpec: `.openspec/requirements/release/0.1.0/requirements.yaml` — US-1

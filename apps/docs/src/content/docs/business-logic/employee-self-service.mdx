@@ -1,0 +1,21 @@
+---
+title: Employee self-service
+description: Employees apply for leave, download payslips, and reset passwords; supervisors approve or reject leave requests.
+version: 0.1.0
+draft: true
+---
+
+## Overview
+Employees and supervisors log in via Authentik and get role-appropriate views. Employees submit leave requests, download payslips via presigned Minio URLs, and reset their password through a custom UI backed by Authentik. Supervisors approve or reject leave requests from their direct reports, with all status changes surfaced via bell notifications.
+
+## Acceptance Criteria
+- Employee logs in via Authentik and sees role-appropriate views (Employee or Supervisor)
+- Employee can submit a leave request with leave type, start date, end date, and reason
+- Supervisor sees a list of pending leave requests from their direct reports and can approve or reject each
+- Employee receives a bell notification when their leave status changes to approved or rejected
+- Employee sees leave status (Pending / Approved / Rejected) on their leave history list
+- Employee can download their payslip PDF via a presigned Minio URL
+- Employee can reset their password via a custom UI that calls Authentik API (forgot password → email link → set new password page)
+
+## Related
+- OpenSpec: `.openspec/requirements/release/0.1.0/requirements.yaml` — US-2
