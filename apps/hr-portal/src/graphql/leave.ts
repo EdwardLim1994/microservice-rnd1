@@ -76,9 +76,7 @@ export const SUBMIT_LEAVE_MUTATION: TypedDocumentNode<
 `;
 
 export interface PendingLeaveRequestsQueryData {
-  pendingLeaveRequestsForSupervisor: (LeaveRequest & {
-    employee: { id: string };
-  })[];
+  pendingLeaveRequestsForSupervisor: LeaveRequest[];
 }
 
 export interface PendingLeaveRequestsQueryVariables {
