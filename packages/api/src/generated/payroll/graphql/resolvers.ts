@@ -48,6 +48,16 @@ export type GeneratePayslipsResult = {
   generated: Array<Payslip>;
 };
 
+/** Input for fetching a payslip presigned download URL. */
+export type GetPayslipUrlInput = {
+  /** Internal ID of the employee. */
+  employeeId: Scalars['ID']['input'];
+  /** Month of the payslip (1–12). */
+  month: Scalars['Int']['input'];
+  /** Year of the payslip (e.g. 2026). */
+  year: Scalars['Int']['input'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   /**
@@ -111,14 +121,32 @@ export type Payslip = {
   year: Scalars['Int']['output'];
 };
 
+/** A short-lived presigned Minio URL for downloading a payslip PDF. */
+export type PayslipDownloadUrl = {
+  __typename?: 'PayslipDownloadURL';
+  /** Timestamp when the presigned URL expires. */
+  expiresAt: Scalars['String']['output'];
+  /** The presigned URL. Valid for 15 minutes from generation. */
+  url: Scalars['String']['output'];
+};
+
 export type Query = {
   __typename?: 'Query';
   /** Fetch all notifications for a given employee. Sorted by createdAt descending. */
   notifications: Array<Notification>;
+  /**
+   * Generate and return a short-lived presigned Minio URL for downloading a specific payslip PDF.
+   * URL is valid for 15 minutes.
+   */
+  payslipDownloadURL: PayslipDownloadUrl;
 };
 
 export type QueryNotificationsArgs = {
   employeeId: Scalars['ID']['input'];
+};
+
+export type QueryPayslipDownloadUrlArgs = {
+  input: GetPayslipUrlInput;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -289,10 +317,12 @@ export type ResolversTypes = ResolversObject<{
   GeneratePayslipsInput: GeneratePayslipsInput;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   GeneratePayslipsResult: ResolverTypeWrapper<GeneratePayslipsResult>;
+  GetPayslipURLInput: GetPayslipUrlInput;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Notification: ResolverTypeWrapper<Notification>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Payslip: ResolverTypeWrapper<Payslip>;
+  PayslipDownloadURL: ResolverTypeWrapper<PayslipDownloadUrl>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
 }>;
 
@@ -305,10 +335,12 @@ export type ResolversParentTypes = ResolversObject<{
   GeneratePayslipsInput: GeneratePayslipsInput;
   Int: Scalars['Int']['output'];
   GeneratePayslipsResult: GeneratePayslipsResult;
+  GetPayslipURLInput: GetPayslipUrlInput;
   Mutation: Record<PropertyKey, never>;
   Notification: Notification | FederationReferenceTypes['Notification'];
   Boolean: Scalars['Boolean']['output'];
   Payslip: Payslip | FederationReferenceTypes['Payslip'];
+  PayslipDownloadURL: PayslipDownloadUrl;
   Query: Record<PropertyKey, never>;
 }>;
 
@@ -404,6 +436,15 @@ export type PayslipResolvers<
   year?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 }>;
 
+export type PayslipDownloadUrlResolvers<
+  ContextType = PayrollContextType,
+  ParentType extends
+    ResolversParentTypes['PayslipDownloadURL'] = ResolversParentTypes['PayslipDownloadURL'],
+> = ResolversObject<{
+  expiresAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  url?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<
   ContextType = PayrollContextType,
   ParentType extends
@@ -415,6 +456,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryNotificationsArgs, 'employeeId'>
   >;
+  payslipDownloadURL?: Resolver<
+    ResolversTypes['PayslipDownloadURL'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryPayslipDownloadUrlArgs, 'input'>
+  >;
 }>;
 
 export type Resolvers<ContextType = PayrollContextType> = ResolversObject<{
@@ -423,5 +470,6 @@ export type Resolvers<ContextType = PayrollContextType> = ResolversObject<{
   Mutation?: MutationResolvers<ContextType>;
   Notification?: NotificationResolvers<ContextType>;
   Payslip?: PayslipResolvers<ContextType>;
+  PayslipDownloadURL?: PayslipDownloadUrlResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
 }>;
