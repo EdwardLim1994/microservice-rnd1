@@ -1,0 +1,46 @@
+schema
+  @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
+{
+  query: Query
+  mutation: Mutation
+}
+
+type Employee @key(fields: "id") {
+  id: ID!
+}
+
+input GeneratePayslipsInput {
+  month: Int!
+  year: Int!
+}
+
+type GeneratePayslipsResult {
+  failed: [ID!]!
+  generated: [Payslip!]!
+}
+
+type Mutation {
+  generatePayslips(input: GeneratePayslipsInput!): GeneratePayslipsResult!
+  markNotificationRead(id: ID!): Notification!
+}
+
+type Notification @key(fields: "id") {
+  createdAt: String!
+  employee: Employee!
+  id: ID!
+  message: String!
+  read: Boolean!
+}
+
+type Payslip @key(fields: "id") {
+  employee: Employee!
+  generatedAt: String!
+  id: ID!
+  minioObjectKey: String!
+  month: Int!
+  year: Int!
+}
+
+type Query {
+  notifications(employeeId: ID!): [Notification!]!
+}

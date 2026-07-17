@@ -1,9 +1,46 @@
-extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key", "@shareable"])
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.14", import:["@key"])
 
-type Query {
-  payroll: Payroll
+# Owned by employee-subgraph. Federation v2 (unlike v1) does NOT mark a stub entity's own @key
+# field @external — that directive is reserved for fields pulled in via @requires/@provides, not
+# an entity reference's key itself. Marking it @external here made rover supergraph compose fail
+# every query that jumps from payroll to employee-subgraph via this key with "the key field(s)
+# cannot be resolved from subgraph 'payroll'" (confirmed with a minimal 2-subgraph repro).
+type Employee @key(fields: "id") {
+  id: ID!
 }
 
-type Payroll @key(fields: "id") {
+type Payslip @key(fields: "id") {
   id: ID!
+  employee: Employee!
+  month: Int!
+  year: Int!
+  minioObjectKey: String!
+  generatedAt: String!
+}
+
+type GeneratePayslipsResult {
+  generated: [Payslip!]!
+  failed: [ID!]!
+}
+
+type Notification @key(fields: "id") {
+  id: ID!
+  employee: Employee!
+  message: String!
+  read: Boolean!
+  createdAt: String!
+}
+
+input GeneratePayslipsInput {
+  month: Int!
+  year: Int!
+}
+
+type Query {
+  notifications(employeeId: ID!): [Notification!]!
+}
+
+type Mutation {
+  generatePayslips(input: GeneratePayslipsInput!): GeneratePayslipsResult!
+  markNotificationRead(id: ID!): Notification!
 }
