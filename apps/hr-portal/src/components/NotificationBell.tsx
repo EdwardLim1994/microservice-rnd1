@@ -33,6 +33,10 @@ export function NotificationBell({ employeeId }: NotificationBellProps = {}) {
       await markRead({ variables: { id: notification.id } });
       refetch();
     }
+    // ponytail: Notification has no "type" field to route different kinds elsewhere — every
+    // notification navigates to /leave for now. Add a type field (and a switch here) once a
+    // notification kind other than leave-status/payslip needs its own destination.
+    globalThis.location?.assign('/leave');
   }
 
   function renderDropdownContent() {
