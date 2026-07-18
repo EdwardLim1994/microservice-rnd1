@@ -4,9 +4,13 @@
 # (`docker compose build ansible`) when requirements.yml or this Dockerfile changes.
 FROM python:3.13-slim
 
-RUN pip install --no-cache-dir ansible-core hvac
+RUN pip install --no-cache-dir --only-binary :all: ansible-core==2.21.2 hvac==2.4.0
 
 COPY requirements.yml /tmp/requirements.yml
+
+RUN useradd --create-home --uid 1000 ansible
+USER ansible
+
 RUN ansible-galaxy collection install -r /tmp/requirements.yml
 
 WORKDIR /workspace

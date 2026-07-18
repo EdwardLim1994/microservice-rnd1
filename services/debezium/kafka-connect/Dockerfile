@@ -6,3 +6,7 @@
 FROM confluentinc/cp-kafka-connect:8.2.2
 
 RUN confluent-hub install --no-prompt debezium/debezium-connector-postgresql:3.2.6-2
+
+# Already the base image's own default — declared explicitly so static analysis doesn't have to
+# guess (the plugin install above still runs as root, before this).
+USER appuser

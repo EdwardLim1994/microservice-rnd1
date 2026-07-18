@@ -4,4 +4,12 @@
 # stage that can actually run `prisma migrate deploy`.
 FROM builder AS migrate
 
+# ponytail: chown -R over the whole node_modules tree (~6min) since Prisma needs write access
+# under node_modules/.bun/@prisma+engines@*/... at runtime (writes a checksum/lock marker on
+# every invocation, even with the engine already present) — narrow to just that path if this
+# stage's build time becomes a real bottleneck.
+RUN groupadd --system migrate && useradd --system --gid migrate --create-home migrate \
+    && chown -R migrate:migrate /app
+USER migrate
+
 ENTRYPOINT ["./node_modules/.bin/prisma", "migrate", "deploy"]
