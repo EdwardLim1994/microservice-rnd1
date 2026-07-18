@@ -15,6 +15,12 @@ services:
       DB_NAME: leave
       VAULT_ADDR: http://vault:8200
       VAULT_DB_ROLE: leave-role
+      # .env has no default for either at all (EmployeeServiceClient/PayrollServiceClient fall
+      # back to http://localhost:4001/4002, the host-side `bun dev` convention) — overridden here
+      # to the Docker-network addresses, same reasoning as DB_HOST/DB_PORT above. Reachable
+      # because "employee"/"payroll" are also on the "graphql" network below.
+      EMPLOYEE_GRAPHQL_URL: http://employee:4001
+      PAYROLL_GRAPHQL_URL: http://payroll:4002
     networks:
       - adminer
       - vault

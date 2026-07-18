@@ -17,6 +17,11 @@ services:
       VAULT_DB_ROLE: payroll-role
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
+      # .env has no default for this at all (EmployeeServiceClient falls back to
+      # http://localhost:4001, the host-side `bun dev` convention) — overridden here to the
+      # Docker-network address, same reasoning as DB_HOST/DB_PORT above. Reachable because
+      # "employee" is also on the "graphql" network below.
+      EMPLOYEE_GRAPHQL_URL: http://employee:4001
     networks:
       - adminer
       - vault

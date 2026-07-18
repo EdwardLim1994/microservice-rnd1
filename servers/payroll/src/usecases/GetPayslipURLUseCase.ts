@@ -56,7 +56,7 @@ export default class GetPayslipURLUseCase extends BaseUseCase<
 		);
 		if (!payslip) {
 			throw new GraphQLError(
-				"no payslip found for the given employeeId/month/year",
+				"payslip not found for the given employeeId/month/year",
 				{
 					extensions: { code: "NOT_FOUND" },
 				},
