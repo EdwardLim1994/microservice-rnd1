@@ -2,6 +2,8 @@
 #   docker build -f {{ location }}/{{ name }}/Dockerfile -t {{ name }} .
 
 ARG BUN_VERSION=1.3.14
+# Keep in sync with root package.json's "turbo" dependency version.
+ARG TURBO_VERSION=2.10.3
 # This host has no remotes wired up yet (rsbuild.config.ts's `remotes: {}`) — once one is added
 # by hand, add a matching ARG/ENV pair here too, mirroring frontends/*/Dockerfile's own
 # PUBLIC_GRAPHQL_URL pattern, e.g.:
@@ -11,20 +13,39 @@ ARG BUN_VERSION=1.3.14
 # what these need to resolve to once this host is deployed to k8s). Also add a matching
 # --build-arg to this project's package.json "k8s:build" script once you do.
 
-# ── builder ────────────────────────────────────────────────────────────────────
-FROM oven/bun:${BUN_VERSION}-slim AS builder
+# ── pruner ─────────────────────────────────────────────────────────────────────
+# `turbo prune --docker` computes the subset of the monorepo {{ name }} actually depends on (the
+# root lockfile/package.json still records every workspace, including the literal, non-glob "e2e"
+# entry — a hand-picked partial COPY, e.g. packages/* + this project only, fails bun install with
+# "Workspace not found "e2e"" even though this app never imports it, since bun validates the full
+# lockfile-recorded graph, not just what this app happens to import — see apps/docs/Dockerfile /
+# servers/auth/Dockerfile for the identical reasoning) and splits it into out/json/ (package.json
+# + lockfile only) and out/full/ (the same subset's real source).
+FROM oven/bun:${BUN_VERSION}-slim AS pruner
+
+ARG TURBO_VERSION
 
 WORKDIR /app
 
-COPY package.json bun.lock* turbo.json ./
-COPY packages ./packages
-COPY {{ location }}/{{ name }} ./{{ location }}/{{ name }}
+RUN bun add --global turbo@"${TURBO_VERSION}"
 
-# Not --frozen-lockfile: bun.lock was generated against the full monorepo workspace set, but
-# this build only copies the subset actually needed (packages + this project) — bun's freeze
-# check requires exact workspace-membership parity with the lockfile and fails on that partial
-# copy. Same reason servers/*/Dockerfile doesn't use it either.
+COPY . .
+
+RUN turbo prune {{ name }} --docker
+
+# ── installer ──────────────────────────────────────────────────────────────────
+FROM oven/bun:${BUN_VERSION}-slim AS installer
+
+WORKDIR /app
+
+COPY --from=pruner /app/out/json/ .
+
 RUN bun install --ignore-scripts
+
+# ── builder ────────────────────────────────────────────────────────────────────
+FROM installer AS builder
+
+COPY --from=pruner /app/out/full/ .
 
 RUN bun run build
 

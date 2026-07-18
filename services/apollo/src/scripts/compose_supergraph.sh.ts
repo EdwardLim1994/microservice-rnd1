@@ -19,14 +19,6 @@ const serverDirs = Object.keys(supergraphConfig.subgraphs).map((name) =>
 	join(serversRoot, name),
 );
 
-const procs = serverDirs.map((dir) =>
-	Bun.spawn(["bun", "run", "index.ts"], {
-		cwd: dir,
-		stdout: "pipe",
-		stderr: "inherit",
-	}),
-);
-
 async function waitReady(proc: Bun.Subprocess) {
 	const dec = new TextDecoder();
 	for await (const chunk of proc.stdout as ReadableStream<Uint8Array>) {
@@ -36,7 +28,24 @@ async function waitReady(proc: Bun.Subprocess) {
 	}
 }
 
-await Promise.all(procs.map(waitReady));
+// Spawned and awaited one at a time, not concurrently: every listed server calls
+// VaultPgAdapter.fromEnv() on boot, logging into Vault via AppRole then reading a fresh dynamic
+// Postgres credential. Starting all of them at once reliably made Vault's single-node dev-mode
+// backend return spurious "permission denied" on some of those near-simultaneous
+// database/creds/* reads, even though the exact same request always succeeds in isolation
+// (confirmed directly against Vault's HTTP API) — a fixed stagger between spawns wasn't enough to
+// avoid it either, since each server's own boot time before it reaches the Vault call varies.
+// Waiting for full readiness before starting the next server sidesteps the race entirely.
+const procs: Bun.Subprocess[] = [];
+for (const dir of serverDirs) {
+	const proc = Bun.spawn(["bun", "run", "index.ts"], {
+		cwd: dir,
+		stdout: "pipe",
+		stderr: "inherit",
+	});
+	procs.push(proc);
+	await waitReady(proc);
+}
 await $`rover supergraph compose --config ./src/config/supergraph.yaml --output ./dist/supergraph.graphql --elv2-license=accept`;
 procs.forEach((p) => {
 	p.kill();

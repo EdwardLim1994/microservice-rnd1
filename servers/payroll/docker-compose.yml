@@ -21,6 +21,9 @@ services:
       - adminer
       - vault
       - minio
+      # Lets Apollo Router (services/apollo, on this same network) reach this container by its
+      # service name — same reasoning as servers/auth/docker-compose.yml's own "graphql" entry.
+      - graphql
     depends_on:
       payroll-db:
         condition: service_healthy
@@ -35,6 +38,13 @@ services:
     container_name: payroll_migrate
     env_file:
       - .env
+    environment:
+      # .env's DATABASE_URL is host-side (localhost:5102, the published port) — overridden here
+      # to the Docker-network address, same reason the main "payroll" service overrides
+      # DB_HOST/DB_PORT above. Without this, migrate always fails with "Can't reach database
+      # server at `localhost:5102`" since localhost inside this container is itself, not
+      # payroll-db.
+      DATABASE_URL: postgresql://myuser:mypassword@payroll-db:5432/payroll
     networks:
       - adminer
     depends_on:
@@ -64,3 +74,6 @@ networks:
   vault:
   adminer:
   minio:
+  # Empty here on purpose — real definition lives in services/apollo/docker-compose.yml (see
+  # servers/auth/docker-compose.yml's own comment on this pattern).
+  graphql:

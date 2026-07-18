@@ -20,6 +20,9 @@ services:
       - adminer
       - vault
       - authentik
+      # Lets Apollo Router (services/apollo, on this same network) reach this container by its
+      # service name — same reasoning as servers/auth/docker-compose.yml's own "graphql" entry.
+      - graphql
     depends_on:
       employee-db:
         condition: service_healthy
@@ -36,6 +39,13 @@ services:
     container_name: employee_migrate
     env_file:
       - .env
+    environment:
+      # .env's DATABASE_URL is host-side (localhost:5101, the published port — see
+      # servers/employee/CLAUDE.md's Prisma CLI note) — overridden here to the Docker-network
+      # address, same reason the main "employee" service overrides DB_HOST/DB_PORT above. Without
+      # this, migrate always fails with "Can't reach database server at `localhost:5101`" since
+      # localhost inside this container is itself, not employee-db.
+      DATABASE_URL: postgresql://myuser:mypassword@employee-db:5432/employee
     networks:
       - adminer
     depends_on:
@@ -65,3 +75,6 @@ networks:
   vault:
   adminer:
   authentik:
+  # Empty here on purpose — real definition lives in services/apollo/docker-compose.yml (see
+  # servers/auth/docker-compose.yml's own comment on this pattern).
+  graphql:

@@ -18,6 +18,9 @@ services:
     networks:
       - adminer
       - vault
+      # Lets Apollo Router (services/apollo, on this same network) reach this container by its
+      # service name — same reasoning as servers/auth/docker-compose.yml's own "graphql" entry.
+      - graphql
     depends_on:
       leave-db:
         condition: service_healthy
@@ -32,6 +35,12 @@ services:
     container_name: leave_migrate
     env_file:
       - .env
+    environment:
+      # .env's DATABASE_URL is host-side (localhost:5104, the published port) — overridden here
+      # to the Docker-network address, same reason the main "leave" service overrides
+      # DB_HOST/DB_PORT above. Without this, migrate always fails with "Can't reach database
+      # server at `localhost:5104`" since localhost inside this container is itself, not leave-db.
+      DATABASE_URL: postgresql://myuser:mypassword@leave-db:5432/leave
     networks:
       - adminer
     depends_on:
@@ -60,3 +69,6 @@ services:
 networks:
   vault:
   adminer:
+  # Empty here on purpose — real definition lives in services/apollo/docker-compose.yml (see
+  # servers/auth/docker-compose.yml's own comment on this pattern).
+  graphql:

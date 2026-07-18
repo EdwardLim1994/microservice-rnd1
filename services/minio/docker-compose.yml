@@ -7,7 +7,14 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
-      - "9000:9000"
+      # Host 9000 is taken by services/authentik's authentik-server (real consumers:
+      # servers/auth|employee's AUTHENTIK_URL=http://localhost:9000, plus
+      # services/authentik/tests/integration/*). No server's .env.sample sets MINIO_PORT yet, so
+      # remapping the host side here is safe — MinioPlugin's own default (MINIO_PORT=9000) would
+      # need an explicit override once a server actually consumes it from outside the Docker
+      # network. Container-internal port stays 9000, so in-network access (minio:9000) is
+      # unaffected.
+      - "9002:9000"
       - "9001:9001"
     volumes:
       - minio-data:/data

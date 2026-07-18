@@ -13,6 +13,11 @@ services:
     # containerized case, same pattern as DatabaseGenerator's wireDatabaseDockerCompose action.
     environment:
       AUTHENTIK_URL: http://authentik-server:9000
+      # .env's VAULT_ADDR is localhost:8200 (host-side `bun dev` convention) — overridden here to
+      # the Docker-network hostname, same reason AUTHENTIK_URL is above. app.ts's
+      # VaultTlsAdapter.fromEnv() call needs this (and the "vault" network below) to reach Vault
+      # for its TLS leaf cert; without both, it fails with "Unable to connect ... localhost:8200".
+      VAULT_ADDR: http://vault:8200
     restart: unless-stopped
     depends_on:
       authentik-server:
@@ -24,10 +29,13 @@ services:
       # why that value has to match whatever's actually running auth (host `bun run dev` vs this
       # Docker container).
       - graphql
+      - vault
 
-# Empty on purpose — the "real" definitions live in services/authentik/docker-compose.yml and
-# services/apollo/docker-compose.yml respectively; Compose merges same-named top-level networks
-# across every file pulled in by the root docker-compose.yml's `include:`.
+# Empty on purpose — the "real" definitions live in services/authentik/docker-compose.yml,
+# services/apollo/docker-compose.yml, and services/vault/docker-compose.yml respectively; Compose
+# merges same-named top-level networks across every file pulled in by the root
+# docker-compose.yml's `include:`.
 networks:
   authentik:
   graphql:
+  vault:

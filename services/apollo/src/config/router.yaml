@@ -6,17 +6,21 @@ supergraph:
 # mTLS to the auth subgraph (routing_url in supergraph.yaml is https://) — CA + this Router's own
 # Vault-issued client cert, written by `bun run tls:provision` (see package.json /
 # src/scripts/provision_tls.sh.ts) into dist/, mounted below by docker-compose.yml.
-# NOTE: verify this block's exact keys against the ghcr.io/apollographql/router:v2.15.0 TLS
-# reference before relying on it in anything beyond local dev — written from Apollo Router's
-# documented subgraph TLS config shape, not confirmed against a live Router yet.
+# certificate_authorities/certificate_chain/key all take inline PEM *content*, not a file path
+# (confirmed via `router config schema`) — "${file.<path>}" is Router's expansion syntax to read
+# a file's content in. Note the dot, not a colon: "${file:<path>}" (what earlier versions of this
+# file used) fails at startup with "APOLLO_ROUTER_CONFIG_SUPPORTED_MODES must be of the format
+# env,file,..." regardless of that env var's value — confirmed empirically against a live
+# ghcr.io/apollographql/router:v2.15.0 container, since this block was never actually booted
+# before.
 tls:
   subgraph:
     subgraphs:
       auth:
-        certificate_authorities: "${file:/etc/tls/ca.pem}"
+        certificate_authorities: "${file./etc/tls/ca.pem}"
         client_authentication:
-          certificate_chain: "${file:/etc/tls/cert.pem}"
-          key: "${file:/etc/tls/key.pem}"
+          certificate_chain: "${file./etc/tls/cert.pem}"
+          key: "${file./etc/tls/key.pem}"
 
 cors:
   policies:

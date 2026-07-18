@@ -25,7 +25,7 @@
     path: sys/mounts/database
     data:
       type: database
-  when: db_name is defined and "'database/' not in current_mounts.data.data"
+  when: db_name is defined and 'database/' not in current_mounts.data.data
 
 - name: Enable the PKI secrets engine
   community.hashi_vault.vault_write:
@@ -35,8 +35,14 @@
     data:
       type: pki
       config:
-        max_lease_ttl: "{{ vault_pki_max_ttl }}"
-  when: provision_tls | default(true) and "'pki_int/' not in current_mounts.data.data"
+        # The mount's own max_lease_ttl is a hard ceiling on *everything* issued from it —
+        # including the "Generate this mount's internal root CA" task below, which explicitly
+        # requests vault_pki_root_ttl (1yr default). Capping this at vault_pki_max_ttl (a leaf
+        # cert's own 24h ceiling) silently truncated the root CA to 24h too, so a leaf issued
+        # near the end of that window failed with "TTL would result in notAfter ... beyond the
+        # expiration of the CA certificate". Must be at least vault_pki_root_ttl.
+        max_lease_ttl: "{{ vault_pki_root_ttl }}"
+  when: provision_tls | default(true) and 'pki_int/' not in current_mounts.data.data
 
 # Single self-signed root on this one mount — real intermediate-signed-by-offline-root chains are
 # out of scope for a dev-mode Vault that wipes on every restart anyway (same "prototype, not
@@ -49,7 +55,7 @@
     data:
       common_name: "microservice-rnd1 dev root CA"
       ttl: "{{ vault_pki_root_ttl }}"
-  when: provision_tls | default(true) and "'pki_int/' not in current_mounts.data.data"
+  when: provision_tls | default(true) and 'pki_int/' not in current_mounts.data.data
 
 - name: Read currently enabled auth methods
   community.hashi_vault.vault_read:
@@ -87,9 +93,19 @@
     path: "database/roles/{{ server_name }}-role"
     data:
       db_name: "{{ server_name }}-db"
+      # GRANT ALL PRIVILEGES ON DATABASE only covers database-level rights (CONNECT/CREATE/TEMP)
+      # — it does NOT cascade to tables already created by db_admin_username (Prisma migrations
+      # run as the static superuser, not as a Vault-issued dynamic user). Without the two grants
+      # below, every dynamic credential hits "permission denied for table <X>" on its first real
+      # query, table creation timing notwithstanding — these grants apply to whatever tables/
+      # sequences already exist in schema public at the moment each dynamic user is created, which
+      # is always after migrations have run (a fresh Vault-issued lease is only ever requested at
+      # server boot, never before `prisma migrate deploy`).
       creation_statements: >-
         CREATE ROLE "{% raw %}{{name}}{% endraw %}" WITH LOGIN PASSWORD '{% raw %}{{password}}{% endraw %}' VALID UNTIL '{% raw %}{{expiration}}{% endraw %}';
         GRANT ALL PRIVILEGES ON DATABASE "{{ db_name }}" TO "{% raw %}{{name}}{% endraw %}";
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "{% raw %}{{name}}{% endraw %}";
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "{% raw %}{{name}}{% endraw %}";
       default_ttl: "{{ vault_db_default_ttl }}"
       max_ttl: "{{ vault_db_max_ttl }}"
   when: db_name is defined

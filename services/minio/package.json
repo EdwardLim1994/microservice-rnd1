@@ -1,5 +1,5 @@
 {
-	"name": "minio",
+	"name": "service-minio",
 	"type": "module",
 	"private": true,
 	"devDependencies": {

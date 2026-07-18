@@ -1,6 +1,16 @@
 ---
 # Overridable per-server via ansible/vars.yml, but these prototype defaults are fine for every
 # server today.
+# Dev-mode Vault's fixed address/root token (services/vault/.env.sample's
+# VAULT_DEV_LISTEN_ADDRESS/VAULT_DEV_ROOT_TOKEN_ID) — every DB-backed server's generated
+# vars.yml repeats these same two values explicitly, but a TLS-only consumer with no DB (e.g.
+# servers/auth, services/apollo — see packages/server/CLAUDE.md's TLS section) was never routed
+# through that generator, so its vars.yml never got them and every vault_addr/vault_token lookup
+# below failed with "'vault_token' is undefined". Defaulting them here means any consumer's
+# vars.yml can just omit them instead of duplicating the same two lines.
+vault_addr: http://vault:8200
+vault_token: root
+
 vault_db_default_ttl: "1h"
 vault_db_max_ttl: "24h"
 vault_approle_token_ttl: "1h"
