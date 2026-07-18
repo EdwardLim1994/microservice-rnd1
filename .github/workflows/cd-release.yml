@@ -43,11 +43,22 @@ jobs:
             bun run release:cut "${GITHUB_REF#refs/heads/}" origin/main
           fi
 
+      - name: Determine which package.json globs actually have matches
+        id: pattern
+        run: |
+          pattern="release-manifest.json package.json"
+          for root in servers frontends apps; do
+            if compgen -G "$root/*/package.json" > /dev/null; then
+              pattern="$pattern $root/*/package.json"
+            fi
+          done
+          echo "value=$pattern" >> "$GITHUB_OUTPUT"
+
       - name: Commit manifest + app version bumps
         uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
         with:
           commit_message: "chore(release): update release manifest [skip ci]"
-          file_pattern: "release-manifest.json package.json servers/*/package.json frontends/*/package.json apps/*/package.json"
+          file_pattern: ${{ steps.pattern.outputs.value }}
 
       - name: Expose manifest apps as a job output
         id: manifest
