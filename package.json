@@ -1,6 +1,6 @@
 {
   "name": "rnd1",
-  "version": "1.1.0",
+  "version": "1.2.0-rc1",
   "devDependencies": {
     "@types/bun": "latest",
     "@turbo/gen": "^2.10.2",
