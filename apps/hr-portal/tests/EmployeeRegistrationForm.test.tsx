@@ -93,9 +93,7 @@ test('valid submission shows the copyable temporary password on success', async 
   );
 
   fireEvent.click(screen.getByTestId('register-employee-button'));
-  await waitFor(() =>
-    expect(screen.getByTestId('fullName-input')).toBeInTheDocument(),
-  );
+  await screen.findByTestId('fullName-input');
   fillRequiredFields();
   fireEvent.click(screen.getByTestId('submit-button'));
 
@@ -136,9 +134,7 @@ test('duplicate employeeId shows an inline error on the employeeId field', async
   );
 
   fireEvent.click(screen.getByTestId('register-employee-button'));
-  await waitFor(() =>
-    expect(screen.getByTestId('fullName-input')).toBeInTheDocument(),
-  );
+  await screen.findByTestId('fullName-input');
   fillRequiredFields();
   fireEvent.click(screen.getByTestId('submit-button'));
 
@@ -173,9 +169,7 @@ test('network failure shows an error banner and keeps the entered values', async
   );
 
   fireEvent.click(screen.getByTestId('register-employee-button'));
-  await waitFor(() =>
-    expect(screen.getByTestId('fullName-input')).toBeInTheDocument(),
-  );
+  await screen.findByTestId('fullName-input');
   fillRequiredFields();
   fireEvent.click(screen.getByTestId('submit-button'));
 

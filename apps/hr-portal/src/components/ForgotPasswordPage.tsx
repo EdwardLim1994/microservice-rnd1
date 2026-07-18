@@ -2,7 +2,7 @@ import { useMutation } from '@apollo/client/react';
 import { type SyntheticEvent, useState } from 'react';
 import { REQUEST_PASSWORD_RESET_MUTATION } from '../graphql/passwordReset';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
