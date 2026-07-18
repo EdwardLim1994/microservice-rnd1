@@ -73,39 +73,55 @@ export abstract class ProcedureOrchestrator<TContext> extends BaseUseCase<
     const completed: SagaProcedure<TContext>[] = [];
 
     for (const procedure of this.procedures) {
-      const attempts = (procedure.options.retries ?? 0) + 1;
-      let lastErr: unknown;
-      let patch: Partial<TContext> | undefined;
-      let succeeded = false;
-
-      for (let attempt = 0; attempt < attempts; attempt++) {
-        try {
-          patch = await withTimeout(
-            this.resolve(procedure.main).execute(context),
-            procedure.options.timeoutMs,
-          );
-          succeeded = true;
-          break;
-        } catch (err) {
-          lastErr = err;
-          if (attempt < attempts - 1 && procedure.options.retryDelayMs) {
-            await sleep(procedure.options.retryDelayMs);
-          }
-        }
+      const result = await this.attempt(procedure, context);
+      if (!result.succeeded) {
+        await this.compensate(completed, context);
+        throw result.error;
       }
 
-      if (!succeeded) {
-        for (const done of completed.reverse()) {
-          await this.resolve(done.fallback).execute(context);
-        }
-        throw lastErr;
-      }
-
-      context = { ...context, ...patch };
+      context = { ...context, ...result.patch };
       completed.push(procedure);
     }
 
     return context;
+  }
+
+  private async attempt(
+    procedure: SagaProcedure<TContext>,
+    context: TContext,
+  ): Promise<
+    | { succeeded: true; patch: Partial<TContext> | undefined }
+    | { succeeded: false; error: unknown }
+  > {
+    const attempts = (procedure.options.retries ?? 0) + 1;
+    let lastErr: unknown;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const patch = await withTimeout(
+          this.resolve(procedure.main).execute(context),
+          procedure.options.timeoutMs,
+        );
+        return { succeeded: true, patch };
+      } catch (err) {
+        lastErr = err;
+        if (attempt < attempts - 1 && procedure.options.retryDelayMs) {
+          await sleep(procedure.options.retryDelayMs);
+        }
+      }
+    }
+
+    return { succeeded: false, error: lastErr };
+  }
+
+  private async compensate(
+    completed: SagaProcedure<TContext>[],
+    context: TContext,
+  ): Promise<void> {
+    const reversed = [...completed].reverse();
+    for (const done of reversed) {
+      await this.resolve(done.fallback).execute(context);
+    }
   }
 
   private resolve<T>(UseCase: Constructor<T>): T {

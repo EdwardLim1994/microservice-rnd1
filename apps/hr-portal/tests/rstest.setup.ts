@@ -8,9 +8,9 @@ expect.extend(jestDomMatchers);
 // jsdom/happy-dom's own default config) — components/tests relying on it (session storage,
 // FEAT-16) would otherwise see every read/write silently no-op via optional chaining. Minimal
 // in-memory Storage polyfill, not module mocking.
-if (typeof globalThis.localStorage === 'undefined') {
+if (globalThis.localStorage === undefined) {
   class MemoryStorage implements Storage {
-    private store = new Map<string, string>();
+    private readonly store = new Map<string, string>();
     get length() {
       return this.store.size;
     }

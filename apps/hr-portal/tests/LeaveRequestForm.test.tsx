@@ -127,9 +127,7 @@ test('valid submission refetches and shows the new request as Pending', async ()
     </MockedProvider>,
   );
 
-  await waitFor(() =>
-    expect(screen.getByTestId('leave-history-empty')).toBeInTheDocument(),
-  );
+  await screen.findByTestId('leave-history-empty');
   fireEvent.click(screen.getByTestId('apply-leave-button'));
   fillForm();
   fireEvent.click(screen.getByTestId('submit-leave-button'));
@@ -172,9 +170,7 @@ test('shows an error banner and preserves form state on network failure', async 
     </MockedProvider>,
   );
 
-  await waitFor(() =>
-    expect(screen.getByTestId('leave-history-empty')).toBeInTheDocument(),
-  );
+  await screen.findByTestId('leave-history-empty');
   fireEvent.click(screen.getByTestId('apply-leave-button'));
   fillForm();
   fireEvent.click(screen.getByTestId('submit-leave-button'));
