@@ -6,7 +6,16 @@
 
 describe('US-1 HR Admin manages employees — FEAT-5 employee registration form — Browser', () => {
   beforeEach(() => {
-    cy.visit('/employees')
+    // /employees has a `beforeLoad: requireSession` route guard (apps/hr-portal/src/routes.tsx)
+    // that throws a redirect to /login when no session exists — with no session ever seeded here,
+    // every visit hit that redirect during route load and hung the run indefinitely instead of
+    // failing fast (same root cause diagnosed in leave-approval-view.cy.ts's own comment).
+    cy.visit('/employees', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('currentEmployeeId', 'test-employee')
+        win.localStorage.setItem('accessToken', 'test-access-token')
+      },
+    })
     cy.get('[data-testid="register-employee-button"]').click()
   })
 

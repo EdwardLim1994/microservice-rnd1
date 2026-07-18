@@ -3,7 +3,9 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "pretest:api": "bun scripts/reset-test-db.ts",
     "test:api": "vitest run",
+    "posttest:api": "bun scripts/reset-test-db.ts",
     "test:e2e": "cypress run",
     "test:all": "bun run test:api && bun run test:e2e"
   },
@@ -11,6 +13,7 @@
     "@types/bun": "latest",
     "@vitest/coverage-v8": "^4.1.10",
     "cypress": "^15.18.1",
+    "typescript": "5.4.5",
     "vitest": "^4.1.10"
   },
   "peerDependencies": {

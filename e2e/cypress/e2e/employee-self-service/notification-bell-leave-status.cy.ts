@@ -6,7 +6,16 @@
 
 describe("US-2 Employee self-service — FEAT-15 notification bell (leave status) — Browser", () => {
 	beforeEach(() => {
-		cy.visit("/");
+		// / has a `beforeLoad: requireSession` route guard (apps/hr-portal/src/routes.tsx) that
+		// throws a redirect to /login when no session exists — with no session ever seeded here,
+		// every visit hit that redirect during route load and hung the run indefinitely instead of
+		// failing fast (same root cause diagnosed in leave-approval-view.cy.ts's own comment).
+		cy.visit("/", {
+			onBeforeLoad(win) {
+				win.localStorage.setItem("currentEmployeeId", "test-employee");
+				win.localStorage.setItem("accessToken", "test-access-token");
+			},
+		});
 	});
 
 	// [E2E-3/4] Employee sees a bell notification when their leave status changes
