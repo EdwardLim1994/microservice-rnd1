@@ -11,10 +11,11 @@ export interface CertPair {
 /** Real self-signed CA + leaf certs via openssl (no new npm dep — same ambient tool this repo already relies on, e.g. services/traefik/CLAUDE.md's `openssl passwd -apr1`). */
 export function makeTestPki() {
   const dir = mkdtempSync(join(tmpdir(), 'mtls-test-'));
-  // Fixed PATH (not the inherited env's) so `openssl` can only resolve from trusted,
-  // non-writable system directories — see SonarCloud typescript:S4036.
+  // Absolute path, not a bare command name — skips PATH-based lookup entirely, so there's no
+  // search path for a writable directory to hijack. See SonarCloud typescript:S4036 (a fixed
+  // PATH env var alone isn't enough; the rule wants no PATH resolution at all).
   function openssl(args: string[]) {
-    execFileSync('openssl', args, { cwd: dir, env: { PATH: '/usr/bin:/bin' } });
+    execFileSync('/usr/bin/openssl', args, { cwd: dir });
   }
   function makeCert(name: string, cn: string, ca?: CertPair): CertPair {
     openssl(['genrsa', '-out', `${name}.key`, '2048']);
