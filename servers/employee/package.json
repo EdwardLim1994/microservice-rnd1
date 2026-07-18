@@ -2,7 +2,7 @@
   "name": "employee",
   "module": "index.ts",
   "type": "module",
-  "version": "0.1.0-rc2",
+  "version": "0.1.0-rc3",
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",

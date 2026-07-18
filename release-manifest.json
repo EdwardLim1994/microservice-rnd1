@@ -1,11 +1,11 @@
 {
   "releaseBranch": "release/0.1.0",
-  "releaseVersion": "1.2.0-rc2",
+  "releaseVersion": "1.2.0-rc3",
   "apps": {
-    "payroll": "0.1.0-rc2",
-    "leave": "0.1.0-rc2",
-    "employee": "0.1.0-rc2",
-    "hr-portal": "0.1.0-rc2",
-    "docs": "0.1.0-rc2"
+    "payroll": "0.1.0-rc3",
+    "leave": "0.1.0-rc3",
+    "employee": "0.1.0-rc3",
+    "hr-portal": "0.1.0-rc3",
+    "docs": "0.1.0-rc3"
   }
 }
