@@ -3,10 +3,18 @@ services:
     build:
       context: ../..
       dockerfile: {{ location }}/{{ name }}/Dockerfile
-      args:
-        # Build-time only — see Dockerfile's comment on why this can't be a plain `environment:`
-        # entry below. Points at the Apollo Router's Docker service name/port, not localhost.
-        PUBLIC_GRAPHQL_URL: http://router:4000/graphql
+      # No PUBLIC_GRAPHQL_URL here on purpose — Compose resolves a "${VAR:-default}" reference in
+      # this file against .env in *this same directory* ({{ location }}/{{ name }}/.env, needed
+      # here for a plain `bun run dev` where the dev server and browser share one machine), so
+      # naming the same variable here would just silently re-inline that value at build time
+      # regardless of any default given — confirmed via `docker compose config`, which resolved
+      # the reference to .env's value even with an empty ":-" fallback. Leaving it out entirely
+      # means Docker falls through to the Dockerfile's own empty ARG default, letting
+      # src/config/env.ts derive the GraphQL URL from whatever host the browser actually used to
+      # load this app (localhost, a LAN IP, a Tailscale IP, ...) instead of a value baked in at
+      # build time. Override with a real `docker compose build --build-arg
+      # PUBLIC_GRAPHQL_URL=...` if the GraphQL endpoint genuinely isn't reachable at this app's
+      # own host.
     container_name: {{ name }}_web
     ports:
       - "{{ port }}:{{ port }}"

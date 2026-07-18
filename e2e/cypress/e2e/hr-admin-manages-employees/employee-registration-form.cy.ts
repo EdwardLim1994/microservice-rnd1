@@ -19,6 +19,21 @@ describe('US-1 HR Admin manages employees — FEAT-5 employee registration form 
     cy.get('[data-testid="register-employee-button"]').click()
   })
 
+  // Edge case: supervisor dropdown empty. Runs FIRST in this file, before any other test
+  // registers an employee — EmployeeRegistrationForm only ever renders "No supervisors
+  // available" when the employee table is genuinely empty (see its own component source), so
+  // this assertion is inherently order-dependent: it flaked once "registers an employee..."
+  // (below) started running first within the same file and leaving real employees behind for
+  // this test to see as candidate supervisors.
+  it('allows submission without a supervisor when none are available', () => {
+    cy.get('[data-testid="supervisor-dropdown"]').should('contain', 'No supervisors available')
+    cy.get('[data-testid="fullName-input"]').type('Alan Turing')
+    cy.get('[data-testid="employeeId-input"]').type(`EMP-CY-${Date.now()}`)
+    cy.get('[data-testid="grossSalary-input"]').type('5000')
+    cy.get('[data-testid="submit-button"]').click()
+    cy.get('[data-testid="temporary-password-field"]').should('be.visible')
+  })
+
   // [E2E-1] Valid registration displays the temporary password in a copyable field
   it('registers an employee and shows a copyable temporary password on success', () => {
     const employeeId = `EMP-CY-${Date.now()}`
@@ -40,16 +55,6 @@ describe('US-1 HR Admin manages employees — FEAT-5 employee registration form 
     cy.get('[data-testid="grossSalary-input"]').type('5000')
     cy.get('[data-testid="submit-button"]').click()
     cy.get('[data-testid="submit-button"]').should('be.disabled')
-  })
-
-  // Edge case: supervisor dropdown empty
-  it('allows submission without a supervisor when none are available', () => {
-    cy.get('[data-testid="supervisor-dropdown"]').should('contain', 'No supervisors available')
-    cy.get('[data-testid="fullName-input"]').type('Alan Turing')
-    cy.get('[data-testid="employeeId-input"]').type(`EMP-CY-${Date.now()}`)
-    cy.get('[data-testid="grossSalary-input"]').type('5000')
-    cy.get('[data-testid="submit-button"]').click()
-    cy.get('[data-testid="temporary-password-field"]').should('be.visible')
   })
 
   // Edge case: duplicate employeeId

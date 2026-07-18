@@ -5,8 +5,12 @@ ARG BUN_VERSION=1.3.14
 # Rsbuild inlines PUBLIC_* env vars into the client bundle at *build* time (see
 # src/config/env.ts), not at container start — a docker-compose `environment:` entry on the
 # runtime container has no effect on this. Override via `docker build --build-arg` /
-# docker-compose's `build.args:` instead (see docker-compose.yml).
-ARG PUBLIC_GRAPHQL_URL=http://router:4000/graphql
+# docker-compose's `build.args:` instead (see docker-compose.yml). Left unset by default —
+# src/config/env.ts falls back to deriving the GraphQL URL from whatever host the browser
+# actually loaded this app from, which works from any network vantage point (localhost, a LAN
+# IP, a Tailscale IP, ...) without a rebuild; a fixed value here only makes sense for a
+# deployment where the GraphQL endpoint is NOT reachable at the same host as this app.
+ARG PUBLIC_GRAPHQL_URL=
 # This remote's own public-facing address, baked into dist/mf-manifest.json's publicPath (via
 # rsbuild.config.ts's output.assetPrefix) — a consuming host resolves this remote's asset URLs
 # against it, so it must match wherever this remote is actually reachable from a browser: the
@@ -58,6 +62,15 @@ ENV {{ envVarName }}_HOST=${{ envVarName }}_HOST
 ENV {{ envVarName }}_PORT=${{ envVarName }}_PORT
 
 COPY --from=pruner /app/out/full/ .
+
+# {{ location }}/{{ name }}/.env (real, gitignored dev values — correct for a plain `bun run
+# dev`, where the dev server and browser are on the same machine) still gets copied in via the
+# pruned source tree above, and Bun auto-loads it when rsbuild build runs from that directory —
+# overriding the Docker ENV set from PUBLIC_GRAPHQL_URL above regardless of it already being
+# defined. Removed here, build-stage-only, so the build only ever sees the ARG-derived value
+# (empty by default, letting src/config/env.ts's own runtime fallback take over) — doesn't touch
+# the real .env this same source tree still carries into the runtime image below.
+RUN rm -f {{ location }}/{{ name }}/.env
 
 # Root-level build (turbo run build) — builds packages/api's dist (this app imports its
 # generated GraphQL types) before this project's own "build" script (rsbuild build), same
