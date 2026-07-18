@@ -7,9 +7,13 @@
 # dev headers/a C compiler in this image just to build psycopg2 from source.
 FROM python:3.13-slim
 
-RUN pip install --no-cache-dir ansible-core psycopg2-binary
+RUN pip install --no-cache-dir --only-binary :all: ansible-core==2.21.2 psycopg2-binary==2.9.12
 
 COPY requirements.yml /tmp/requirements.yml
+
+RUN useradd --create-home --uid 1000 ansible
+USER ansible
+
 RUN ansible-galaxy collection install -r /tmp/requirements.yml
 
 WORKDIR /workspace
