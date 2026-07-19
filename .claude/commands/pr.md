@@ -1,6 +1,7 @@
 # `/pr` — Issue, Branch Setup and Release Management
 
 Handles the full lifecycle of a release or hotfix:
+
 - Creates release/hotfix branch, issues, and feature branches
 - Manages RC and stable tags for UAT and production deployment
 - Opens release→main and hotfix→main PRs
@@ -25,6 +26,7 @@ Handles the full lifecycle of a release or hotfix:
 ## `/pr [version]` — Release Setup
 
 ### Prerequisites
+
 ```
 [ ] CLAUDE.md has been read
 [ ] .openspec/requirements/release/[version]/requirements.yaml exists
@@ -43,6 +45,7 @@ ls .openspec/requirements/release/[version]/*.graphql 2>/dev/null
 ```
 
 Validate requirements.yaml:
+
 - All top-level fields present: `release`, `date`, `releaseBranch`, `userStories`
 - All user stories have `acceptanceCriteria` and `features`
 - All features have `type`, `component`, `graphqlChanges`
@@ -50,6 +53,7 @@ Validate requirements.yaml:
 - No `PENDING` markers remain
 
 Validate deployment.yaml:
+
 - `release` matches version
 - `chore` is `true` or `false`
 - Each service has `name`, `type`, `path`, `deploy`
@@ -113,6 +117,7 @@ gh api repos/:owner/:repo/milestones \
 For each user story in requirements.yaml:
 
 **User story issue**
+
 ```bash
 gh issue create \
   --title "[US] [title]" \
@@ -123,6 +128,7 @@ gh issue create \
 ```
 
 User story issue template:
+
 ```markdown
 ## User Story
 As a [persona], I want to [goal] so that [outcome].
@@ -144,6 +150,7 @@ As a [persona], I want to [goal] so that [outcome].
 ```
 
 **Feature sub-issues**
+
 ```bash
 gh issue create \
   --title "[FEAT] [title]" \
@@ -153,6 +160,7 @@ gh issue create \
 ```
 
 Feature sub-issue template:
+
 ```markdown
 ## Feature Description
 [description]
@@ -204,6 +212,7 @@ Update user story sub-issue checklist after all sub-issues created.
 **Release branch already exists from Phase 2.**
 
 **User story branches**
+
 ```bash
 git checkout release/[version]
 git pull origin release/[version]
@@ -212,6 +221,7 @@ git push -u origin us/[issue-number]-[short-title]
 ```
 
 **Feature branches**
+
 ```bash
 git checkout us/[us-issue-number]-[short-title]
 git checkout -b feat/[issue-number]-[short-title]
@@ -219,6 +229,7 @@ git push -u origin feat/[issue-number]-[short-title]
 ```
 
 **Link branches to issues**
+
 ```bash
 gh issue view [issue-number] --json developmentBranches
 
@@ -240,6 +251,7 @@ ls ./apps/             # webpages and mobile apps
 ```
 
 For each entry in `deployment.yaml` with `deploy: true`:
+
 - Verify `path` exists in the repo
 - For `type: grpc` — verify corresponding `./servers/[name]-subgraph/` exists if `subgraph` field is set
 - For `type: mobile` — `deploy` must always be `false` (placeholder only)
@@ -270,6 +282,7 @@ draft: true
 ```
 
 Commit docs to release branch:
+
 ```bash
 git checkout release/[version]
 git add ./docs/
@@ -357,6 +370,7 @@ gh api repos/:owner/:repo/milestones \
 ### Phase H6 — Create Hotfix Issues
 
 **Hotfix parent issue**
+
 ```bash
 gh issue create \
   --title "[HOTFIX] [short description]" \
@@ -366,6 +380,7 @@ gh issue create \
 ```
 
 Hotfix parent template:
+
 ```markdown
 ## Production Problem
 [What is broken and user impact]
@@ -390,6 +405,7 @@ Hotfix parent template:
 ```
 
 **Bug sub-issues (one per bug in requirements.yaml)**
+
 ```bash
 gh issue create \
   --title "[BUG] [specific bug title]" \
@@ -399,6 +415,7 @@ gh issue create \
 ```
 
 Bug sub-issue template:
+
 ```markdown
 ## Bug Description
 [actualBehaviour from requirements.yaml]
@@ -476,17 +493,20 @@ git push origin "${TAG}"
 ```
 
 Update release milestone issue with RC tag:
+
 ```bash
 gh issue edit [release-tracking-issue] --body "[updated body adding RC tag line]"
 ```
 
 Add to release PR body (if already open):
+
 ```markdown
 ## RC Tags
 - `v[version]-rc1` — [date] — UAT deployment triggered
 ```
 
 Report:
+
 ```
 RC tag created: v[version]-rc[n]
 CI/CD will deploy to UAT environment.
@@ -525,6 +545,7 @@ gh pr create \
 ```
 
 Release PR template:
+
 ```markdown
 ## Release [version]
 
@@ -554,6 +575,7 @@ Release PR template:
 ```
 
 Report:
+
 ```
 Stable tag created: v[version]
 Production deployment triggered via CI/CD tag workflow.
@@ -580,6 +602,7 @@ gh pr view [pr-number] --json comments
 ```
 
 Identify comments from the developer describing UAT failures. Extract:
+
 - What failed (CI / SonarQube / e2e / manual verification)
 - Which service or flow is affected
 - Any reproduction steps provided
@@ -595,6 +618,7 @@ gh issue create \
 ```
 
 UAT fix issue template:
+
 ```markdown
 ## UAT Failure Description
 [Summary of what failed from PR comment]
@@ -678,6 +702,7 @@ gh pr create \
 ```
 
 Hotfix PR template:
+
 ```markdown
 ## Hotfix [version]
 
@@ -725,6 +750,7 @@ gh issue create \
 ```
 
 Bugfix branch from user story branch:
+
 ```bash
 git checkout us/[us-issue-number]-[short-title]
 git pull origin us/[us-issue-number]-[short-title]
@@ -733,6 +759,7 @@ git push -u origin bugfix/[us-issue-number]-[short-description]
 ```
 
 Report:
+
 ```
 Bugfix issue #[number] created.
 Bugfix branch: bugfix/[us-issue-number]-[short-description]
@@ -758,9 +785,11 @@ Run: /dev bugfix [bugfix-issue-number]
 ## Stopping Conditions
 
 Post `/blocked` and stop if:
+
 - `.openspec/` files missing or fail validation
 - `git checkout main && git pull` fails (authentication or network)
 - Any `deploy: true` service path does not exist (warn, do not block)
 - GitHub CLI authentication fails
 - Branch creation fails on remote
 - Tag already exists when trying to create it
+

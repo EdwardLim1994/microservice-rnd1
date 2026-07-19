@@ -10,7 +10,8 @@ Read this file at the start of every session before taking any action.
 │   ├── CLAUDE.md                          ← this file
 │   ├── commands/
 │   │   ├── pr.md                          ← /pr command
-│   │   ├── e2e.md                         ← /e2e command
+│   │   ├── qa.md                          ← /qa command
+│   │   ├── fix.md                         ← /fix command
 │   │   ├── dev.md                         ← /dev command
 │   │   └── review.md                      ← /review command
 │   └── SOP/
@@ -50,6 +51,7 @@ Read this file at the start of every session before taking any action.
 ```
 
 ## Subgraph Naming Convention
+
 - Subgraph: `[domain]-subgraph` (e.g. `auth-subgraph`)
 - gRPC server: `[domain]` (e.g. `auth`)
 - Both live alongside each other in `./servers/`
@@ -101,7 +103,21 @@ CI reads `deployment.yaml` from `.openspec/` to determine which services to buil
 | `mobile` | `./apps/[app]/` | Always `deploy: false` — Expo pipeline placeholder |
 | `chore: true` | any | Skip all deployments |
 
+## Shared Reference Documents
+
+All commands read these SOP files for standards and patterns before acting:
+
+| Document | Read by | Purpose |
+|---|---|---|
+| `.claude/SOP/testing-standards.md` | `/qa`, `/dev`, `/fix`, `/review` | Test patterns, rules, CI triggers, failure handling for all three test layers (unit/integration/e2e) |
+| `.claude/SOP/handoff.md` | All commands | Handoff comment templates between roles |
+| `.claude/SOP/devops.md` | `/devops`, `/review release` | CI/CD workflow definitions, tag-to-deploy, selective deployment |
+| `.claude/SOP/project-management.md` | `/pr` | Bugfix/hotfix issue creation reference |
+
+---
+
 ## Commit Convention
+
 Format: `type(scope): description`
 
 | Type | When |
@@ -114,6 +130,7 @@ Format: `type(scope): description`
 | `docs:` | Documentation |
 
 ## CI Quality Gates
+
 Claude Code waits for CI before opening any PR. Max 3 fix cycles then `/blocked`.
 
 | Workflow | Triggers on | Runs |
@@ -133,7 +150,9 @@ Claude Code never runs SonarQube locally. CI owns all scanning.
 Check in this order at the start of every session:
 
 ### 1 — OpenSpec files present in .openspec/?
+
 Prompt:
+
 ```
 OpenSpec found for [version].
 What would you like to do?
@@ -149,10 +168,13 @@ What would you like to do?
   /dev hotfix [version]            — implement all hotfix bugfixes
   /review [us-number]              — review all features for a user story
   /review feat [number]            — review one specific feature
+  /review release [version]        — full release review before RC tag
 ```
 
 ### 2 — No OpenSpec and no command given
+
 Ask:
+
 ```
 No OpenSpec files found. Run the bootstrap script from the Claude Project alignment chat first:
   bash bootstrap-[version].sh
@@ -163,7 +185,9 @@ If starting mid-SDLC, which command would you like to run?
 ```
 
 ### Hotfix session
+
 If developer mentions a production bug:
+
 ```
 Starting a hotfix. Please provide:
   - Current production version (e.g. 1.0.0)
@@ -192,8 +216,9 @@ Run the bootstrap script then: /pr hotfix [new-version]
 | `/dev us [us-number]` | `.claude/commands/dev.md` | Opens user story PR |
 | `/dev bugfix [number]` | `.claude/commands/dev.md` | Fixes bugfix branch, opens PR |
 | `/dev hotfix [version]` | `.claude/commands/dev.md` | All bugfix branches under hotfix |
-| `/review [us-number]` | `.claude/commands/review.md` | Reviews all features, fixes inline, pushes |
+| `/review [us-number]` | `.claude/commands/review.md` | Reviews all features under a user story, fixes inline, pushes |
 | `/review feat [number]` | `.claude/commands/review.md` | Reviews one specific feature |
+| `/review release [version]` | `.claude/commands/review.md` | Full release branch review — completeness, contracts, federation, docs, deployment manifest, branch cleanliness, code quality, integration tests, e2e tests |
 | `/devops` | `.claude/SOP/devops.md` | CI/CD pipeline setup or release deployment |
 
 When any command is given — read the corresponding file before acting.
