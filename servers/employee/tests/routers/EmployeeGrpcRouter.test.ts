@@ -1,0 +1,21 @@
+import { EmployeeEmployeeProto } from "api";
+import { expect, test } from "@rstest/core";
+import { createContainer, InjectionMode } from "awilix";
+import EmployeeGrpcRouter from "../../src/routers/EmployeeGrpcRouter";
+import RegisterEmployeeGrpcUseCase from "../../src/usecases/RegisterEmployeeGrpcUseCase";
+
+function makeContainer() {
+	return createContainer({ injectionMode: InjectionMode.PROXY });
+}
+
+test("service returns the generated EmployeeServiceService definition", () => {
+	const router = new EmployeeGrpcRouter(makeContainer());
+
+	expect(router.service).toBe(EmployeeEmployeeProto.EmployeeServiceService);
+});
+
+test("handlers maps registerEmployee to RegisterEmployeeGrpcUseCase", () => {
+	const router = new EmployeeGrpcRouter(makeContainer());
+
+	expect(router.handlers.registerEmployee).toBe(RegisterEmployeeGrpcUseCase);
+});
