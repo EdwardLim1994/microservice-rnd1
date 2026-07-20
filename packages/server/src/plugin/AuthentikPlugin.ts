@@ -411,9 +411,13 @@ export class AuthentikClient {
       if (!response.ok) {
         throw new AuthentikApiError(response.status, await parseBody(response));
       }
-      const { results } = (await response.json()) as { results: { pk: string }[] };
+      const { results } = (await response.json()) as {
+        results: { pk: string }[];
+      };
       if (results.length === 0) {
-        throw new AuthentikApiError(404, { error: `Authentik group not found: ${name}` });
+        throw new AuthentikApiError(404, {
+          error: `Authentik group not found: ${name}`,
+        });
       }
       pks.push(results[0].pk);
     }
