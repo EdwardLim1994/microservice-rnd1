@@ -249,3 +249,8 @@ When any command is given — read the corresponding file before acting.
 - Chore releases (`chore: true`) skip all service deployments
 - Post `/blocked` on the relevant GitHub issue when a stopping condition is hit
 - CI must pass before any PR is opened — max 3 fix cycles then `/blocked`
+
+## Prerun command
+
+- /caveman
+- /ponytail

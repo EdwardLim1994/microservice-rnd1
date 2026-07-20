@@ -10,9 +10,11 @@ Not a command file — does not execute anything directly.
 
 | Layer | Framework | Scope | Lives in | Created by | Runs via |
 |---|---|---|---|---|---|
-| Unit | Rstest | Individual functions/methods in isolation | `./servers/[domain]/tests/unit/` | `/dev` | `turbo run test` |
-| Integration | Vitest | Apollo Router → subgraph → gRPC → response (no mocking) | `./e2e/integration/[us-title]/` | `/qa` | `bun run test:integration` in `./e2e/` |
-| e2e (browser) | Cypress (headless) | UI flow: action → API call → response handling in UI | `./e2e/cypress/e2e/[us-title]/` | `/qa` | `bun run test:e2e` in `./e2e/` |
+| Unit | Rstest | Individual functions/methods in isolation | `./servers/[domain]/tests/unit/` | `/dev` (backend phase) | `turbo run test` |
+| UAT Integration | Vitest | Apollo Router → subgraph → gRPC (OpenSpec-derived) | `./e2e/integration/[us-number]/` | `/qa` | `bun run test:uat` |
+| UAT e2e | Cypress (headless) | UI flows from acceptance criteria (OpenSpec-derived) | `./e2e/cypress/[us-number]/` | `/qa` | `bun run test:uat` |
+| QA Integration | Vitest | API contract tests (impl-derived) | `./e2e/integration/[us-number]/[feat-number]/` | `/dev` (qa phase) | `bun run test:qa` |
+| QA e2e | Cypress (headless) | UI flow tests (impl-derived) | `./e2e/cypress/[us-number]/[feat-number]/` | `/dev` (qa phase) | `bun run test:qa` |
 
 ---
 
@@ -24,15 +26,18 @@ Not a command file — does not execute anything directly.
 ├── vitest.config.ts           ← integration test config
 ├── cypress.config.ts          ← browser e2e config (headless)
 ├── integration/               ← Vitest integration tests
-│   └── [us-short-title]/
-│       └── [feat-short-title].test.ts
+│   └── [us-number]/           ← UAT tests (from /qa, OpenSpec-derived)
+│       ├── [feat-short-title].test.ts
+│       └── [feat-number]/     ← QA task tests (from /dev feat qa phase, impl-derived)
+│           └── [feat-short-title].test.ts
 └── cypress/
-    ├── e2e/                   ← Cypress browser tests
-    │   └── [us-short-title]/
-    │       └── [feat-short-title].cy.ts
-    └── support/
-        ├── commands.ts
-        └── e2e.ts
+    └── [us-number]/           ← UAT tests (from /qa, OpenSpec-derived)
+        ├── [feat-short-title].cy.ts
+        ├── support/
+        │   ├── commands.ts
+        │   └── e2e.ts
+        └── [feat-number]/     ← QA task tests (from /dev feat qa phase, impl-derived)
+            └── [feat-short-title].cy.ts
 ```
 
 ### package.json scripts
@@ -42,7 +47,9 @@ Not a command file — does not execute anything directly.
   "scripts": {
     "test:integration": "vitest run",
     "test:e2e": "cypress run --headless",
-    "test:all": "bun run test:integration && bun run test:e2e"
+    "test:all": "bun run test:integration && bun run test:e2e",
+    "test:uat": "vitest run integration/[us-number]/ && cypress run --headless --spec 'cypress/[us-number]/*.cy.ts'",
+    "test:qa": "vitest run integration/[us-number]/[feat-number]/ && cypress run --headless --spec 'cypress/[us-number]/[feat-number]/**'"
   }
 }
 ```
@@ -320,10 +327,11 @@ describe('[Feature title] — e2e', () => {
 
 | Test layer | Triggered when | Workflow |
 |---|---|---|
-| Unit (Rstest) | `turbo run test` locally in `/dev` | Not a separate CI workflow — part of feature development loop |
-| Integration (Vitest) | Push to `feat/**`, `bugfix/**` | `integration-tests.yml` |
-| e2e (Cypress) | PR targeting `release/**`, or `workflow_dispatch` | `e2e-tests.yml` |
-| SonarQube | Push to `feat/**`, `us/**`, `bugfix/**`, `hotfix/**` | `sonarqube.yml` |
+| Unit (Rstest) | `turbo run test` in `/dev` backend phase | Not a separate CI workflow — local only |
+| UAT Integration + e2e | Push to `uat/**` | `integration-tests.yml` |
+| QA Integration + e2e | Push to `task/**` | `integration-tests.yml` |
+| Full integration + e2e | PR targeting `release/**`, or `workflow_dispatch` | `e2e-tests.yml` |
+| SonarQube | Push to `feat/**`, `task/**`, `uat/**`, `us/**`, `bugfix/**`, `hotfix/**` | `sonarqube.yml` |
 
 ---
 

@@ -1,18 +1,18 @@
-# `/qa [us-number]` — QA Test Case Creation
+# `/qa [us-number]` — UAT Test Case Creation
 
-Creates integration and e2e test cases for a user story.
-Triggered automatically by `/pr` after a user story issue is created.
+Creates UAT-level integration and e2e test cases for a user story.
+Tests are derived from OpenSpec `e2eTestPlan`, acceptance criteria, and business logic.
+Does NOT read implementation code — tests verify business requirements, not implementation details.
+
+Triggered automatically by `/pr` after each user story issue is created.
 Can also be triggered manually.
-
-Opens a `[QA]` GitHub issue and a PR into the user story branch.
-You must merge the QA PR before `/dev` can start.
 
 ---
 
 ## Usage
 
 ```
-/qa [us-number]    Create QA tests for a user story
+/qa [us-number]    Create UAT tests for a user story
 ```
 
 ---
@@ -21,7 +21,7 @@ You must merge the QA PR before `/dev` can start.
 
 Read before writing any tests:
 
-- `.claude/SOP/testing-standards.md` — test patterns, rules, and folder structure for all layers
+- `.claude/SOP/testing-standards.md` — test patterns, rules, folder structure
 
 ---
 
@@ -37,24 +37,20 @@ Read before writing any tests:
 [ ] GitHub CLI authenticated (gh auth status)
 ```
 
-If any prerequisite fails — post `/blocked` on the user story issue and stop.
-
 ---
 
 ## Phase 1 — Read Inputs
 
 ```bash
-# Read user story issue
 gh issue view [us-number] --json title,body,labels,milestone
 
-# Read OpenSpec — locate user story by US-[n] id
 cat .openspec/requirements/[release|hotfix]/[version]/requirements.yaml
+# Locate user story by US-[n] id
 
-# Read all feature sub-issues linked in the user story
 gh issue list --milestone "[version]" --label "feature" --json number,title,body
 ```
 
-Extract from OpenSpec:
+Extract from OpenSpec only — do not read implementation code:
 
 - All `e2eTestPlan` scenarios (Given/When/Then)
 - All `acceptanceCriteria`
@@ -97,7 +93,7 @@ import { defineConfig } from 'cypress'
 export default defineConfig({
   e2e: {
     baseUrl: process.env.CLUSTER_URL ?? 'http://localhost:80',
-    specPattern: 'cypress/e2e/**/*.cy.ts',
+    specPattern: 'cypress/**/*.cy.ts',
     supportFile: 'cypress/support/e2e.ts',
     video: false,
     screenshotOnRunFailure: true,
@@ -112,14 +108,29 @@ Update `./e2e/package.json` scripts if missing:
   "scripts": {
     "test:integration": "vitest run",
     "test:e2e": "cypress run --headless",
-    "test:all": "bun run test:integration && bun run test:e2e"
+    "test:all": "bun run test:integration && bun run test:e2e",
+    "test:uat": "vitest run integration/[us-number]/ && cypress run --headless --spec 'cypress/[us-number]/*.cy.ts'",
+    "test:qa": "vitest run integration/[us-number]/[feat-number]/ && cypress run --headless --spec 'cypress/[us-number]/[feat-number]/**'"
   }
 }
 ```
 
 ---
 
-## Phase 3 — Create QA GitHub Issue
+## Phase 3 — Create UAT Branch
+
+```bash
+git checkout us/[us-number]-[short-title]
+git pull origin us/[us-number]-[short-title]
+git checkout -b uat/[us-number]-[short-title]
+git push -u origin uat/[us-number]-[short-title]
+```
+
+All test cases are committed to `uat/[us-number]-[short-title]` — never directly to `us/`.
+
+---
+
+## Phase 4 — Create QA GitHub Issue
 
 ```bash
 gh issue create \
@@ -138,151 +149,135 @@ gh label create "qa" --color "0e8a16" --description "QA test cases"
 QA issue template:
 
 ```markdown
-## QA Test Cases — [User Story Title]
+## UAT Test Cases — [User Story Title]
 
 Parent issue: #[us-number]
-User story branch: `us/[us-number]-[short-title]`
+UAT branch: `uat/[us-number]-[short-title]`
+
+## Source
+Tests derived from OpenSpec `e2eTestPlan`, acceptance criteria, and business logic.
+Does NOT test implementation details — verifies business requirements.
 
 ## Integration Tests
-Location: `./e2e/integration/[us-short-title]/`
+Location: `./e2e/integration/[us-number]/`
 
-Tests the full request path: Apollo Router → subgraph → gRPC service → response.
-One test file per feature with backend or fullstack type.
+Full stack: Apollo Router → subgraph → gRPC → response. No mocking.
 
-### Test Coverage
+### Coverage
 [List each INT-[n]-[n] scenario from OpenSpec]
 
 ## e2e Tests (Cypress — headless)
-Location: `./e2e/cypress/e2e/[us-short-title]/`
+Location: `./e2e/cypress/[us-number]/`
 
-Tests UI flow: user action → API call fires → response handled in UI.
-Covers acceptance criteria and UI interaction states.
+UI flow: user action → API call → response handling in UI.
 
-### Test Coverage
+### Coverage
 [List each E2E-[n] scenario from OpenSpec]
-[List each UI state: loading, error, empty, success]
+[List each acceptance criterion]
+[List each UI state from uiInteractions]
 
 ## OpenSpec Reference
 `.openspec/requirements/release/[version]/requirements.yaml` — [US-n]
 
 ## Definition of Done
-- [ ] Integration tests written covering all INT scenarios
-- [ ] Integration tests written covering all edge cases
+- [ ] Integration tests written covering all INT scenarios from OpenSpec
+- [ ] Integration tests written covering all edge cases from OpenSpec
 - [ ] Cypress tests written covering all acceptance criteria
 - [ ] Cypress tests written covering all UI states from uiInteractions
-- [ ] PR opened into us/[us-number]-[short-title]
-- [ ] PR merged before /dev starts
-```
-
-Note the QA issue number returned.
-
----
-
-## Phase 4 — Checkout User Story Branch
-
-```bash
-git checkout us/[us-number]-[short-title]
-git pull origin us/[us-number]-[short-title]
+- [ ] PR opened: uat/[us-number] → us/[us-number]
+- [ ] PR merged before any /dev feat starts
 ```
 
 ---
 
 ## Phase 5 — Write Integration Tests
 
-For each feature with `type: backend` or `type: fullstack`:
-
-Create `./e2e/integration/[us-short-title]/[feat-short-title].test.ts`:
+Create `./e2e/integration/[us-number]/[feat-short-title].test.ts` for each feature
+with `type: backend` or `type: fullstack`:
 
 ```typescript
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 const BASE_URL = process.env.CLUSTER_URL ?? 'http://localhost:80'
 
-// Integration test: calls Apollo Router → subgraph → gRPC → response
-// Tests the full request path end-to-end, no mocking
+// UAT integration test — derived from OpenSpec only
+// Tests business requirements, not implementation details
+// Always calls through Apollo Router — never gRPC directly, never mocked
 
-describe('[Feature title] — Integration', () => {
-  // Happy path — one test per INT-[n]-[n] scenario from OpenSpec
-  it('[INT-n-n scenario description]', async () => {
+describe('[Feature title] — UAT Integration', () => {
+  // One test per e2eTestPlan scenario from OpenSpec
+  it('[E2E-n] [scenario description]', async () => {
     const res = await fetch(`${BASE_URL}/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `[GraphQL mutation or query from spec]`,
-        variables: { /* input from spec */ },
+        query: `
+          mutation [OperationName]($input: [InputType]!) {
+            [mutationName](input: $input) {
+              [fields from OpenSpec output]
+            }
+          }
+        `,
+        variables: { /* input from OpenSpec spec */ },
       }),
     })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data).toMatchObject({ /* expected output from spec */ })
+    expect(body.data).toMatchObject({ /* expected output from OpenSpec */ })
     expect(body.errors).toBeUndefined()
   })
 
-  // Edge cases — one test per edgeCase in feature spec
-  it('returns error when [edge case description]', async () => {
+  // One test per edgeCase in OpenSpec
+  it('returns error when [edge case from OpenSpec]', async () => {
     const res = await fetch(`${BASE_URL}/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        query: `[GraphQL mutation or query]`,
-        variables: { /* invalid/edge case input */ },
+        query: `[operation]`,
+        variables: { /* invalid input from OpenSpec edgeCases */ },
       }),
     })
     const body = await res.json()
     expect(body.errors).toBeDefined()
-    expect(body.errors[0].extensions.code).toBe('[expected error code]')
+    expect(body.errors[0].extensions.code).toBe('[expected error code from OpenSpec]')
   })
 })
 ```
-
-Rules:
-
-- Always call through Apollo Router (`/graphql` endpoint) — never call gRPC directly
-- Never mock network calls or service responses
-- Use `CLUSTER_URL` env var — never hardcode URLs
-- Cover all `integrationTestPlan` scenarios from OpenSpec
-- Cover all `edgeCases` from each feature spec
-- Add additional edge case tests beyond the spec if coverage feels insufficient
 
 ---
 
 ## Phase 6 — Write Cypress e2e Tests
 
-For each feature with `type: frontend` or `type: fullstack`:
-
-Fetch the Claude Design project from `claudeDesignURL` to understand component structure and `data-testid` attributes.
-
-Create `./e2e/cypress/e2e/[us-short-title]/[feat-short-title].cy.ts`:
+Create `./e2e/cypress/[us-number]/[feat-short-title].cy.ts` for each feature
+with `type: frontend` or `type: fullstack`:
 
 ```typescript
-// e2e test: UI flow only
-// Scope: user triggers action → API call fires → UI handles response
-// NOT testing: visual layout, styling, pixel accuracy
+// UAT e2e test — derived from OpenSpec acceptance criteria and uiInteractions
+// Tests user-facing flows and business requirements
+// NOT testing implementation details or visual appearance
 
-describe('[Feature title] — e2e', () => {
+describe('[Feature title] — UAT e2e', () => {
   beforeEach(() => {
-    cy.visit('/[route from spec]')
+    cy.visit('/[route from OpenSpec]')
   })
 
   // One test per acceptance criterion from user story
-  it('[acceptance criterion description]', () => {
-    // Given — set up state
+  it('[acceptance criterion from OpenSpec]', () => {
+    // Given
     cy.get('[data-testid="[element]"]').should('be.visible')
-
-    // When — user triggers action
-    cy.get('[data-testid="[input]"]').type('[value]')
+    // When
+    cy.get('[data-testid="[input]"]').type('[value from OpenSpec]')
     cy.get('[data-testid="[submit]"]').click()
-
-    // Then — verify API was called and response handled
+    // Then — verify API called and response handled per OpenSpec
     cy.intercept('POST', '/graphql').as('apiCall')
     cy.wait('@apiCall').then((interception) => {
-      expect(interception.request.body.query).to.include('[operation name]')
+      expect(interception.request.body.query).to.include('[operation from OpenSpec]')
     })
-    cy.get('[data-testid="[result]"]').should('contain', '[expected]')
+    cy.get('[data-testid="[result]"]').should('contain', '[expected from OpenSpec]')
   })
 
-  // One test per UI interaction state from uiInteractions in spec
-  it('shows loading state when API call is in flight', () => {
+  // One test per UI state from uiInteractions in OpenSpec
+  it('shows loading state during API call', () => {
     cy.intercept('POST', '/graphql', (req) => {
       req.on('response', (res) => { res.setDelay(1000) })
     })
@@ -292,13 +287,13 @@ describe('[Feature title] — e2e', () => {
 
   it('handles error response from API', () => {
     cy.intercept('POST', '/graphql', {
-      body: { errors: [{ message: '[error]', extensions: { code: '[code]' } }] }
+      body: { errors: [{ message: '[error]', extensions: { code: '[code]' } }] },
     })
     cy.get('[data-testid="[trigger]"]').click()
     cy.get('[data-testid="[error-banner]"]').should('be.visible')
   })
 
-  it('handles empty state when API returns no data', () => {
+  it('shows empty state when API returns no data', () => {
     cy.intercept('POST', '/graphql', { body: { data: { [field]: null } } })
     cy.visit('/[route]')
     cy.get('[data-testid="[empty-state]"]').should('be.visible')
@@ -306,67 +301,54 @@ describe('[Feature title] — e2e', () => {
 })
 ```
 
-Rules:
-
-- Always use `data-testid` for element selection — never CSS classes or text
-- Cypress runs in headless mode — `cypress run --headless`
-- Test the flow (action → API → response handling) not the visual appearance
-- Use `cy.intercept` to assert API calls were made with correct params
-- Use `cy.intercept` with mock responses to test loading/error/empty states
-- Cover all `uiInteractions` states from the feature spec
-- Cover all `e2eTestPlan` scenarios from the user story spec
-- Add additional scenario tests for better coverage where appropriate
-
 ---
 
 ## Phase 7 — Commit Test Cases
 
 ```bash
 git add ./e2e/
-git commit -m "test(qa): add integration and e2e tests for [user story title]"
-git push origin us/[us-number]-[short-title]
+git commit -m "test(uat): add UAT integration and e2e tests for US #[us-number]"
+git push origin uat/[us-number]-[short-title]
 ```
 
-These tests are expected to fail until `/dev` completes implementation.
-Failing at this stage is correct and expected.
+Tests will fail until `/dev feat` completes implementation. This is expected.
 
 ---
 
-## Phase 8 — Open QA PR
+## Phase 8 — Open UAT PR
 
 ```bash
 gh pr create \
   --title "[QA] [user story title]" \
   --base us/[us-number]-[short-title] \
-  --body "[QA PR template below]" \
+  --head uat/[us-number]-[short-title] \
+  --body "[UAT PR template below]" \
   --draft=false
 ```
 
-QA PR template:
+UAT PR template:
 
 ```markdown
-## QA Test Cases
+## UAT Test Cases
 Linked issue: #[qa-issue-number]
 Parent user story: #[us-number]
 
-## Integration Tests Added
-- `./e2e/integration/[us-short-title]/[feat-short-title].test.ts`
-  - [n] happy path scenarios
-  - [n] edge case scenarios
+## Source
+Derived from OpenSpec — tests business requirements, not implementation.
 
-## e2e Tests Added (Cypress — headless)
-- `./e2e/cypress/e2e/[us-short-title]/[feat-short-title].cy.ts`
-  - [n] acceptance criteria flows
-  - [n] UI state tests (loading, error, empty, success)
+## Integration Tests
+`./e2e/integration/[us-number]/`
+- [n] e2eTestPlan scenarios
+- [n] edge case scenarios
 
-## Coverage
-- OpenSpec scenarios covered: [n]/[n]
-- Edge cases covered: [n]/[n]
-- Additional tests added: [n]
+## e2e Tests (Cypress headless)
+`./e2e/cypress/[us-number]/`
+- [n] acceptance criteria flows
+- [n] UI state tests
 
 ## Note
-Tests are expected to fail until /dev completes implementation.
-Please merge this PR before triggering /dev [us-number].
+Tests will fail until /dev feat completes all phases.
+⚠️ Merge this PR before running /dev feat [feat-number].
 ```
 
 ---
@@ -377,22 +359,19 @@ Please merge this PR before triggering /dev [us-number].
 /qa complete — US #[us-number] [title]
 
 QA issue: #[qa-issue-number]
-QA PR: #[pr-number] (us/[us-number]-[short-title])
+UAT branch: uat/[us-number]-[short-title]
+UAT PR: #[pr-number] (uat/[us-number] → us/[us-number])
 
-Integration tests:
-  ./e2e/integration/[us-short-title]/
-  [n] scenarios, [n] edge cases
+Integration tests: ./e2e/integration/[us-number]/
+  [n] scenarios from OpenSpec e2eTestPlan
+  [n] edge cases from OpenSpec
 
-Cypress e2e tests (headless):
-  ./e2e/cypress/e2e/[us-short-title]/
-  [n] acceptance criteria flows, [n] UI state tests
+Cypress e2e tests (headless): ./e2e/cypress/[us-number]/
+  [n] acceptance criteria flows
+  [n] UI state tests from uiInteractions
 
-Additional coverage added: [n] extra test cases
-
-Tests will fail until implementation is complete — this is expected.
-
-⚠️  Please review and merge PR #[pr-number] before running:
-  /dev [us-number]
+⚠️  Merge PR #[pr-number] before running:
+  /dev feat [feat-number]
 ```
 
 ---
@@ -401,8 +380,7 @@ Tests will fail until implementation is complete — this is expected.
 
 Post `/blocked` on the user story issue and stop if:
 
-- User story issue does not exist
 - User story branch does not exist
 - No `e2eTestPlan` in OpenSpec for this user story
 - A frontend/fullstack feature has no `claudeDesignURL`
-- `./e2e/` cannot be scaffolded (Bun not available)
+- `./e2e/` cannot be scaffolded
