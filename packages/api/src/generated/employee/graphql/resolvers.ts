@@ -15,22 +15,40 @@ export type Scalars = {
   _FieldSet: { input: unknown; output: unknown };
 };
 
+/** An employee registered in the HR system, owned by the employee subgraph. */
 export type Employee = {
   __typename?: 'Employee';
+  /** ISO 8601 timestamp of when this Employee record was created. */
   createdAt: Scalars['String']['output'];
+  /** Also used as the Authentik account's username. */
   email: Scalars['String']['output'];
+  /** Given name. */
   firstName: Scalars['String']['output'];
+  /** Free-text gender field, as supplied at registration. */
   gender: Scalars['String']['output'];
+  /** Monthly gross salary, before deductions. */
   grossSalary: Scalars['Float']['output'];
+  /** Unique internal identifier for the employee. */
   id: Scalars['ID']['output'];
+  /** Family name. */
   lastName: Scalars['String']['output'];
+  /** Per-day salary rate, used to compute unpaid-leave deductions (see FEAT-14). */
   salaryPerDay: Scalars['Float']['output'];
+  /**
+   * Id of this employee's supervisor, if assigned. Null until FEAT-3 (Assign supervisor) sets it,
+   * or if never assigned.
+   */
   supervisorId?: Maybe<Scalars['ID']['output']>;
+  /** ISO 8601 timestamp of the last update to this Employee record. */
   updatedAt: Scalars['String']['output'];
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /**
+   * Creates an Employee record and a matching Authentik account (employee group,
+   * mustChangePassword true). Rolls back the Employee record if Authentik account creation fails.
+   */
   registerEmployee: RegisterEmployeeResult;
 };
 
@@ -38,6 +56,7 @@ export type MutationRegisterEmployeeArgs = {
   input: RegisterEmployeeInput;
 };
 
+/** Input for registerEmployee — see the Employee type for field-level docs. */
 export type RegisterEmployeeInput = {
   email: Scalars['String']['input'];
   firstName: Scalars['String']['input'];
@@ -45,12 +64,20 @@ export type RegisterEmployeeInput = {
   grossSalary: Scalars['Float']['input'];
   lastName: Scalars['String']['input'];
   salaryPerDay: Scalars['Float']['input'];
+  /** Must reference an existing Employee's id, or the mutation returns NOT_FOUND. */
   supervisorId?: InputMaybe<Scalars['ID']['input']>;
 };
 
+/** Result of a successful registerEmployee call. */
 export type RegisterEmployeeResult = {
   __typename?: 'RegisterEmployeeResult';
+  /** The newly created Employee record. */
   employee: Employee;
+  /**
+   * One-time password for the created Authentik account (employee group,
+   * mustChangePassword: true). Returned once — the caller is responsible for delivering it to the
+   * employee; it cannot be retrieved again.
+   */
   temporaryPassword: Scalars['String']['output'];
 };
 
