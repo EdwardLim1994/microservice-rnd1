@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "server.fullname" . }}-postgres
+  labels:
+    {{- include "server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  # Always 1 — a second replica would each get its own PVC mount (ReadWriteOnce) and diverge into
+  # two separate databases, not a real HA setup. This is a local/demo single-instance Postgres,
+  # same scope as docker-compose.yml's <name>-db.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "server.labels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "server.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      # No use of the Kubernetes API from within this pod — same "no automount" hardening as
+      # every other server chart in this repo (see servers/auth/helm/templates/deployment.yaml).
+      automountServiceAccountToken: false
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              # Postgres requires its data directory to be empty or already-initialized — a raw
+              # PVC mount at the volume root can contain a `lost+found` directory (ext4/some CSI
+              # drivers create one automatically), which trips Postgres's "directory not empty"
+              # initdb check. subPath scopes the mount to a subdirectory instead, sidestepping it.
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}, "-d", {{ .Values.postgres.database | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "server.fullname" . }}-postgres

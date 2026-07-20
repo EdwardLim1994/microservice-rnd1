@@ -1,0 +1,40 @@
+schema
+  @link(
+    url: "https://specs.apollo.dev/federation/v2.14"
+    import: ["@key", "@shareable"]
+  )
+{
+  mutation: Mutation
+}
+
+type Employee @key(fields: "id") {
+  createdAt: String!
+  email: String!
+  firstName: String!
+  gender: String!
+  grossSalary: Float!
+  id: ID!
+  lastName: String!
+  salaryPerDay: Float!
+  supervisorId: ID
+  updatedAt: String!
+}
+
+type Mutation {
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+}
+
+input RegisterEmployeeInput {
+  email: String!
+  firstName: String!
+  gender: String!
+  grossSalary: Float!
+  lastName: String!
+  salaryPerDay: Float!
+  supervisorId: ID
+}
+
+type RegisterEmployeeResult {
+  employee: Employee!
+  temporaryPassword: String!
+}

@@ -118,11 +118,12 @@ test('gives up and compensates after exhausting retries', async () => {
 
   class RetrySaga extends ProcedureOrchestrator<Context> {
     protected build() {
-      this.procedure(ReserveInventoryUseCase, ReleaseInventoryUseCase).procedure(
-        AlwaysFailsUseCase,
-        ChargePaymentUseCase as any,
-        { retries: 1 },
-      );
+      this.procedure(
+        ReserveInventoryUseCase,
+        ReleaseInventoryUseCase,
+      ).procedure(AlwaysFailsUseCase, ChargePaymentUseCase as any, {
+        retries: 1,
+      });
     }
   }
   calls.length = 0;
