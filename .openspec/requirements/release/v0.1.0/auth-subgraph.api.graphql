@@ -1,0 +1,41 @@
+# Apollo Federation v2 SDL — auth-subgraph
+# Release: v0.1.0
+# Feature references: FEAT-5
+# Implementation target: ./servers/auth-subgraph/src/schema/
+#
+# Note: signIn and signOut already exist in the auth service.
+# This SDL adds only the changePassword mutation (FEAT-5).
+# The existing self-service signUp operation must be marked @inaccessible
+# so Apollo Router never exposes it to external clients.
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key", "@shareable", "@external",
+    "@requires", "@provides", "@override", "@inaccessible"
+  ])
+
+"""
+Result of a successful password change operation.
+"""
+type ChangePasswordResult {
+  """
+  True when the password was changed and mustChangePassword cleared.
+  """
+  success: Boolean!
+}
+
+extend type Mutation {
+  """
+  Changes the authenticated employee's password via Authentik.
+  Clears the mustChangePassword flag on the Authentik account.
+  Requires a valid JWT in the Authorization header.
+  Returns UNAUTHENTICATED if currentPassword is incorrect.
+  Returns BAD_USER_INPUT if newPassword is the same as currentPassword.
+  """
+  changePassword(
+    "The employee's current password for verification."
+    currentPassword: String!
+    "The new password to set. Must differ from currentPassword."
+    newPassword: String!
+  ): ChangePasswordResult!
+}

@@ -1,0 +1,63 @@
+# Apollo Federation v2 SDL — payslip-subgraph
+# Release: v0.1.0
+# Feature references: FEAT-12, FEAT-13
+# Implementation target: ./servers/payslip-subgraph/src/schema/
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key", "@shareable", "@external",
+    "@requires", "@provides", "@override", "@inaccessible"
+  ])
+
+# Owned by employee-subgraph
+type Employee @key(fields: "id") {
+  id: ID! @external
+}
+
+"""
+A payslip generated for an employee.
+Maps directly to the Payslip database entity.
+The url field stores the MinIO object path (not a presigned URL).
+"""
+type Payslip @key(fields: "id") {
+  "Unique identifier (UUID)."
+  id: ID!
+
+  "MinIO object path for the payslip PDF. Used internally to generate presigned URLs."
+  url: String!
+
+  "ISO 8601 datetime when this payslip was generated."
+  createdAt: String!
+
+  "ISO 8601 datetime of last update."
+  updatedAt: String!
+
+  "The employee this payslip belongs to."
+  employee: Employee!
+}
+
+"""
+A time-limited presigned URL for downloading a payslip PDF from MinIO.
+"""
+type PayslipDownloadURL {
+  "Presigned MinIO URL valid for 5 minutes."
+  url: String!
+}
+
+type Query {
+  """
+  Returns all payslips for the authenticated employee, ordered by createdAt descending.
+  """
+  myPayslips: [Payslip!]!
+
+  """
+  Generates and returns a presigned MinIO download URL for the specified payslip.
+  Returns FORBIDDEN if the payslip does not belong to the authenticated employee.
+  Returns NOT_FOUND if the MinIO object cannot be located.
+  URL expires after 5 minutes.
+  """
+  payslipDownloadURL(
+    "The payslip to generate a download URL for."
+    payslipId: ID!
+  ): PayslipDownloadURL!
+}

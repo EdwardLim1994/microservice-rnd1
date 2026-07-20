@@ -1,0 +1,133 @@
+# Apollo Federation v2 SDL — employee-subgraph
+# Release: v0.1.0
+# Feature references: FEAT-1, FEAT-2, FEAT-3
+# Implementation target: ./servers/employee-subgraph/src/schema/
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key", "@shareable", "@external",
+    "@requires", "@provides", "@override", "@inaccessible"
+  ])
+
+"""
+An employee registered in the HR portal.
+Maps directly to the Employee database entity.
+"""
+type Employee @key(fields: "id") {
+  "Unique identifier (UUID)."
+  id: ID!
+
+  "Employee's given name."
+  firstName: String!
+
+  "Employee's family name."
+  lastName: String!
+
+  "Gender of the employee."
+  gender: String!
+
+  "Unique email address used for Authentik account."
+  email: String!
+
+  "Monthly gross salary in the organisation's base currency (integer, no decimals)."
+  grossSalary: Int!
+
+  "Daily salary rate used for unpaid leave deductions."
+  salaryPerDay: Int!
+
+  "Authentik account identifier linked to this employee."
+  authentikId: String!
+
+  "ISO 8601 datetime when the employee record was created."
+  createdAt: String!
+
+  "ISO 8601 datetime when the employee record was last updated."
+  updatedAt: String!
+
+  "The supervisor assigned to this employee, if any."
+  supervisor: Employee
+}
+
+"""
+Input for registering a new employee. HR Admin only.
+"""
+input RegisterEmployeeInput {
+  "Employee's given name."
+  firstName: String!
+
+  "Employee's family name."
+  lastName: String!
+
+  "Gender of the employee."
+  gender: String!
+
+  "Email address — must be unique across all employees."
+  email: String!
+
+  "Monthly gross salary (integer)."
+  grossSalary: Int!
+
+  "Daily salary rate (integer)."
+  salaryPerDay: Int!
+
+  "Optional supervisor to assign at registration time."
+  supervisorId: ID
+}
+
+"""
+Result of a successful employee registration.
+"""
+type RegisterEmployeeResult {
+  "The newly created employee record."
+  employee: Employee!
+
+  "Temporary password generated for the Authentik account. HR Admin delivers this manually."
+  temporaryPassword: String!
+}
+
+"""
+Input for assigning or reassigning a supervisor to an employee.
+"""
+input AssignSupervisorInput {
+  "The employee to update."
+  employeeId: ID!
+
+  "The employee to assign as supervisor. Must have served 5+ years (createdAt check)."
+  supervisorId: ID!
+}
+
+type Query {
+  """
+  Returns all employees. Accessible by HR Admin only.
+  Includes supervisor name resolved via the self-reference.
+  """
+  employees: [Employee!]!
+
+  """
+  Returns a single employee by ID.
+  """
+  employee(
+    "The employee's unique identifier."
+    id: ID!
+  ): Employee
+}
+
+type Mutation {
+  """
+  Registers a new employee. HR Admin only.
+  Creates an Employee record and an Authentik account in the employee group
+  with mustChangePassword set to true.
+  Returns CONFLICT if the email is already in use.
+  Returns BAD_USER_INPUT if required fields are missing or invalid.
+  """
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+
+  """
+  Assigns a supervisor to an employee. HR Admin only.
+  The target supervisor must have a createdAt at least 5 years before today.
+  Returns INELIGIBLE if the target has served fewer than 5 years.
+  Returns NOT_FOUND if either employeeId or supervisorId does not exist.
+  Returns BAD_USER_INPUT if employeeId and supervisorId are the same.
+  """
+  assignSupervisor(input: AssignSupervisorInput!): Employee!
+}
