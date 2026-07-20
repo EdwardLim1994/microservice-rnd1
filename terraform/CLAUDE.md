@@ -8,9 +8,9 @@ that app's own `<location>/<app>/terraform/module` (e.g. `module "auth"` →
 that app's own `<location>/<app>/terraform`'s thin per-app wrapper calls for standalone use. See
 that module's `main.tf` for the actual `kubernetes_namespace`/`helm_release` resources. Currently
 registers `auth` (`servers/auth`) and `docs` (`apps/docs`) — the rest of this doc describes the
-pattern a new one follows, also illustrated with a since-removed prototype example
-(`demo1`/`frontend1`/`portal`, later renamed `test1`/`mfe1`/`web1`) that was scaffolded, deployed,
-and verified against this config before being removed.
+pattern a new one follows, also illustrated with a since-removed prototype example (a server, a
+Module Federation remote, and its host app) that was scaffolded, deployed, and verified against
+this config before being removed.
 
 ## Adding a new app
 
@@ -36,7 +36,7 @@ Helm release that already exists (owned by the other's state) and fail.
 Once this root config manages an app, its state is migrated in with `terraform state mv
 -state=../servers/<app>/terraform/terraform.tfstate -state-out=terraform.tfstate
 module.<app>.<resource> module.<app>.<resource>` (once per resource) — confirmed against the
-prototype `demo1`/`frontend1` example mentioned above. From then on, treat that app's own
+prototype example mentioned above. From then on, treat that app's own
 `servers/<app>/terraform` (or `frontends/<app>/terraform`) as a template/reference for *new* apps,
 not something to `apply` standalone anymore — its local state file for that app's resources is now
 empty by design (moved here), so a stray `apply` there would try to recreate them from scratch

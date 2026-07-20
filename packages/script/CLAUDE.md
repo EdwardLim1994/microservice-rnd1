@@ -28,10 +28,10 @@ process.exit();
   the invoking server's own directory name (`bun run gen` always runs with cwd set to that
   server's workspace). This is what lets one script file serve every server: there's no name to
   hand-supply, so no per-server file is needed just to close over it. Still accepts an explicit
-  name for direct/test use (`APIGenerator.init('demo1')`).
+  name for direct/test use (`APIGenerator.init('<serverName>')`).
 - Checks for `graphql-codegen.exe` and `protoc.exe` in `node_modules/.bin` before running — skips gracefully if not found
 - After proto generation, writes `index.ts` barrel files recursively into each proto subdirectory
-- Writes a top-level `index.ts` barrel grouping exports by server name and type (e.g. `Demo1Graphql`, `Demo1Demo1Proto`)
+- Writes a top-level `index.ts` barrel grouping exports by server name and type (e.g. `<ServerName>Graphql`, `<ServerName><ServerName>Proto`)
 - Uses `chalk` for coloured log output (`log.info`, `log.warn`, `log.error`, `log.success`)
 - Helper utilities also exported: `writeSubDirBarrels`, `collectSubDirExports`, `createFolder`, `checkDependency`, `log`
 

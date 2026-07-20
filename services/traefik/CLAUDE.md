@@ -39,9 +39,8 @@ this repo carries its own `traefik.http.routers.<name>.rule=Host(...)` +
 service itself, same locality principle as every other per-stack `CLAUDE.md` in this repo.
 
 Current routes (no `apps/*`/`frontends/*` project exists right now — the prototype examples this
-was verified against, `apps/web1`/`frontends/mfe1`, have since been removed; a future `turbo gen
-web` project picks up an `Ingress`/route automatically, see the Kubernetes section's routed-set
-table below for how):
+was verified against have since been removed; a future `turbo gen web` project picks up an
+`Ingress`/route automatically, see the Kubernetes section's routed-set table below for how):
 
 | Host | Service | Gated by `admin-auth`? |
 |---|---|---|
@@ -204,13 +203,13 @@ public NodePort).
 
 ### Verified end-to-end against a live minikube cluster
 
-Confirmed working (historical run, against the `apps/web1`/`frontends/mfe1`/`servers/test1`
-prototype examples that have since been removed — the underlying RBAC finding below still applies
-to whatever's routed today): `bun run k8s:build` → `services/terraform` apply → root `terraform/`
-apply → `kubectl port-forward -n infra svc/traefik 80:80`, then, for each `Host`, a real response
+Confirmed working (historical run, against prototype app/frontend/server examples that have since
+been removed — the underlying RBAC finding below still applies to whatever's routed today):
+`bun run k8s:build` → `services/terraform` apply → root `terraform/` apply →
+`kubectl port-forward -n infra svc/traefik 80:80`, then, for each `Host`, a real response
 through Traefik:
 
-- `portal.localhost` / `mfe1.localhost` → `200` (web1 / mfe1)
+- The host app / the remote → `200`
 - `grafana.localhost` / `auth.localhost` → `302` (redirect to each app's own login, as expected)
 - `graphql.localhost` — a bare `GET /` 404s (Apollo Router's own `supergraph.path: /graphql` +
   `homepage.enabled: false`, see `services/apollo/helm/files/router.yaml` — not a Traefik
@@ -225,8 +224,9 @@ change — same "`terraform apply` doesn't see local chart edits" gotcha as
 `services/terraform/CLAUDE.md`'s own note, so a `helm upgrade` was required to actually land it,
 not just editing the file).
 
-Separately, on this same fresh cluster, `test1`'s pod crash-loops with `VaultPgAdapter.fromEnv()
-requires VAULT_ROLE_ID, VAULT_SECRET_ID, VAULT_DB_ROLE and DB_NAME` — expected on a brand-new Vault
-dev-mode instance that hasn't had `bun run vault:provision` run against it yet (see
-`services/vault/CLAUDE.md`'s "every restart wipes all provisioning" section), not a Traefik issue.
-It doesn't block anything above since nothing routed here depends on `test1` being healthy.
+Separately, on this same fresh cluster, that prototype server's pod crash-loops with
+`VaultPgAdapter.fromEnv() requires VAULT_ROLE_ID, VAULT_SECRET_ID, VAULT_DB_ROLE and DB_NAME` —
+expected on a brand-new Vault dev-mode instance that hasn't had `bun run vault:provision` run
+against it yet (see `services/vault/CLAUDE.md`'s "every restart wipes all provisioning" section),
+not a Traefik issue. It doesn't block anything above since nothing routed here depends on that
+server being healthy.

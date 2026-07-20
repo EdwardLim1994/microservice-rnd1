@@ -2,7 +2,7 @@
 
 Expo Router mobile app (iOS/Android), styled with HeroUI Native + Uniwind (Tailwind for React
 Native), calling the backend GraphQL federation gateway (`services/apollo`) via Apollo Client —
-same data-fetching pattern as `frontends/frontend1`.
+same data-fetching pattern as a `turbo gen web` frontend.
 
 ## Layout
 
@@ -14,14 +14,14 @@ same data-fetching pattern as `frontends/frontend1`.
                                   # ApolloProvider → HeroUINativeProvider, imports ../global.css
       index.tsx                  # home screen (HeroUI Native starter content)
     modules/<name>/               # one folder per feature, same repository/viewmodel/pages split
-                                  # as frontend1's src/modules/<name>/ (see that app's CLAUDE.md) —
-                                  # add with the "module" generator; a route under src/app/ then
-                                  # renders that module's page (see src/app/_layout.tsx for the
-                                  # provider stack it renders under)
+                                  # as a turbo gen web frontend's own src/modules/<name>/ (see that
+                                  # app's CLAUDE.md) — add with the "module" generator; a route
+                                  # under src/app/ then renders that module's page (see
+                                  # src/app/_layout.tsx for the provider stack it renders under)
       types/repository.ts        # gql query/mutation strings + hand-written result types
       viewmodel/use<Name>.ts      # thin wrapper around useQuery/useMutation from '@apollo/client/react'
       pages/<Name>Page.tsx        # React Native primitives (View/Text/...), not HTML — this is the
-                                  # one layer that actually differs from frontend1's web version
+                                  # one layer that actually differs from the web version
     lib/apolloClient.ts          # createApolloClient(uri) — bare HttpLink + InMemoryCache, no auth/error links
     config/env.ts                # GRAPHQL_URL, read from EXPO_PUBLIC_GRAPHQL_URL
     global.css                  # Uniwind/Tailwind entry point (see metro.config.js)
@@ -34,7 +34,7 @@ same data-fetching pattern as `frontends/frontend1`.
 ```
 
 `api` (generated types) and `config` (shared Biome config) are consumed as `workspace:*`
-devDependencies — types-only, same as `frontend1`.
+devDependencies — types-only, same as a `turbo gen web` frontend.
 
 ## Expo SDK pinned to 54, not latest
 
@@ -63,7 +63,7 @@ installed.
 ## Env vars / physical device preview
 
 `EXPO_PUBLIC_*` is the only prefix Expo inlines into the client bundle at build time (mobile's
-equivalent of Rsbuild's `PUBLIC_*` used by `frontend1`). `localhost` in `.env` only resolves for a
+equivalent of Rsbuild's `PUBLIC_*` used by a `turbo gen web` frontend). `localhost` in `.env` only resolves for a
 simulator running on this same machine — a physical device (Expo Go via `--host tunnel`, the
 `dev` script's mode) can't reach this machine's `localhost`. Point `EXPO_PUBLIC_GRAPHQL_URL` at a
 device-reachable address instead — this machine's Tailscale IP (`tailscale ip -4`) if the phone is

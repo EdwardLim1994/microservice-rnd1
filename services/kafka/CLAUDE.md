@@ -13,8 +13,8 @@ Docker Compose stack: `kafka` (KRaft mode, single broker), `kafka-ui` (browser U
   (`kafka-broker-api-versions --bootstrap-server localhost:9092` / `curl .../subjects`) — a
   container being *up* isn't the same as the broker being *ready to serve requests*. Any service
   that depends on either should use `depends_on: <service>: condition: service_healthy`, not just
-  `depends_on: <service>` (which only waits for the container to start, not warm up) — see
-  `servers/demo1/docker-compose.yml` / `servers/demo2/docker-compose.yml` for the pattern.
+  `depends_on: <service>` (which only waits for the container to start, not warm up) — see any
+  server's own `docker-compose.yml` for the pattern.
 - Topics are provisioned by `server`'s `KafkaDriver` (via `kafka.admin().createTopics()`, idempotent)
   before any producer/consumer connects — not by `KAFKA_AUTO_CREATE_TOPICS_ENABLE` alone, which
   races a consumer's first `subscribe()` and can crash it (`UNKNOWN_TOPIC_OR_PARTITION`) before the

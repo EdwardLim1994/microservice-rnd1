@@ -94,7 +94,7 @@ type ExtractReq<T> = T extends handleUnaryCall<infer Req, any> ? Req : never;
 type ExtractRes<T> = T extends handleUnaryCall<any, infer Res> ? Res : never;
 ```
 
-So if the proto has `testDemo: handleUnaryCall<Empty, Demo1>`, the handler must be `BaseUseCase<Empty, Demo1>`.
+So if the proto has `getWidget: handleUnaryCall<Empty, Widget>`, the handler must be `BaseUseCase<Empty, Widget>`.
 
 **GraphqlRouter** — handlers are grouped by GraphQL type name:
 
@@ -109,13 +109,13 @@ class DemoGraphqlRouter extends GraphqlRouter {
 
 `get resolvers()` is computed — ApolloDriver reads it directly. `register()` is a no-op.
 
-Both routers **auto-register use cases into the container** (via `asClass().transient()`) when `register()` / `resolvers` is first called. Token name = `lcFirst(ClassName)` e.g. `TestDemoUseCase` → `testDemoUseCase`. Skips if already registered.
+Both routers **auto-register use cases into the container** (via `asClass().transient()`) when `register()` / `resolvers` is first called. Token name = `lcFirst(ClassName)` e.g. `GetWidgetUseCase` → `getWidgetUseCase`. Skips if already registered.
 
 ### Use Cases
 
 ```ts
-class TestDemoUseCase extends BaseUseCase<Empty, Demo1> {
-  async execute(input: Empty): Promise<Demo1> { ... }
+class GetWidgetUseCase extends BaseUseCase<Empty, Widget> {
+  async execute(input: Empty): Promise<Widget> { ... }
 }
 ```
 
@@ -270,7 +270,7 @@ ServerApp.init([...])
   `fetch` against Vault's HTTP API — no `node-vault` dependency, same thin-client convention as
   `MeilisearchPlugin`.
 - Env vars: `VAULT_ADDR` (default `http://localhost:8200`), `VAULT_ROLE_ID`, `VAULT_SECRET_ID`,
-  `VAULT_DB_ROLE` (e.g. `test1-role`), `DB_HOST`/`DB_PORT`/`DB_NAME` — Vault only returns a
+  `VAULT_DB_ROLE` (e.g. `<serverName>-role`), `DB_HOST`/`DB_PORT`/`DB_NAME` — Vault only returns a
   username/password, not a full connection string, so these are needed to assemble one. All
   optionally overridable via `VaultPgAdapter.fromEnv({ vaultAddr, roleId, secretId, dbRole, dbHost, dbPort, dbName })`.
   `DATABASE_URL` also still exists alongside these (same static superuser) — `prisma.config.ts`
@@ -580,8 +580,8 @@ top-level barrel specifically so a consuming server doesn't have to add its inte
 `server` package at all —
 `intercept()` isn't auth-specific, so a server can write its own (logging, OTel, rate-limiting,
 whatever it needs) locally and wire it in with `.interceptors([...])` alongside `AuthInterceptor`.
-`servers/demo1/src/interceptors/LoggingInterceptor.ts` is the concrete example of this — see
-`servers/demo1/CLAUDE.md`'s Custom interceptors section. Composes with `AuthInterceptor` for free —
+`servers/<serverName>/src/interceptors/LoggingInterceptor.ts` is the concrete example of this —
+see that server's own `CLAUDE.md`'s Custom interceptors section. Composes with `AuthInterceptor` for free —
 both just implement `intercept()`, and `apply()`'s `addService`-wrapping chains regardless of order
 or which package an interceptor was defined in.
 
@@ -592,19 +592,19 @@ server has any `KafkaConsumerRouter`s), and topic provisioning — configured di
 `DriverEntry`'s `config`, the same way `GrpcDriver`/`ApolloDriver` take `port`/`host`.
 
 ```ts
-import { demo1EventsTopics } from 'api'; // shared topic declaration — see "Kafka serialization" below
+import { orderEventsTopics } from 'api'; // shared topic declaration — see "Kafka serialization" below
 import { KafkaConsumerRouter, type KafkaHandlerMap } from 'server';
-import LogDemo1EventUseCase from '../usecases/LogDemo1EventUseCase';
+import LogOrderEventUseCase from '../usecases/LogOrderEventUseCase';
 
-export class DemoKafkaRouter extends KafkaConsumerRouter<typeof demo1EventsTopics> {
-  get topicTypes() { return demo1EventsTopics; }
-  get handlers(): KafkaHandlerMap<typeof demo1EventsTopics> {
-    return { 'demo1.events': LogDemo1EventUseCase };
+export class OrderKafkaRouter extends KafkaConsumerRouter<typeof orderEventsTopics> {
+  get topicTypes() { return orderEventsTopics; }
+  get handlers(): KafkaHandlerMap<typeof orderEventsTopics> {
+    return { 'order.events': LogOrderEventUseCase };
   }
 }
 ```
 
-Consumer server (has a `KafkaConsumerRouter` — e.g. `demo2`):
+Consumer server (has a `KafkaConsumerRouter`):
 
 ```ts
 import { ApolloDriver, GrpcDriver, KafkaDriver, ServerApp } from 'server';
@@ -614,19 +614,19 @@ ServerApp.init([
   { driver: ApolloDriver, port: 4002 },
   { driver: KafkaDriver, onReady: () => console.log('Kafka consumer is running') },
 ])
-  .routers([DemoGrpcRouter, DemoGraphqlRouter, DemoKafkaRouter])
+  .routers([OrderGrpcRouter, OrderGraphqlRouter, OrderKafkaRouter])
   .run();
 ```
 
-Producer-only server (no `KafkaConsumerRouter` — e.g. `demo1` — declare topics via `config.topics`
+Producer-only server (no `KafkaConsumerRouter` — declare topics via `config.topics`
 instead, so they're provisioned up front rather than racing the broker's auto-create):
 
 ```ts
 {
   driver: KafkaDriver,
   config: {
-    topics: demo1EventsTopics, // same import DemoKafkaRouter uses above — see "Kafka serialization" below
-    serializer: new SchemaRegistryKafkaSerializer({ schemas: demo1EventsSchemas }),
+    topics: orderEventsTopics, // same import OrderKafkaRouter uses above — see "Kafka serialization" below
+    serializer: new SchemaRegistryKafkaSerializer({ schemas: orderEventsSchemas }),
   },
   onReady: () => console.log('Kafka producer is running'),
 }
@@ -678,7 +678,7 @@ side, per topic):
 constructor({ kafkaProducer }: { kafkaProducer: KafkaProducer }) { ... }
 
 async execute(...) {
-  await this.kafkaProducer.send('demo1.events', { id: result.id, name: result.name });
+  await this.kafkaProducer.send('order.events', { id: result.id, name: result.name });
 }
 ```
 
@@ -691,27 +691,27 @@ async execute(...) {
 ```
 
 ```ts
-// src/routers/DemoKafkaRouter.ts — declares which topics it consumes; decode is fully automatic
-const topicTypes = { 'demo1.events': Demo1Demo1eventProto.Demo1Event }; // same shape as config.topics
+// src/routers/OrderKafkaRouter.ts — declares which topics it consumes; decode is fully automatic
+const topicTypes = { 'order.events': OrderOrderEventProto.OrderEvent }; // same shape as config.topics
 
-class DemoKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
+class OrderKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
   get topicTypes() { return topicTypes; }
   get handlers(): KafkaHandlerMap<typeof topicTypes> {
-    return { 'demo1.events': LogDemo1EventUseCase };
+    return { 'order.events': LogOrderEventUseCase };
   }
 }
 ```
 
 - `serialize()` needs a **protobuf-es** (`@bufbuild/protobuf`) generated schema per topic, passed
-  via `SchemaRegistryKafkaSerializerConfig.schemas` (e.g. `Demo1ProtobufEs.Demo1Schema`, generated
-  into `packages/api` — see `servers/demo1/CLAUDE.md`'s Kafka producer section) — not the
-  `ts-proto` message type used for `config.topics`/gRPC, those are two different codegen outputs
+  via `SchemaRegistryKafkaSerializerConfig.schemas` (e.g. `OrderProtobufEs.OrderSchema`, generated
+  into `packages/api` — see the producing server's own `CLAUDE.md`'s Kafka producer section) — not
+  the `ts-proto` message type used for `config.topics`/gRPC, those are two different codegen outputs
   for the same `.proto` file. Throws if called for a topic with no schema registered.
 - `deserialize()` needs **no schema at all** — `ProtobufDeserializer` fetches whatever schema the
   producer actually registered, by the ID embedded in the message's wire format, so decode stays
   correct as the producer's schema evolves (as long as the change stays BACKWARD-compatible).
   `schemas` is entirely optional when a `SchemaRegistryKafkaSerializer` instance is only ever used
-  to decode (e.g. `demo2`, a consumer-only server).
+  to decode (e.g. a consumer-only server).
 - **Configured once on `KafkaDriverConfig.serializer`, resolved everywhere else via the
   container** — `KafkaDriver.start()` registers it as `kafkaSerializer` (`asValue`, before any
   router's `topics`/`dispatchers` are read) whenever `config.serializer` is set, regardless of
@@ -725,7 +725,7 @@ class DemoKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
   `topics` getter resolves `kafkaSerializer` from the container and binds `deserialize()` to every
   entry in `topicTypes` itself:
   - `topicTypes` is the exact `{ topicName: tsProtoGeneratedMessage }` shape already used for
-    `config.topics` (e.g. `{ 'demo1.events': Demo1Demo1eventProto.Demo1Event }`) — only each
+    `config.topics` (e.g. `{ 'order.events': OrderOrderEventProto.OrderEvent }`) — only each
     entry's `decode()` *return type* is used for inference; the entry's own `decode()` is never
     actually called, since the real decode always goes through the resolved `KafkaSerializer`.
     `DecodedTopics<TTopicTypes>` (exported from `server`) is the mapped type describing what
@@ -738,12 +738,12 @@ class DemoKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
   `createSerde`, defaulting to a real `SchemaRegistryClient` backing both a `ProtobufSerializer`
   and a `ProtobufDeserializer`) are injectable — same testability pattern as `KafkaDriver`'s
   `createKafka` — so tests never hit a real registry over the network.
-- **Sharing a topic's declaration across servers**: `demo1EventsTopics`/`demo1EventsSchemas` are
+- **Sharing a topic's declaration across servers**: `orderEventsTopics`/`orderEventsSchemas` are
   hand-written exports from `packages/api` (`src/kafka/topics.ts` — not under `src/generated/`, so
   not produced by `APIGenerator`; see `packages/api/CLAUDE.md`), pairing a topic name with its
-  generated message/schema types once so `demo1` (producer, `config.topics`/`serializer.schemas`)
-  and `demo2` (consumer, `topicTypes`) both import the same declaration instead of each
-  re-declaring the `{ 'demo1.events': ... }` literal locally. A topic name isn't derivable from a
+  generated message/schema types once so the producing server (`config.topics`/`serializer.schemas`)
+  and the consuming server (`topicTypes`) both import the same declaration instead of each
+  re-declaring the `{ 'order.events': ... }` literal locally. A topic name isn't derivable from a
   `.proto` file itself (topic naming is a messaging-topology concern, not part of the wire schema),
   so this pairing is maintained by hand rather than generated — a custom protobuf option +
   protoc plugin could derive it in principle, but wasn't judged worth building for the number of
@@ -761,7 +761,7 @@ class DemoKafkaRouter extends KafkaConsumerRouter<typeof topicTypes> {
   the use case's `execute()` signature is checked against the actual message shape. Consumer use
   cases return `void` (fire-and-forget), unlike `BaseUseCase`'s request/response usage elsewhere.
 - `KafkaMessageType<T>` only requires a `decode(input: Uint8Array): T | Promise<T>` method — any
-  ts-proto generated message object (`Demo1Demo1Proto.Demo1`, etc.) satisfies it structurally. This
+  ts-proto generated message object (`WidgetWidgetProto.Widget`, etc.) satisfies it structurally. This
   is what lets `topicTypes` reuse a plain generated message type directly, and what
   `KafkaConsumerRouter.topics`'s decode functions (built from the resolved `KafkaSerializer`)
   return — `deserialize()` is itself `async`, matching `Promise<T>`.
@@ -881,7 +881,7 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
   `SchemaRegistryKafkaSerializer` (see "Kafka serialization" above). `@bufbuild/protobuf` is
   bundled into `dist` like `kafkajs` is; `@confluentinc/schemaregistry` is **marked external** in
   `rslib.config.ts` (`'@confluentinc/schemaregistry': 'module @confluentinc/schemaregistry'`) —
-  every consuming server must have it as a **direct runtime dependency** (`demo1`/`demo2` both do).
+  every consuming server must have it as a **direct runtime dependency**.
   This isn't just a size optimization — bundling it is a genuine runtime crash:
   `@confluentinc/schemaregistry`'s `index.js` unconditionally `require`s every optional
   encryption-rule driver (AWS KMS, GCP KMS, etc.) even though `SchemaRegistryKafkaSerializer` only
@@ -892,7 +892,8 @@ then `_demoRepository.create(...)` causes the proxy to try resolving 'create' fr
   `require('stream')` doesn't resolve Node's core `stream` module the way `readable-stream`
   expects. Externalizing it resolves the whole package from the consuming server's own
   `node_modules` at runtime (real Node/Bun module resolution, not Rspack's), sidestepping the
-  bundling bug entirely — confirmed by running `demo1`/`demo2` after the fix, both boot cleanly.
+  bundling bug entirely — confirmed by booting a Kafka-producing and Kafka-consuming server after
+  the fix, both boot cleanly.
   Bundling everything (the pre-fix state) also roughly tripled `server`'s built size (~2.5MB →
   ~7.6MB) for the unused KMS chain alone — externalizing fixes that too, as a side effect.
 - `RedisPlugin` uses Bun's built-in `RedisClient` (`import { RedisClient } from 'bun'`) — no
@@ -960,8 +961,8 @@ from each router's `typeDefs`/`resolvers`, rather than passing them to `ApolloSe
   ```ts
   get handlers(): GraphqlHandlerMap {
     return {
-      Query: { demo1: Demo1UseCase },
-      Demo1: { __resolveReference: ResolveDemo1ReferenceUseCase },
+      Query: { widget: WidgetUseCase },
+      Widget: { __resolveReference: ResolveWidgetReferenceUseCase },
     };
   }
   ```

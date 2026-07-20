@@ -16,10 +16,9 @@ package (`packages/api`), backed by Docker Compose infra services.
   `src/bin/generate-api.ts` entrypoint — no per-server wrapper file). See `packages/script/CLAUDE.md`.
 - `servers/<name>/` — one server per microservice. Currently just `auth` (GraphQL-only, no DB —
   `signIn`/`signUp`/`signOut` mutations backed by `services/authentik/`, see
-  `servers/auth/CLAUDE.md`); a fuller example combining gRPC + GraphQL + Kafka + Postgres
-  (illustrated elsewhere in this repo's docs as `demo1`/`demo2`) doesn't exist today — scaffold one
-  with `turbo gen server` (see `turbo/generators/templates/server/CLAUDE.md` for the standard shape
-  it produces).
+  `servers/auth/CLAUDE.md`); a fuller example combining gRPC + GraphQL + Kafka + Postgres doesn't
+  exist today — scaffold one with `turbo gen server` (see
+  `turbo/generators/templates/server/CLAUDE.md` for the standard shape it produces).
 - `services/` — Docker Compose infra: `kafka` (broker + schema registry + UI), `apollo` (Apollo
   Router + supergraph composition script), `adminer` (DB admin UI), `redis` (password-protected
   Redis instance + `redis-commander` UI, consumed via `server`'s `RedisPlugin` — see
@@ -127,10 +126,9 @@ that generator only produces Rsbuild/React projects), registered into `apps/dock
 Current status: `services/**` (Kafka, Redis, Apollo Router — `services/terraform/`) has been
 deployed and verified in minikube on its own. `terraform/` (the app-aggregating root) currently has
 no app to deploy — its prototype example (a gRPC+GraphQL+Kafka server, a Module Federation remote,
-and its host app, illustrated elsewhere in this repo's docs as `demo1`/`frontend1`/`portal`) was
-deployed and verified working together end-to-end, including a real federated GraphQL query
-flowing browser → host → remote → Apollo Router → the gRPC server, before being removed (see
-`terraform/CLAUDE.md`). The runbook below is the still-current procedure a new `turbo gen server`/
+and its host app) was deployed and verified working together end-to-end, including a real
+federated GraphQL query flowing browser → host → remote → Apollo Router → the gRPC server, before
+being removed (see `terraform/CLAUDE.md`). The runbook below is the still-current procedure a new `turbo gen server`/
 `turbo gen web` project follows to redo that; step 2's build targets and step 5's port-forwards
 need updating to that new project's own name/ports (see its own `package.json`'s `"k8s:build"`
 script for the exact values). A gRPC-driven server's Helm values pointing at docker-compose-based

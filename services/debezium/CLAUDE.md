@@ -3,8 +3,8 @@
 Docker Compose stack: `kafka-connect` (Kafka Connect worker, image built from `kafka-connect/
 Dockerfile` — `confluentinc/cp-kafka-connect` plus the Debezium Postgres connector plugin
 installed via `confluent-hub`), running Change Data Capture for servers with their own Postgres.
-No server currently has CDC provisioned (the prototype example this was verified against,
-`servers/test1`, has since been removed — see `turbo gen cdc` below for wiring up a new one). No
+No server currently has CDC provisioned (the prototype example this was verified against has since
+been removed — see `turbo gen cdc` below for wiring up a new one). No
 application code here — just the Compose stack and the `ansible/` provisioning role, same shape as
 `services/vault`/`services/kafka`.
 
@@ -12,7 +12,7 @@ application code here — just the Compose stack and the `ansible/` provisioning
 
 CDC here means: Debezium's Postgres connector, running inside `kafka-connect`, reads a server's
 Postgres write-ahead log via logical replication and emits one Kafka topic per table
-(`<server_name>.<schema>.<table>`, e.g. `demo1.public.<table>`) — Avro-encoded through the same
+(`<server_name>.<schema>.<table>`, e.g. `<serverName>.public.<table>`) — Avro-encoded through the same
 `schema-registry` (`services/kafka`) every other topic in this repo uses (see
 `packages/server/CLAUDE.md`'s `SchemaRegistryKafkaSerializer`). It's a separate write path from a
 server's own `KafkaDriver` producer calls — CDC topics are named with a dot-separated

@@ -11,24 +11,25 @@ regenerate.
 ## Layout
 
 `src/generated/<serverName>/` — one folder per server that publishes types, e.g. `auth` (GraphQL
-only today — see `servers/auth/CLAUDE.md`) or a hypothetical gRPC+Kafka server like `demo1`:
+only today — see `servers/auth/CLAUDE.md`) or a hypothetical gRPC+Kafka server:
 - `proto/` — `ts-proto` output for that server's `.proto` file(s), plus `google/` well-known types
   and `typeRegistry.ts`, each with barrel `index.ts` files. Only present for a server with a gRPC
   driver — `auth` has none today.
 - `graphql/` — codegen output (`typedefs.ts`/`.graphql`, `resolvers.ts`, `context.ts`).
 - `protobufes/` — only present when a server also needs `@bufbuild/protobuf` (protobuf-es)
-  descriptors, e.g. a Kafka-producing server's `demo1/protobufes/demo1_pb.ts` +
-  `demo1event_pb.ts` for Confluent Schema Registry serialization (see
+  descriptors, e.g. a Kafka-producing server's `<serverName>/protobufes/<serverName>_pb.ts` +
+  `<serverName>event_pb.ts` for Confluent Schema Registry serialization (see
   `packages/server/CLAUDE.md`'s `SchemaRegistryKafkaSerializer` section). **Not** picked up by
   `APIGenerator`'s
   barrel step (which only scans `graphql/`/`proto/` per server) — every export from here in
-  `src/generated/index.ts` (`Demo1ProtobufEs`, `Demo1EventProtobufEs`, one per `_pb.ts` file) is
-  hand-added and must be re-added if the top-level barrel is ever regenerated from scratch (running
-  `bun run gen` silently drops all of them, since it only writes what it scanned).
+  `src/generated/index.ts` (one pair per `_pb.ts` file, e.g. `<ServerName>ProtobufEs`,
+  `<ServerName>EventProtobufEs`) is hand-added and must be re-added if the top-level barrel is
+  ever regenerated from scratch (running `bun run gen` silently drops all of them, since it only
+  writes what it scanned).
 
 `src/generated/index.ts` — top-level barrel, grouping exports by server name and type, e.g.
-`Demo1Graphql`, `Demo1Demo1Proto`, `Demo1ProtobufEs`. This is the file other packages actually
-import from (`import { Demo1Demo1Proto } from 'api'`).
+`<ServerName>Graphql`, `<ServerName><ServerName>Proto`, `<ServerName>ProtobufEs`. This is the file
+other packages actually import from (`import { <ServerName><ServerName>Proto } from 'api'`).
 
 ## Regenerating
 

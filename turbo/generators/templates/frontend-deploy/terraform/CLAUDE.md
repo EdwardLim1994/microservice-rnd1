@@ -1,8 +1,8 @@
 
 # {{ location }}/{{ name }}/terraform
 
-Same `module/` + thin-wrapper pattern as `servers/demo1/terraform` — see the root `terraform/CLAUDE.md`
-for the general shape. `cd {{ location }}/{{ name }}/terraform && terraform apply` deploys standalone;
+Same `module/` + thin-wrapper pattern as a server's own `terraform/` — see the root
+`terraform/CLAUDE.md` for the general shape. `cd {{ location }}/{{ name }}/terraform && terraform apply` deploys standalone;
 the root `terraform/` config calls `module/` directly to deploy it alongside everything else.
 
 ## PUBLIC_* config is not something this terraform config (or the Helm chart it deploys) can
@@ -21,5 +21,4 @@ For a browser on the same machine as this minikube + the repo root's docker-comp
 expected local dev setup), build with `PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql`
 (services/apollo's Router, published to the host) — **not** `http://router:4000/graphql` (that's
 docker-compose's own container-to-container hostname, which means nothing to a browser or to
-this pod). See `frontends/frontend1/terraform/CLAUDE.md` for the concrete example this was
-modeled on.
+this pod).

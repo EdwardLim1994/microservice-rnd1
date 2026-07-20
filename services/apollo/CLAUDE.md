@@ -1,8 +1,8 @@
 # services/apollo
 
 Docker Compose entry for the Apollo Router (`ghcr.io/apollographql/router`), fronting the
-federation subgraphs on `:4000` (see `packages/server/CLAUDE.md`'s GraphQL federation section for how
-`demo1`/`demo2` build their subgraph schemas). Router config: `src/config/router.yaml`.
+federation subgraphs on `:4000` (see `packages/server/CLAUDE.md`'s GraphQL federation section for
+how a subgraph server builds its schema). Router config: `src/config/router.yaml`.
 Env (`.env`, gitignored): `APOLLO_ROUTER_CONFIG_PATH`, `APOLLO_ROUTER_SUPERGRAPH_PATH`,
 `APOLLO_ROUTER_HOT_RELOAD`, `APOLLO_ROUTER_CHECK`.
 
@@ -21,27 +21,27 @@ which the router container mounts read-only (see `docker-compose.yml`'s `volumes
   processes.
 - **Known bug**: the wait step checks each spawned process's stdout for the substring
   `"GraphQL running on"`, but every server's actual `onReady` log line is `"GraphQL server is
-  running on ..."` (see `servers/demo1/src/app.ts` / `servers/demo2/src/app.ts`) — the substring
-  never matches, so `waitReady()` hangs indefinitely instead of proceeding once the subgraph is
-  actually up. Fix by aligning the substring check with the real log text (or vice versa) before
-  relying on `bun run supergraph`.
+  running on ..."` (see a server's own `src/app.ts`) — the substring never matches, so
+  `waitReady()` hangs indefinitely instead of proceeding once the subgraph is actually up. Fix by
+  aligning the substring check with the real log text (or vice versa) before relying on
+  `bun run supergraph`.
 - `routing_url` in `supergraph.yaml` points at `http://<server>:<port>` (Docker service name) with a
   commented-out `http://host.docker.internal:<port>` alternative — same host-vs-Docker split
-  documented in `servers/demo1/CLAUDE.md`/`services/kafka/CLAUDE.md`, switch depending on whether
+  documented in a server's own `CLAUDE.md`/`services/kafka/CLAUDE.md`, switch depending on whether
   the router is running in Docker or the subgraph servers are running on the host.
 
 ## Kubernetes deployment uses a hand-patched copy, not a recompose
 
 `services/apollo/helm/files/supergraph.graphql` (mounted by the `infra`-namespace Router
 deployment — see `services/terraform/CLAUDE.md`) is a **copy** of `dist/supergraph.graphql` with
-`demo1`'s `join__graph` URL manually changed to the in-cluster Service FQDN
-(`http://demo1.demo1.svc.cluster.local:4001`) instead of the docker-compose hostname. Running
-`bun run supergraph` again will overwrite `dist/supergraph.graphql` with docker-compose URLs and
-does **not** touch the helm copy automatically — re-copy and re-patch the `DEMO1` line by hand
-after any real schema change, then `helm upgrade apollo-router ./helm -n infra &&
+each deployed subgraph's `join__graph` URL manually changed to the in-cluster Service FQDN
+(`http://<serverName>.<serverName>.svc.cluster.local:4001`) instead of the docker-compose hostname.
+Running `bun run supergraph` again will overwrite `dist/supergraph.graphql` with docker-compose URLs
+and does **not** touch the helm copy automatically — re-copy and re-patch the affected `@join__graph`
+line(s) by hand after any real schema change, then `helm upgrade apollo-router ./helm -n infra &&
 kubectl rollout restart deployment apollo-router -n infra` (ConfigMap volume mounts don't
 hot-reload, and Terraform's `helm_release` won't see the file diff at all — see
-`services/terraform/CLAUDE.md`). `demo2` isn't deployed to k8s, so its URL is left unpatched.
+`services/terraform/CLAUDE.md`). A subgraph server never deployed to k8s leaves its URL unpatched.
 
 ## mTLS to subgraphs
 

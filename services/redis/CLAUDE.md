@@ -21,10 +21,10 @@ Docker Compose stack: `redis` (single instance, password-protected) and `redis-c
   `docker compose up` from inside `services/redis/` directly creates project `redis` (network
   `redis_redis`, volume `redis_redis-data`), which is a **different** network/volume than running it
   as part of the root `docker-compose.yml`'s `include:` (project `microservice-rnd1`, network
-  `microservice-rnd1_redis`). A server like `demo1` only joins the latter — if `redis` was started
-  standalone from this directory, `demo1` can't reach it even with correct env vars/networks on its
-  own side. Always bring this stack up via the root `docker-compose.yml` if a server needs to reach
-  it, not standalone.
+  `microservice-rnd1_redis`). A server only joins the latter — if `redis` was started
+  standalone from this directory, that server can't reach it even with correct env vars/networks on
+  its own side. Always bring this stack up via the root `docker-compose.yml` if a server needs to
+  reach it, not standalone.
 - Image is intentionally **not** pinned to `latest` in principle (every other stateful service in
   this repo pins an exact tag, e.g. `postgres:15.3-alpine`, `confluentinc/cp-kafka:8.2.2`) — it's
   currently on `redis:latest` only because the `redis-data` volume already had an RDB file written
