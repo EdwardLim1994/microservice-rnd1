@@ -145,6 +145,19 @@ Claude Code never runs SonarQube locally. CI owns all scanning.
 
 ---
 
+## Deprecated Commands
+
+The following commands no longer exist and must never be suggested or used:
+
+| Deprecated | Replaced by | Reason |
+|---|---|---|
+| `/e2e [us-number]` | `/qa [us-number]` | `/e2e` command file deleted — `/qa` owns all test case creation |
+
+If any document, conversation history, or prior session suggests using `/e2e`,
+ignore it and use `/qa` instead. `/e2e` is not a valid command in this project.
+
+---
+
 ## Session Start
 
 Check in this order at the start of every session:
@@ -160,7 +173,7 @@ What would you like to do?
   /pr tag rc [version]             — create RC tag → UAT deploy
   /pr tag stable [version]         — create stable tag → production deploy + release PR
   /pr uat-fix [version]            — read release PR comments, create UAT fix
-  /e2e [us-number]                 — write e2e tests for a user story
+  /qa [us-number]                  — create QA tests for a user story (merge QA PR before /dev)
   /dev [us-number]                 — implement all features for a user story
   /dev feat [number]               — implement one specific feature
   /dev us [us-number]              — open user story PR
@@ -210,7 +223,7 @@ Run the bootstrap script then: /pr hotfix [new-version]
 | `/pr tag hotfix-rc [version]` | `.claude/commands/pr.md` | Creates hotfix RC tag |
 | `/pr tag hotfix-stable [version]` | `.claude/commands/pr.md` | Creates hotfix stable tag + opens hotfix→main PR |
 | `/pr uat-fix [version]` | `.claude/commands/pr.md` | Reads release PR comments, creates UAT bugfix issue and branch |
-| `/e2e [us-number]` | `.claude/commands/e2e.md` | Vitest API + Cypress e2e tests for one user story |
+| `/qa [us-number]` | `.claude/commands/qa.md` | Creates [QA] issue, writes Vitest integration tests + Cypress e2e tests (headless), opens QA PR into user story branch |
 | `/dev [us-number]` | `.claude/commands/dev.md` | All features sequentially, integration tests, CI gate, feature PRs |
 | `/dev feat [number]` | `.claude/commands/dev.md` | One specific feature |
 | `/dev us [us-number]` | `.claude/commands/dev.md` | Opens user story PR |
