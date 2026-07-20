@@ -25,7 +25,7 @@
     path: sys/mounts/database
     data:
       type: database
-  when: db_name is defined and "'database/' not in current_mounts.data.data"
+  when: db_name is defined and "database/" not in current_mounts.data.data
 
 - name: Enable the PKI secrets engine
   community.hashi_vault.vault_write:
@@ -35,8 +35,12 @@
     data:
       type: pki
       config:
-        max_lease_ttl: "{{ vault_pki_max_ttl }}"
-  when: provision_tls | default(true) and "'pki_int/' not in current_mounts.data.data"
+        # Caps everything issued from this mount, including the root CA generated right below —
+        # must be at least vault_pki_root_ttl, not vault_pki_max_ttl (leaf-cert cap), or the root
+        # CA silently gets truncated to vault_pki_max_ttl's lifetime regardless of the ttl it
+        # actually requests.
+        max_lease_ttl: "{{ vault_pki_root_ttl }}"
+  when: provision_tls | default(true) and "pki_int/" not in current_mounts.data.data
 
 # Single self-signed root on this one mount — real intermediate-signed-by-offline-root chains are
 # out of scope for a dev-mode Vault that wipes on every restart anyway (same "prototype, not
@@ -49,7 +53,7 @@
     data:
       common_name: "microservice-rnd1 dev root CA"
       ttl: "{{ vault_pki_root_ttl }}"
-  when: provision_tls | default(true) and "'pki_int/' not in current_mounts.data.data"
+  when: provision_tls | default(true) and "pki_int/" not in current_mounts.data.data
 
 - name: Read currently enabled auth methods
   community.hashi_vault.vault_read:
@@ -107,7 +111,10 @@
       allow_subdomains: true
       client_flag: true
       server_flag: true
-      default_ttl: "{{ vault_pki_default_ttl }}"
+      # PKI roles use "ttl", not "default_ttl" (that field name is a database-secrets-engine
+      # thing) — Vault silently ignores unknown fields, so this used to fall through to Vault's
+      # own system-default TTL (768h) capped by max_ttl below, not the intended 1h.
+      ttl: "{{ vault_pki_default_ttl }}"
       max_ttl: "{{ vault_pki_max_ttl }}"
   when: provision_tls | default(true)
 

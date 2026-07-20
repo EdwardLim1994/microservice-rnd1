@@ -17,3 +17,17 @@ module "docs" {
   namespace     = var.docs_namespace
   app_image_tag = var.docs_app_image_tag
 }
+
+module "employee" {
+  source = "../servers/employee/terraform/module"
+
+  namespace     = var.employee_namespace
+  app_image_tag = var.employee_app_image_tag
+}
+
+module "hr-portal" {
+  source = "../apps/hr-portal/terraform/module"
+
+  namespace     = var.hr_portal_namespace
+  app_image_tag = var.hr_portal_app_image_tag
+}
