@@ -16,16 +16,16 @@ const EMPTY_FORM = {
   supervisorId: '',
 };
 
-// Design tokens lifted verbatim from the Claude Design HR Portal project (Register Employee
-// modal — HR Portal.dc.html). The mockup's field set (Full Name / Employee ID / Role /
-// Department) doesn't match FEAT-1's real GraphQL input contract (no employeeId/role/department
-// fields exist server-side; gender/email/salaryPerDay are required but not shown in the mockup at
-// all) — the visual language is applied to the real fields instead of copying the mockup's field
-// list 1:1.
+// Design tokens (see App.css's :root block) lifted from the Claude Design HR Portal project
+// (Register Employee modal — HR Portal.dc.html). The mockup's field set (Full Name / Employee ID
+// / Role / Department) doesn't match FEAT-1's real GraphQL input contract (no employeeId/role/
+// department fields exist server-side; gender/email/salaryPerDay are required but not shown in
+// the mockup at all) — the visual language is applied to the real fields instead of copying the
+// mockup's field list 1:1.
 const overlayStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  background: 'rgba(20,26,40,0.45)',
+  background: 'var(--hr-color-overlay)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -37,12 +37,12 @@ const modalStyle: React.CSSProperties = {
   position: 'relative',
   width: 480,
   maxWidth: '100%',
-  background: '#fff',
-  borderRadius: 14,
+  background: 'var(--hr-color-surface)',
+  borderRadius: 'var(--hr-radius-lg)',
   padding: 28,
   maxHeight: '90vh',
   overflowY: 'auto',
-  fontFamily: "'Inter', sans-serif",
+  fontFamily: 'var(--hr-font-family)',
 };
 
 const closeButtonStyle: React.CSSProperties = {
@@ -52,10 +52,10 @@ const closeButtonStyle: React.CSSProperties = {
   width: 28,
   height: 28,
   borderRadius: '50%',
-  background: '#f3f5f8',
-  border: '1px solid #e5e9f0',
+  background: 'var(--hr-color-close-bg)',
+  border: '1px solid var(--hr-color-close-border)',
   cursor: 'pointer',
-  color: '#6b7280',
+  color: 'var(--hr-color-text-muted)',
   fontSize: 14,
   lineHeight: 1,
   display: 'flex',
@@ -67,13 +67,13 @@ const titleStyle: React.CSSProperties = {
   fontSize: 18,
   fontWeight: 800,
   margin: '0 0 20px 0',
-  color: '#1c2333',
+  color: 'var(--hr-color-text)',
 };
 
 const labelStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
-  color: '#374151',
+  color: 'var(--hr-color-text-secondary)',
   display: 'block',
   marginBottom: 6,
 };
@@ -81,8 +81,8 @@ const labelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 12px',
-  border: '1px solid #d6dbe3',
-  borderRadius: 8,
+  border: '1px solid var(--hr-color-border)',
+  borderRadius: 'var(--hr-radius)',
   fontSize: 14,
   fontFamily: 'inherit',
   marginBottom: 14,
@@ -90,11 +90,11 @@ const inputStyle: React.CSSProperties = {
 
 const primaryButtonStyle: React.CSSProperties = {
   width: '100%',
-  background: '#1e3a8a',
-  color: '#fff',
+  background: 'var(--hr-color-primary)',
+  color: 'var(--hr-color-surface)',
   border: 'none',
   padding: 11,
-  borderRadius: 8,
+  borderRadius: 'var(--hr-radius)',
   fontSize: 14,
   fontWeight: 600,
   cursor: 'pointer',
@@ -162,11 +162,21 @@ export function RegisterEmployeeModal({
         {result ? (
           <div data-testid="register-employee-success">
             <h2
-              style={{ ...titleStyle, margin: '0 0 8px 0', color: '#166534' }}
+              style={{
+                ...titleStyle,
+                margin: '0 0 8px 0',
+                color: 'var(--hr-color-success)',
+              }}
             >
               Employee Registered
             </h2>
-            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 18 }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--hr-color-text-muted)',
+                marginBottom: 18,
+              }}
+            >
               A temporary password has been generated. Share it securely with{' '}
               {form.firstName} {form.lastName}.
             </div>
@@ -182,11 +192,11 @@ export function RegisterEmployeeModal({
                 style={{
                   flex: 1,
                   padding: '10px 12px',
-                  border: '1px solid #d6dbe3',
-                  borderRadius: 8,
+                  border: '1px solid var(--hr-color-border)',
+                  borderRadius: 'var(--hr-radius)',
                   fontSize: 14,
-                  fontFamily: "'SF Mono', Consolas, monospace",
-                  background: '#f7f8fa',
+                  fontFamily: 'var(--hr-font-family-mono)',
+                  background: 'var(--hr-color-input-readonly-bg)',
                 }}
               />
               <button
@@ -194,11 +204,11 @@ export function RegisterEmployeeModal({
                 data-testid="register-employee-copy"
                 onClick={handleCopy}
                 style={{
-                  background: '#eef2ff',
-                  color: '#1e3a8a',
-                  border: '1px solid #dbe4ff',
+                  background: 'var(--hr-color-primary-bg)',
+                  color: 'var(--hr-color-primary)',
+                  border: '1px solid var(--hr-color-primary-border)',
                   padding: '10px 16px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--hr-radius)',
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -343,7 +353,7 @@ export function RegisterEmployeeModal({
                 data-testid="register-employee-error"
                 style={{
                   fontSize: 13,
-                  color: '#dc2626',
+                  color: 'var(--hr-color-danger)',
                   marginTop: -8,
                   marginBottom: 14,
                 }}
