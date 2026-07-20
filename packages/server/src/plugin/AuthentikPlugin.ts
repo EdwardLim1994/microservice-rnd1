@@ -397,16 +397,48 @@ export class AuthentikClient {
   }
 
   /**
+   * Resolves group names to Authentik group PKs (its `groups` create-time field takes PKs, not
+   * names) — one lookup per name rather than a single filtered call, since Authentik's group list
+   * endpoint only supports filtering by one `name` at a time.
+   */
+  private async resolveGroupPks(names: string[]): Promise<string[]> {
+    const pks: string[] = [];
+    for (const name of names) {
+      const response = await fetch(
+        `${this.baseUrl}/api/v3/core/groups/?name=${encodeURIComponent(name)}`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      if (!response.ok) {
+        throw new AuthentikApiError(response.status, await parseBody(response));
+      }
+      const { results } = (await response.json()) as { results: { pk: string }[] };
+      if (results.length === 0) {
+        throw new AuthentikApiError(404, { error: `Authentik group not found: ${name}` });
+      }
+      pks.push(results[0].pk);
+    }
+    return pks;
+  }
+
+  /**
    * Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
    * verification, captcha). Two calls: the user itself, then its initial password (set_password
-   * is a separate endpoint in Authentik's Admin API, not a create-time field).
+   * is a separate endpoint in Authentik's Admin API, not a create-time field). `groupNames`/
+   * `attributes` are optional additions for callers that need the created account to land in a
+   * specific group (e.g. employee/supervisor) or carry a custom flag (e.g. mustChangePassword) —
+   * `enroll()` below still calls this with neither set, unaffected.
    */
   async createUser(input: {
     username: string;
     email: string;
     name?: string;
     password: string;
+    groupNames?: string[];
+    attributes?: Record<string, unknown>;
   }): Promise<AuthentikCreatedUser> {
+    const groupPks = input.groupNames?.length
+      ? await this.resolveGroupPks(input.groupNames)
+      : undefined;
     const createResponse = await fetch(`${this.baseUrl}/api/v3/core/users/`, {
       method: 'POST',
       headers: {
@@ -418,6 +450,8 @@ export class AuthentikClient {
         email: input.email,
         name: input.name ?? input.username,
         is_active: true,
+        ...(groupPks ? { groups: groupPks } : {}),
+        ...(input.attributes ? { attributes: input.attributes } : {}),
       }),
     });
     if (!createResponse.ok) {
