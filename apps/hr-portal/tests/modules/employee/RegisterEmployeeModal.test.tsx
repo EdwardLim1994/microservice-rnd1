@@ -187,3 +187,70 @@ test('calls onClose and resets the form after Done is clicked', async () => {
 
   expect(closed).toBe(true);
 });
+
+test('copies the temporary password to the clipboard and shows "Copied!" briefly', async () => {
+  const mocks = [
+    {
+      request: {
+        query: REGISTER_EMPLOYEE_MUTATION,
+        variables: {
+          input: {
+            firstName: 'Jane',
+            lastName: 'Doe',
+            gender: 'FEMALE',
+            email: 'jane.doe@example.com',
+            grossSalary: 5000,
+            salaryPerDay: 200,
+            supervisorId: undefined,
+          },
+        },
+      },
+      result: {
+        data: {
+          registerEmployee: {
+            employee: {
+              id: 'emp-1',
+              firstName: 'Jane',
+              lastName: 'Doe',
+              email: 'jane.doe@example.com',
+            },
+            temporaryPassword: 'temp-pass-123',
+          },
+        },
+      },
+    },
+  ];
+  const originalClipboard = globalThis.navigator.clipboard;
+  let writtenText: string | undefined;
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: {
+      writeText: async (text: string) => {
+        writtenText = text;
+      },
+    },
+  });
+
+  render(
+    <MockedProvider mocks={mocks}>
+      <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
+    </MockedProvider>,
+  );
+
+  fillForm();
+  fireEvent.click(screen.getByTestId('register-employee-submit'));
+  await waitFor(() => {
+    expect(screen.getByTestId('register-employee-success')).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByTestId('register-employee-copy'));
+
+  expect(writtenText).toBe('temp-pass-123');
+  expect(screen.getByTestId('register-employee-copy')).toHaveTextContent(
+    'Copied!',
+  );
+  Object.defineProperty(globalThis.navigator, 'clipboard', {
+    configurable: true,
+    value: originalClipboard,
+  });
+});
