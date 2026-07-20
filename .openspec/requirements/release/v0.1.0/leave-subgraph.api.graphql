@@ -1,0 +1,182 @@
+# Apollo Federation v2 SDL — leave-subgraph
+# Release: v0.1.0
+# Feature references: FEAT-7, FEAT-8, FEAT-9, FEAT-10, FEAT-11
+# Implementation target: ./servers/leave-subgraph/src/schema/
+#
+# ERD corrections applied:
+#   - Leave_Request.reason removed (moved to LeaveApproval.reason)
+#   - Leave_Request gains startDate and endDate
+#   - leave_approval gains reason (nullable, populated on rejection)
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key", "@shareable", "@external",
+    "@requires", "@provides", "@override", "@inaccessible"
+  ])
+
+# Owned by employee-subgraph
+type Employee @key(fields: "id") {
+  id: ID! @external
+}
+
+"""
+Supported leave types. UNPAID triggers salary deduction in payslip calculation.
+"""
+enum LeaveType {
+  ANNUAL
+  MEDICAL
+  EMERGENCY
+  UNPAID
+}
+
+"""
+Computed status derived from the presence and value of the linked LeaveApproval.
+PENDING when no approval record exists.
+APPROVED when LeaveApproval.status is true.
+REJECTED when LeaveApproval.status is false.
+"""
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+"""
+A leave request submitted by an employee.
+Maps to the Leave_Request database entity with startDate and endDate added
+and reason removed (reason is now on LeaveApproval).
+"""
+type LeaveRequest @key(fields: "id") {
+  "Unique identifier (UUID)."
+  id: ID!
+
+  "Type of leave requested."
+  type: LeaveType!
+
+  "First day of the leave period in YYYY-MM-DD format (inclusive)."
+  startDate: String!
+
+  "Last day of the leave period in YYYY-MM-DD format (inclusive)."
+  endDate: String!
+
+  "ISO 8601 datetime when the request was submitted by the employee."
+  requestedAt: String!
+
+  "ISO 8601 datetime of record creation."
+  createdAt: String!
+
+  "ISO 8601 datetime of last update."
+  updatedAt: String!
+
+  "The employee who submitted this request."
+  employee: Employee!
+
+  "Approval decision for this request, if one has been recorded."
+  approval: LeaveApproval
+
+  "Computed status: PENDING if no approval exists, APPROVED or REJECTED from approval.status."
+  status: LeaveStatus!
+}
+
+"""
+An approval or rejection decision made by a supervisor on a leave request.
+Maps to the leave_approval database entity with reason added for rejection.
+"""
+type LeaveApproval @key(fields: "id") {
+  "Unique identifier (UUID)."
+  id: ID!
+
+  "True for approved, false for rejected."
+  status: Boolean!
+
+  """
+  Supervisor's mandatory reason for rejection.
+  Null when the request was approved.
+  """
+  reason: String
+
+  "ISO 8601 datetime when the decision was recorded."
+  processedAt: String!
+
+  "The leave request this decision applies to."
+  request: LeaveRequest!
+
+  "The supervisor who made the decision."
+  supervisor: Employee!
+}
+
+"""
+Input for submitting a new leave request.
+"""
+input SubmitLeaveRequestInput {
+  "Type of leave."
+  type: LeaveType!
+
+  "Start date in YYYY-MM-DD format."
+  startDate: String!
+
+  "End date in YYYY-MM-DD format. Must be on or after startDate."
+  endDate: String!
+
+  "Employee's stated reason for the leave."
+  reason: String!
+}
+
+"""
+Input for rejecting a leave request with a mandatory reason.
+"""
+input RejectLeaveRequestInput {
+  "The leave request to reject."
+  requestId: ID!
+
+  "Mandatory supervisor reason for rejection. Must not be empty."
+  reason: String!
+}
+
+type Query {
+  """
+  Returns all leave requests submitted by the authenticated employee,
+  ordered by requestedAt descending.
+  """
+  myLeaveRequests: [LeaveRequest!]!
+
+  """
+  Returns all leave requests from employees managed by the authenticated supervisor
+  (Employee.supervisorId matches authenticated user's ID), ordered by requestedAt descending.
+  """
+  managedLeaveRequests: [LeaveRequest!]!
+}
+
+type Mutation {
+  """
+  Submits a new leave request for the authenticated employee.
+  Persists the record then produces a Kafka notification event targeting the
+  employee's supervisor. If no supervisor is assigned the Kafka event is skipped;
+  the leave request is still saved and no error is returned.
+  Returns BAD_USER_INPUT if startDate is after endDate or required fields are missing.
+  """
+  submitLeaveRequest(input: SubmitLeaveRequestInput!): LeaveRequest!
+
+  """
+  Approves a pending leave request. Supervisor only.
+  Creates a LeaveApproval record with status true and processedAt set to now.
+  Produces a Kafka notification event targeting the requesting employee.
+  Returns ALREADY_PROCESSED if a decision has already been recorded.
+  Returns FORBIDDEN if the request does not belong to the supervisor's direct reports.
+  Returns NOT_FOUND if requestId does not exist.
+  """
+  approveLeaveRequest(
+    "The leave request to approve."
+    requestId: ID!
+  ): LeaveApproval!
+
+  """
+  Rejects a pending leave request with a mandatory reason. Supervisor only.
+  Creates a LeaveApproval record with status false, reason, and processedAt set to now.
+  Produces a Kafka notification event targeting the requesting employee.
+  Returns BAD_USER_INPUT if reason is empty.
+  Returns ALREADY_PROCESSED if a decision has already been recorded.
+  Returns FORBIDDEN if the request does not belong to the supervisor's direct reports.
+  """
+  rejectLeaveRequest(input: RejectLeaveRequestInput!): LeaveApproval!
+}

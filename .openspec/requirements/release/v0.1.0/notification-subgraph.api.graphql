@@ -1,0 +1,86 @@
+# Apollo Federation v2 SDL — notification-subgraph
+# Release: v0.1.0
+# Feature references: FEAT-15, FEAT-16, FEAT-17, FEAT-18
+# Implementation target: ./servers/notification-subgraph/src/schema/
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0", import: [
+    "@key", "@shareable", "@external",
+    "@requires", "@provides", "@override", "@inaccessible"
+  ])
+
+# Owned by employee-subgraph
+type Employee @key(fields: "id") {
+  id: ID! @external
+}
+
+"""
+An in-portal notification delivered to an employee.
+Maps directly to the Notification database entity.
+readAt is null when the notification has not yet been read.
+"""
+type Notification @key(fields: "id") {
+  "Unique identifier (UUID)."
+  id: ID!
+
+  "Short notification heading displayed in the dropdown header area."
+  title: String!
+
+  "One-line summary shown in the dropdown list item."
+  shortDesc: String!
+
+  "Full notification body for detail view."
+  desc: String!
+
+  """
+  ISO 8601 datetime when the employee read this notification.
+  Null if the notification has not been read.
+  """
+  readAt: String
+
+  "ISO 8601 datetime when this notification was created."
+  createdAt: String!
+
+  "ISO 8601 datetime of last update."
+  updatedAt: String!
+
+  "The employee this notification is addressed to."
+  employee: Employee!
+}
+
+type Query {
+  """
+  Returns all notifications for the authenticated employee,
+  ordered by createdAt descending.
+  """
+  myNotifications: [Notification!]!
+}
+
+type Mutation {
+  """
+  Marks all unread notifications as read for the authenticated employee.
+  Sets readAt to the current timestamp on every Notification where readAt is null.
+  Idempotent — already-read notifications are unaffected.
+  """
+  markAllNotificationsRead: [Notification!]!
+
+  """
+  Marks a single notification as read for the authenticated employee.
+  Idempotent — returns the record unchanged if already read.
+  Returns FORBIDDEN if the notification does not belong to the authenticated employee.
+  """
+  markNotificationRead(
+    "The notification to mark as read."
+    notificationId: ID!
+  ): Notification!
+}
+
+type Subscription {
+  """
+  Pushes new Notification records to the authenticated employee in real time.
+  Transported as SSE via Apollo Router subscription forwarding.
+  Scoped strictly to the authenticated employee — no cross-user leakage.
+  Subscription is cleaned up server-side on client disconnect.
+  """
+  notificationAdded: Notification!
+}
