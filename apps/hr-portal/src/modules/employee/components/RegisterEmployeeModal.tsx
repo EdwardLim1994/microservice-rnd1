@@ -16,6 +16,90 @@ const EMPTY_FORM = {
   supervisorId: '',
 };
 
+// Design tokens lifted verbatim from the Claude Design HR Portal project (Register Employee
+// modal — HR Portal.dc.html). The mockup's field set (Full Name / Employee ID / Role /
+// Department) doesn't match FEAT-1's real GraphQL input contract (no employeeId/role/department
+// fields exist server-side; gender/email/salaryPerDay are required but not shown in the mockup at
+// all) — the visual language is applied to the real fields instead of copying the mockup's field
+// list 1:1.
+const overlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(20,26,40,0.45)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 50,
+  padding: 20,
+};
+
+const modalStyle: React.CSSProperties = {
+  position: 'relative',
+  width: 480,
+  maxWidth: '100%',
+  background: '#fff',
+  borderRadius: 14,
+  padding: 28,
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  fontFamily: "'Inter', sans-serif",
+};
+
+const closeButtonStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 16,
+  right: 16,
+  width: 28,
+  height: 28,
+  borderRadius: '50%',
+  background: '#f3f5f8',
+  border: '1px solid #e5e9f0',
+  cursor: 'pointer',
+  color: '#6b7280',
+  fontSize: 14,
+  lineHeight: 1,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: 18,
+  fontWeight: 800,
+  margin: '0 0 20px 0',
+  color: '#1c2333',
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: '#374151',
+  display: 'block',
+  marginBottom: 6,
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  border: '1px solid #d6dbe3',
+  borderRadius: 8,
+  fontSize: 14,
+  fontFamily: 'inherit',
+  marginBottom: 14,
+};
+
+const primaryButtonStyle: React.CSSProperties = {
+  width: '100%',
+  background: '#1e3a8a',
+  color: '#fff',
+  border: 'none',
+  padding: 11,
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
 export function RegisterEmployeeModal({
   isOpen,
   onClose,
@@ -56,7 +140,7 @@ export function RegisterEmployeeModal({
     setTimeout(() => setCopied(false), 1500);
   }
 
-  function handleDone() {
+  function handleClose() {
     setForm(EMPTY_FORM);
     setCopied(false);
     reset();
@@ -64,100 +148,221 @@ export function RegisterEmployeeModal({
   }
 
   return (
-    <div data-testid="register-employee-modal">
-      {result ? (
-        <div data-testid="register-employee-success">
-          <p>Employee registered successfully.</p>
-          <p>Temporary password:</p>
-          <code data-testid="register-employee-temp-password">
-            {result.temporaryPassword}
-          </code>
-          <button
-            type="button"
-            data-testid="register-employee-copy"
-            onClick={handleCopy}
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-          <button
-            type="button"
-            data-testid="register-employee-done"
-            onClick={handleDone}
-          >
-            Done
-          </button>
-        </div>
-      ) : (
-        <form
-          data-testid="register-employee-form"
-          onSubmit={handleSubmit}
-          style={loading ? { opacity: 0.6 } : undefined}
+    <div data-testid="register-employee-modal" style={overlayStyle}>
+      <div style={modalStyle}>
+        <button
+          type="button"
+          data-testid="register-employee-close"
+          onClick={handleClose}
+          style={closeButtonStyle}
         >
-          <input
-            data-testid="register-employee-first-name"
-            placeholder="First name"
-            value={form.firstName}
-            onChange={handleChange('firstName')}
-            required
-          />
-          <input
-            data-testid="register-employee-last-name"
-            placeholder="Last name"
-            value={form.lastName}
-            onChange={handleChange('lastName')}
-            required
-          />
-          <input
-            data-testid="register-employee-gender"
-            placeholder="Gender"
-            value={form.gender}
-            onChange={handleChange('gender')}
-            required
-          />
-          <input
-            data-testid="register-employee-email"
-            type="email"
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange('email')}
-            required
-          />
-          <input
-            data-testid="register-employee-gross-salary"
-            type="number"
-            placeholder="Gross salary"
-            value={form.grossSalary}
-            onChange={handleChange('grossSalary')}
-            required
-          />
-          <input
-            data-testid="register-employee-salary-per-day"
-            type="number"
-            placeholder="Salary per day"
-            value={form.salaryPerDay}
-            onChange={handleChange('salaryPerDay')}
-            required
-          />
-          {/* Free-text supervisor id for now — an inline-filtered search needs FEAT-2's
-              employees list query, which doesn't exist yet. */}
-          <input
-            data-testid="register-employee-supervisor-id"
-            placeholder="Supervisor ID (optional)"
-            value={form.supervisorId}
-            onChange={handleChange('supervisorId')}
-          />
-          {error ? (
-            <p data-testid="register-employee-error">{error.message}</p>
-          ) : null}
-          <button
-            type="submit"
-            data-testid="register-employee-submit"
-            disabled={loading}
+          ✕
+        </button>
+
+        {result ? (
+          <div data-testid="register-employee-success">
+            <h2
+              style={{ ...titleStyle, margin: '0 0 8px 0', color: '#166534' }}
+            >
+              Employee Registered
+            </h2>
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 18 }}>
+              A temporary password has been generated. Share it securely with{' '}
+              {form.firstName} {form.lastName}.
+            </div>
+            <label htmlFor="register-employee-temp-password" style={labelStyle}>
+              Temporary Password
+            </label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <input
+                id="register-employee-temp-password"
+                data-testid="register-employee-temp-password"
+                readOnly
+                value={result.temporaryPassword}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  border: '1px solid #d6dbe3',
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontFamily: "'SF Mono', Consolas, monospace",
+                  background: '#f7f8fa',
+                }}
+              />
+              <button
+                type="button"
+                data-testid="register-employee-copy"
+                onClick={handleCopy}
+                style={{
+                  background: '#eef2ff',
+                  color: '#1e3a8a',
+                  border: '1px solid #dbe4ff',
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <button
+              type="button"
+              data-testid="register-employee-done"
+              onClick={handleClose}
+              style={primaryButtonStyle}
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <form
+            data-testid="register-employee-form"
+            onSubmit={handleSubmit}
+            style={loading ? { opacity: 0.6 } : undefined}
           >
-            {loading ? 'Submitting…' : 'Register'}
-          </button>
-        </form>
-      )}
+            <h2 style={titleStyle}>Register Employee</h2>
+
+            <label htmlFor="register-employee-first-name" style={labelStyle}>
+              First Name
+            </label>
+            <input
+              id="register-employee-first-name"
+              data-testid="register-employee-first-name"
+              placeholder="e.g. Alex"
+              value={form.firstName}
+              onChange={handleChange('firstName')}
+              style={inputStyle}
+              required
+            />
+
+            <label htmlFor="register-employee-last-name" style={labelStyle}>
+              Last Name
+            </label>
+            <input
+              id="register-employee-last-name"
+              data-testid="register-employee-last-name"
+              placeholder="e.g. Morgan"
+              value={form.lastName}
+              onChange={handleChange('lastName')}
+              style={inputStyle}
+              required
+            />
+
+            <label htmlFor="register-employee-email" style={labelStyle}>
+              Email
+            </label>
+            <input
+              id="register-employee-email"
+              data-testid="register-employee-email"
+              type="email"
+              placeholder="you@company.com"
+              value={form.email}
+              onChange={handleChange('email')}
+              style={inputStyle}
+              required
+            />
+
+            <label htmlFor="register-employee-gender" style={labelStyle}>
+              Gender
+            </label>
+            <input
+              id="register-employee-gender"
+              data-testid="register-employee-gender"
+              placeholder="e.g. Female"
+              value={form.gender}
+              onChange={handleChange('gender')}
+              style={inputStyle}
+              required
+            />
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 14,
+                marginBottom: 14,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="register-employee-gross-salary"
+                  style={labelStyle}
+                >
+                  Gross Salary
+                </label>
+                <input
+                  id="register-employee-gross-salary"
+                  data-testid="register-employee-gross-salary"
+                  type="number"
+                  placeholder="e.g. 72000"
+                  value={form.grossSalary}
+                  onChange={handleChange('grossSalary')}
+                  style={{ ...inputStyle, marginBottom: 0 }}
+                  required
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="register-employee-salary-per-day"
+                  style={labelStyle}
+                >
+                  Salary Per Day
+                </label>
+                <input
+                  id="register-employee-salary-per-day"
+                  data-testid="register-employee-salary-per-day"
+                  type="number"
+                  placeholder="e.g. 300"
+                  value={form.salaryPerDay}
+                  onChange={handleChange('salaryPerDay')}
+                  style={{ ...inputStyle, marginBottom: 0 }}
+                  required
+                />
+              </div>
+            </div>
+
+            <label htmlFor="register-employee-supervisor-id" style={labelStyle}>
+              Supervisor
+            </label>
+            {/* Plain ID input for now, styled to match the mockup's supervisor field — the
+                mockup's inline-filtered name search needs FEAT-2's employees list query, which
+                doesn't exist yet. */}
+            <input
+              id="register-employee-supervisor-id"
+              data-testid="register-employee-supervisor-id"
+              placeholder="Supervisor ID (optional)"
+              value={form.supervisorId}
+              onChange={handleChange('supervisorId')}
+              style={{ ...inputStyle, marginBottom: 18 }}
+            />
+
+            {error ? (
+              <p
+                data-testid="register-employee-error"
+                style={{
+                  fontSize: 13,
+                  color: '#dc2626',
+                  marginTop: -8,
+                  marginBottom: 14,
+                }}
+              >
+                {error.message}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              data-testid="register-employee-submit"
+              disabled={loading}
+              style={primaryButtonStyle}
+            >
+              {loading ? 'Submitting…' : 'Register'}
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

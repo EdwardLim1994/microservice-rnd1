@@ -90,9 +90,9 @@ test('submits the form and shows the success screen with the temporary password'
   await waitFor(() => {
     expect(screen.getByTestId('register-employee-success')).toBeInTheDocument();
   });
-  expect(
-    screen.getByTestId('register-employee-temp-password'),
-  ).toHaveTextContent('temp-pass-123');
+  expect(screen.getByTestId('register-employee-temp-password')).toHaveValue(
+    'temp-pass-123',
+  );
 });
 
 test('shows the error message returned by the API', async () => {
