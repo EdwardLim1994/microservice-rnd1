@@ -1,6 +1,6 @@
 ---
 release: v0.1.0
-date: 2026-07-19
+date: 2026-07-20
 releaseBranch: release/v0.1.0
 hotfix: false
 
@@ -12,76 +12,78 @@ affectedSubgraphs:
   - notification-subgraph
 
 userStories:
+
   - id: US-1
     title: HR Admin Employee Registration and Supervisor Assignment
     persona: HR Admin
-    goal: Register new employees into the system and optionally assign them a supervisor
+    goal: Register new employees into the system and optionally assign a supervisor
     outcome: >
-      A new Employee record and Authentik account are created. A temporary password
-      is returned to the HR Admin for manual delivery. Supervisor assignment is
-      gated on the assignee having served 5+ years (computed from createdAt).
+      A new Employee record and Authentik account are created with mustChangePassword
+      true. A temporary password is returned to the HR Admin for manual delivery to
+      the employee. Supervisor assignment is gated on the assignee having served 5+
+      years, computed inline from createdAt at assignment time.
     labels:
       - user-story
       - e2e
     acceptanceCriteria:
-      - HR Admin can register a new employee by providing firstName, lastName, gender,
-        email, grossSalary, salaryPerDay, and optionally a supervisorId
+      - HR Admin can register a new employee supplying firstName, lastName, gender,
+        email, grossSalary, salaryPerDay, and an optional supervisorId
       - Registration creates an Employee record and an Authentik account in the
-        employee Authentik group; a temporary password is returned
-      - HR Admin can list all employees including their supervisor assignment
+        employee Authentik group with mustChangePassword set to true; a temporary
+        password is returned in the response
+      - HR Admin can list all employees including resolved supervisor name
       - HR Admin can assign a supervisor to an employee; the system rejects the
-        assignment if the target supervisor's createdAt is less than 5 years ago
-      - Successful supervisor assignment updates the employee's supervisorId and
-        promotes the Authentik account to the supervisor group
+        assignment if the target supervisor's createdAt is fewer than 5 years ago
+      - A successful supervisor assignment updates Employee.supervisorId and updates
+        the Authentik account group to supervisor
     e2eTestPlan:
       - id: E2E-1-1
         scenario: Successful employee registration
         given: HR Admin is authenticated
-        when: HR Admin submits registration form with valid employee data
+        when: HR Admin submits the Register Employee form with valid data
         then: >
-          Employee appears in the list with correct details;
-          temp password is displayed in the success screen
+          New employee appears in the employees table; result screen shows
+          temporary password with a working copy button
       - id: E2E-1-2
         scenario: Supervisor assignment — eligible target
-        given: An employee with createdAt more than 5 years ago exists
+        given: An employee whose createdAt is more than 5 years ago exists
         when: HR Admin assigns that employee as supervisor for another employee
-        then: The employee's supervisor field is updated in the list
+        then: The employee row in the table reflects the updated supervisor name
       - id: E2E-1-3
         scenario: Supervisor assignment — ineligible target
-        given: An employee with createdAt less than 5 years ago exists
+        given: An employee whose createdAt is fewer than 5 years ago exists
         when: HR Admin attempts to assign that employee as supervisor
-        then: An error is returned and the assignment is not saved
+        then: An error is returned and the assignment is not persisted
     features:
+
       - id: FEAT-1
         title: Register new employee
         type: fullstack
         description: >
           HR Admin submits a registration form. The employee service creates an
           Employee record, then calls the auth service to create an Authentik
-          account in the employee group with mustChangePassword set to true.
-          The generated temporary password is returned to the caller.
-          Frontend: Register Employee modal with fields for full name, employee ID,
-          gender, email, role dropdown (Employee/Supervisor/HR Admin), department,
-          gross salary, salary per day, and supervisor search. On success, shows
-          result screen with temp password and copy button.
+          account in the employee group with mustChangePassword true. The generated
+          temporary password is returned to the caller.
+          Frontend: Register Employee modal — fields for full name, employee ID,
+          gender, email, role dropdown (Employee / Supervisor / HR Admin), department,
+          gross salary, salary per day, supervisor search with inline filtered list.
+          On success shows result screen with temporary password and copy button.
         component: employee-subgraph.EmployeeService.RegisterEmployee
-        input: >
-          firstName, lastName, gender, email, grossSalary, salaryPerDay,
-          supervisorId (optional)
+        input: firstName, lastName, gender, email, grossSalary, salaryPerDay, supervisorId (optional)
         output: Employee record + temporaryPassword string
         edgeCases:
-          - Duplicate email must return a conflict error
-          - Missing required fields must return validation errors
-          - Auth service failure must roll back the Employee record
-          - supervisorId provided but employee not found must return not found error
+          - Duplicate email must return CONFLICT error
+          - Missing required fields must return BAD_USER_INPUT error
+          - Auth service failure must roll back the Employee record (saga compensation)
+          - supervisorId provided but not found must return NOT_FOUND error
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Register Employee button opens modal"
-          - "Supervisor search filters list of existing supervisors inline"
-          - "Submit triggers loading state (opacity 0.6, label Submitting…)"
-          - "On success: form replaced by result screen showing temp password"
-          - "Copy button copies password to clipboard and shows Copied! for 1.5s"
-          - "Done button closes modal and resets form"
+          - Register Employee button opens modal
+          - Supervisor search filters the list of existing supervisors inline by name
+          - Submit shows loading state (opacity 0.6, label "Submitting…")
+          - On success form is replaced by result screen showing temporary password
+          - Copy button writes password to clipboard and shows "Copied!" for 1.5 s
+          - Done button closes modal and resets form state
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -90,36 +92,34 @@ userStories:
         integrationTestPlan:
           - id: INT-1-1
             scenario: >
-              POST registerEmployee mutation with valid input returns Employee
-              record and non-empty temporaryPassword
+              POST registerEmployee mutation with valid input returns Employee record
+              and non-empty temporaryPassword
           - id: INT-1-2
             scenario: >
-              POST registerEmployee mutation with duplicate email returns
-              CONFLICT error code
+              POST registerEmployee mutation with duplicate email returns CONFLICT error
           - id: INT-1-3
             scenario: >
-              POST registerEmployee mutation with missing required field returns
+              POST registerEmployee mutation with a missing required field returns
               BAD_USER_INPUT error
 
       - id: FEAT-2
         title: List employees
         type: fullstack
         description: >
-          HR Admin views a paginated table of all employees showing ID, full name,
-          role (derived from Authentik group), department, gross salary formatted,
-          assigned supervisor name, and active status.
-          Frontend: Employees page table matching design — columns for Employee ID,
-          Name, Role, Department, Salary, Supervisor, Status (Active/Inactive badge).
+          HR Admin views a table of all employees. The employee service returns all
+          Employee records with supervisor name resolved via self-reference.
+          Frontend: Employees page table — columns Employee ID, Name, Role, Department,
+          Salary (formatted), Supervisor (em dash when none), Status badge.
         component: employee-subgraph.EmployeeService.ListEmployees
-        input: "none (returns all employees for HR Admin)"
-        output: "List of Employee records with supervisor name resolved"
+        input: none (HR Admin identity from JWT)
+        output: List of Employee records with supervisor name resolved
         edgeCases:
-          - Empty state must render empty table body without crashing
-          - Employees with no supervisor must show em dash in Supervisor column
+          - No employees returns empty table body without error
+          - Employee with no supervisor renders em dash in Supervisor column
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Table renders with horizontal scroll on overflow"
-          - "Status badge: green (#f0fdf4 / #166534) for Active, grey for Inactive"
+          - Table renders with horizontal scroll on overflow
+          - Status badge — Active: #f0fdf4 background / #166534 text; Inactive: #f3f4f6 / #6b7280
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -127,32 +127,31 @@ userStories:
         integrationTestPlan:
           - id: INT-1-4
             scenario: >
-              GET employees query returns array of Employee objects with
-              supervisorId resolved to supervisor name
+              GET employees query returns array of Employee objects with supervisor
+              name resolved from supervisorId
 
       - id: FEAT-3
         title: Assign supervisor to employee
         type: fullstack
         description: >
-          HR Admin assigns a supervisor to an existing employee. The employee
-          service checks that the target supervisor's createdAt is at least 5
-          years before today. On success, updates Employee.supervisorId and calls
-          auth service to update the supervisor's Authentik group to supervisor.
-          Frontend: Supervisor search within the Register Employee modal (inline
-          filtered list). This feature also supports reassignment post-registration
-          via a separate assign action on the employee list row.
+          HR Admin assigns a supervisor to an existing employee. The employee service
+          checks that the target supervisor's createdAt is at least 5 years before
+          today (inline, no cron). On success, updates Employee.supervisorId and calls
+          auth service to update the Authentik account group to supervisor.
+          Frontend: supervisor search within Register Employee modal; also exposed as
+          a standalone assign action on the employee table row.
         component: employee-subgraph.EmployeeService.AssignSupervisor
-        input: "employeeId, supervisorId"
-        output: "Updated Employee record"
+        input: employeeId, supervisorId
+        output: Updated Employee record
         edgeCases:
-          - Target employee has served less than 5 years — return INELIGIBLE error
+          - Target has served fewer than 5 years — return INELIGIBLE error
           - employeeId or supervisorId not found — return NOT_FOUND error
-          - Assigning an employee as their own supervisor must be rejected
+          - employeeId and supervisorId are the same — return BAD_USER_INPUT error
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Supervisor search filters by name in real time"
-          - "Selected supervisor highlighted in list"
-          - "Error toast shown on ineligible assignment attempt"
+          - Supervisor search filters by name in real time
+          - Selected supervisor is highlighted in the dropdown list
+          - Ineligible assignment attempt shows error toast
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -161,101 +160,107 @@ userStories:
         integrationTestPlan:
           - id: INT-1-5
             scenario: >
-              POST assignSupervisor mutation with a supervisor whose createdAt
-              is more than 5 years ago returns updated Employee record
+              POST assignSupervisor mutation with a supervisor whose createdAt is
+              more than 5 years ago returns updated Employee record
           - id: INT-1-6
             scenario: >
-              POST assignSupervisor mutation with a supervisor whose createdAt
-              is less than 5 years ago returns INELIGIBLE error
+              POST assignSupervisor mutation with a supervisor whose createdAt is
+              fewer than 5 years ago returns INELIGIBLE error
 
   - id: US-2
     title: Employee Authentication
     persona: Employee
-    goal: Sign in to the portal with credentials, change password on first login, and sign out
+    goal: Sign in to the portal, change password on first login, and sign out
     outcome: >
-      Employee accesses the portal using credentials provided by HR Admin.
-      On first login Authentik forces a password change via a custom endpoint.
-      Employee can sign out and clear their session.
+      Employee accesses the portal using credentials supplied by HR Admin.
+      When mustChangePassword is true on the Authentik account, the portal
+      intercepts and renders a custom change-password screen before granting access.
+      Employee can sign out to clear their session.
     labels:
       - user-story
       - e2e
     acceptanceCriteria:
-      - Employee can sign in with email and password via the auth service
-      - If mustChangePassword is true on the Authentik account, the portal
-        redirects to a change password screen before entering the app
+      - Employee can sign in with email and password; the JWT groups claim determines role
+      - When mustChangePassword is true the frontend redirects to a change-password
+        screen built in the portal (not Authentik's UI) before entering the app
+      - After a successful password change the employee lands on their role default page
       - Employee can sign out, clearing the session token
-      - The public self-service sign-up endpoint is inaccessible via the
-        Apollo Router federation (locked down via @inaccessible or schema omission)
+      - The public self-service sign-up endpoint is inaccessible via Apollo Router
+        (marked @inaccessible in the auth subgraph schema)
     e2eTestPlan:
       - id: E2E-2-1
-        scenario: Successful login — existing password
+        scenario: Successful sign-in — existing password
         given: Employee has credentials and mustChangePassword is false
-        when: Employee submits login form
-        then: Employee is redirected to Dashboard
+        when: Employee submits the login form
+        then: Employee is redirected to their role-based default page
       - id: E2E-2-2
         scenario: First-time login — forced password change
-        given: Employee has temp credentials and mustChangePassword is true
-        when: Employee submits login form
-        then: Portal shows change password screen; after change, employee lands on Dashboard
+        given: Employee has temporary credentials and mustChangePassword is true
+        when: Employee submits the login form
+        then: >
+          Portal renders the change-password screen; after successful change,
+          employee lands on their role-based default page
       - id: E2E-2-3
         scenario: Sign out
         given: Employee is authenticated
-        when: Employee clicks Log Out
-        then: Session is cleared and login screen is shown
+        when: Employee clicks Log Out in the profile dropdown
+        then: Session is cleared and the login screen is shown
     features:
+
       - id: FEAT-4
         title: Sign in
         type: fullstack
         description: >
           Employee submits email and password. Auth service authenticates against
-          Authentik and returns a JWT. The JWT groups claim is used to determine
-          role (hr-admin, supervisor, employee). Backend is untouched — CI decides
-          if fixes are needed. Frontend implements the login screen matching the
-          design: email input, password input, role note ("Your role is determined
-          automatically from your account"), Log In button, and Forgot password link.
+          Authentik and returns a JWT. The JWT groups claim (hr-admin / supervisor /
+          employee) determines the user's role and default landing page. Backend is
+          untouched — CI decides if fixes are needed.
+          Frontend: login screen — email input, password input, role note ("Your role
+          is determined automatically from your account"), Log In button, Forgot
+          password link that navigates to the forgot-password flow.
         component: auth-subgraph.AuthService.SignIn
-        input: "email, password"
-        output: "JWT access token, mustChangePassword boolean"
+        input: email, password
+        output: JWT access token, mustChangePassword boolean
         edgeCases:
           - Invalid credentials must return UNAUTHENTICATED error
-          - Missing fields must return BAD_USER_INPUT error
+          - Missing email or password must return BAD_USER_INPUT error
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Log In button submits form"
-          - "Forgot password link navigates to forgot password view"
-          - "On mustChangePassword true: redirect to change password screen"
-          - "On success: redirect to role-based default page"
+          - Log In button submits the form
+          - Forgot password link navigates to the forgot-password view
+          - When signIn returns mustChangePassword true, redirect to change-password screen
+          - On success redirect to role-based default page (HR Admin → Employees,
+            Employee / Supervisor → Dashboard)
         responsiveBreakpoints: null
         graphqlChanges: false
         integrationTestPlan:
           - id: INT-2-1
             scenario: >
-              POST signIn mutation with valid credentials returns JWT and
-              mustChangePassword boolean
+              POST signIn mutation with valid credentials returns a non-empty JWT
+              and a mustChangePassword boolean
 
       - id: FEAT-5
         title: First-time forced password change
         type: fullstack
         description: >
-          When signIn returns mustChangePassword true, the frontend intercepts
-          and renders a change password screen (not Authentik's UI). A new
-          changePassword mutation is exposed on the auth subgraph that calls
-          Authentik's password change API and clears the mustChangePassword flag.
-          After success the employee lands on their role-based default page.
-          Frontend: dedicated screen with current password, new password, and
-          confirm new password fields.
+          When signIn returns mustChangePassword true, the frontend renders a
+          change-password screen. A new changePassword mutation is added to the auth
+          subgraph; it calls Authentik's password change API and clears the
+          mustChangePassword flag. On success the employee lands on their default page.
+          Frontend: dedicated screen with current password, new password, and confirm
+          new password fields. Confirm mismatch is validated client-side only.
         component: auth-subgraph.AuthService.ChangePassword
-        input: "currentPassword, newPassword (JWT used for identity)"
-        output: "success boolean"
+        input: currentPassword, newPassword (employee identity from JWT)
+        output: success boolean
         edgeCases:
           - currentPassword mismatch must return UNAUTHENTICATED error
-          - newPassword same as currentPassword must return BAD_USER_INPUT error
-          - newPassword and confirm do not match — validated client-side only
+          - newPassword identical to currentPassword must return BAD_USER_INPUT error
+          - Confirm new password mismatch is a client-side only validation
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Screen shown automatically after login when mustChangePassword is true"
-          - "Confirm new password mismatch shown as inline client-side error"
-          - "On success: redirect to role-based default page"
+          - Screen shown automatically after login when mustChangePassword is true
+          - Confirm new password mismatch renders an inline client-side error
+          - On success redirect to role-based default page
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -263,95 +268,94 @@ userStories:
         integrationTestPlan:
           - id: INT-2-2
             scenario: >
-              POST changePassword mutation with correct currentPassword and
-              valid newPassword returns success true and clears mustChangePassword
+              POST changePassword mutation with correct currentPassword and a valid
+              differing newPassword returns success true and clears mustChangePassword
 
       - id: FEAT-6
         title: Sign out
         type: fullstack
         description: >
-          Employee clicks Log Out. Auth service revokes the Authentik session/token.
-          Frontend clears local token state and redirects to login screen.
+          Employee clicks Log Out. Auth service revokes the Authentik session token.
+          Frontend clears local token state and redirects to the login screen.
           Backend is untouched — CI decides if fixes are needed.
         component: auth-subgraph.AuthService.SignOut
-        input: "JWT (from Authorization header)"
-        output: "success boolean"
+        input: JWT from Authorization header
+        output: success boolean
         edgeCases:
           - Already-expired token must still return success (idempotent)
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Log Out in profile dropdown triggers signOut mutation then clears state"
-          - "After signOut: login screen shown, role and page state reset"
+          - Log Out in profile dropdown fires signOut mutation then clears client state
+          - After signOut the login screen is shown and role / page state is reset
         responsiveBreakpoints: null
         graphqlChanges: false
         integrationTestPlan:
           - id: INT-2-3
             scenario: >
-              POST signOut mutation with valid JWT returns success true
+              POST signOut mutation with a valid JWT returns success true
 
   - id: US-3
     title: Employee Leave Management
     persona: Employee
-    goal: Submit leave requests and view their history with current status
+    goal: Submit leave requests and track their history and status
     outcome: >
       Employee submits a leave request specifying type, date range, and reason.
-      The leave service persists the request, produces a Kafka notification event
-      to alert the employee's supervisor. Employee can view all their leave
-      requests with computed PENDING / APPROVED / REJECTED status.
+      The leave service persists the record and produces a Kafka notification event
+      targeting the employee's supervisor. Employee can view all their leave requests
+      with computed status PENDING / APPROVED / REJECTED.
     labels:
       - user-story
       - e2e
     acceptanceCriteria:
       - Employee can submit a leave request with type (Annual, Medical, Emergency,
         Unpaid), startDate, endDate, and reason
-      - On submission a Kafka notification event is produced targeting the
-        employee's supervisor
-      - Employee can view their leave history with status derived from the
-        linked LeaveApproval record (PENDING if none exists)
-      - Leave type Unpaid is available in the dropdown alongside Annual, Medical,
-        Emergency
+      - On submission a Kafka notification event is produced targeting the employee's
+        assigned supervisor; if no supervisor is assigned the event is skipped and
+        no error is returned
+      - Employee can view all their leave requests with correct computed status
+      - Leave type Unpaid is available in the type dropdown alongside Annual,
+        Medical, and Emergency
     e2eTestPlan:
       - id: E2E-3-1
         scenario: Submit leave request
         given: Employee is authenticated and has a supervisor assigned
         when: Employee fills and submits the Apply Leave form
         then: >
-          New leave request appears at the top of the history table with
-          PENDING status; success toast shown
+          New request appears at the top of the history table with PENDING status;
+          green success toast is shown for 3 seconds
       - id: E2E-3-2
         scenario: View leave history with mixed statuses
         given: Employee has approved, rejected, and pending leave requests
-        when: Employee navigates to Leave Requests page
-        then: >
-          All requests shown with correct status badges
-          (green APPROVED, red REJECTED, amber PENDING)
+        when: Employee navigates to the Leave Requests page
+        then: All rows show correct status badges with the specified colours
     features:
+
       - id: FEAT-7
         title: Submit leave request
         type: fullstack
         description: >
           Employee submits a leave request. Leave service persists a LeaveRequest
-          record (employeeId, type, startDate, endDate, reason, requestedAt).
-          After persist, produces a Kafka message on the notification topic with
-          recipient set to the employee's supervisorId, notifying of the new request.
-          Frontend: Apply Leave modal with leave type dropdown (Annual, Medical,
+          record (employeeId, type, startDate, endDate, reason, requestedAt). After
+          persisting, produces a Kafka message on the notification topic with
+          recipientEmployeeId set to the employee's supervisorId.
+          Frontend: Apply Leave modal — leave type dropdown (Annual, Medical,
           Emergency, Unpaid), start date picker, end date picker, reason textarea.
-          Submit shows loading state; on success shows green toast and closes modal.
+          Submit shows loading state; on success closes modal and shows green toast.
         component: leave-subgraph.LeaveService.SubmitLeaveRequest
-        input: "type, startDate, endDate, reason (employeeId from JWT)"
-        output: "LeaveRequest record"
+        input: type, startDate, endDate, reason (employeeId from JWT)
+        output: LeaveRequest record
         edgeCases:
           - startDate after endDate must return BAD_USER_INPUT error
           - startDate or endDate missing must return BAD_USER_INPUT error
-          - Employee has no supervisor assigned — Kafka event is skipped
-            (leave request still saved), no error returned to client
-          - Invalid leave type must return BAD_USER_INPUT error
+          - Invalid leave type value must return BAD_USER_INPUT error
+          - No supervisor assigned — Kafka event skipped, leave request still saved,
+            no error returned to client
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Apply Leave button opens modal"
-          - "Submit triggers loading state (opacity 0.6, label Submitting…)"
-          - "On success: modal closes, green toast shown for 3s, new row prepended to table"
-          - "Leave type dropdown includes Annual, Medical, Emergency, Unpaid"
+          - Apply Leave button opens modal
+          - Leave type dropdown includes Annual, Medical, Emergency, Unpaid
+          - Submit shows loading state (opacity 0.6, label "Submitting…")
+          - On success modal closes, green toast shown for 3 s, new row prepended to table
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -370,22 +374,22 @@ userStories:
         title: View own leave request history
         type: fullstack
         description: >
-          Employee views all their leave requests. The leave service returns
-          LeaveRequest records joined with their LeaveApproval. A computed
-          status field is derived: PENDING if no approval exists, APPROVED if
-          approval.status is true, REJECTED if approval.status is false.
-          Frontend: Leave Requests page table with columns Type, Start, End,
-          Reason, Status (badge), Submitted. Empty state shows "No leave requests yet."
+          Employee views all their leave requests. The leave service joins LeaveRequest
+          records with their LeaveApproval and computes status: PENDING when no
+          approval exists, APPROVED when approval.status is true, REJECTED when false.
+          Frontend: Leave Requests page — table columns Type, Start, End, Reason,
+          Status badge, Submitted. Empty state shows "No leave requests yet."
         component: leave-subgraph.LeaveService.GetMyLeaveRequests
-        input: "employeeId from JWT"
-        output: "List of LeaveRequest with computed status and approval details"
+        input: employeeId from JWT
+        output: List of LeaveRequest with computed status and linked approval
         edgeCases:
-          - Employee with no leave requests returns empty list (not an error)
-          - Rejected request must show rejection reason accessible to employee
+          - Employee with no leave requests returns empty list without error
+          - Rejected request must carry rejection reason accessible in the response
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Status badge colours: PENDING amber (#ca8a04 / white), APPROVED green (#16a34a / white), REJECTED red (#dc2626 / white)"
-          - "Empty state: centred grey text 'No leave requests yet.'"
+          - Status badge colours — PENDING: #ca8a04 bg / white text; APPROVED: #16a34a / white;
+            REJECTED: #dc2626 / white
+          - Empty state centred grey text "No leave requests yet."
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -393,71 +397,69 @@ userStories:
         integrationTestPlan:
           - id: INT-3-3
             scenario: >
-              GET myLeaveRequests query returns list with correct computed status
-              for approved, rejected, and pending records
+              GET myLeaveRequests query returns list with correct computed status for
+              approved, rejected, and pending records
 
   - id: US-4
     title: Supervisor Leave Approval
     persona: Supervisor
     goal: Review and decide on leave requests from managed employees
     outcome: >
-      Supervisor sees all leave requests from their direct reports, can approve
-      or reject each one. Rejection requires a reason. Each decision produces a
-      Kafka notification event to the requesting employee.
+      Supervisor sees all leave requests from their direct reports and can approve
+      or reject each one. Rejection requires a mandatory reason. Each decision
+      produces a Kafka notification event targeting the requesting employee.
     labels:
       - user-story
       - e2e
     acceptanceCriteria:
       - Supervisor can view all leave requests from employees where Employee.supervisorId
         matches the authenticated supervisor's ID
-      - Supervisor can approve a request; LeaveApproval record is created with
+      - Supervisor can approve a request; a LeaveApproval record is created with
         status true and processedAt populated
-      - Supervisor can reject a request with a mandatory reason; LeaveApproval
-        record created with status false and reason populated
-      - Each approval or rejection produces a Kafka notification event targeting
+      - Supervisor can reject a request with a mandatory reason; a LeaveApproval
+        record is created with status false, reason, and processedAt populated
+      - Each approve or reject action produces a Kafka notification event targeting
         the requesting employee
       - Approved and rejected requests remain visible in the list with their status
     e2eTestPlan:
       - id: E2E-4-1
         scenario: Approve leave request
-        given: Supervisor is authenticated and has a pending leave request from a report
-        when: Supervisor opens the request detail and selects Approve
-        then: >
-          Request status changes to APPROVED in the table;
-          confirm modal shown and resolved; success toast shown
+        given: Supervisor is authenticated and has a pending request from a report
+        when: Supervisor opens the request detail and selects Approve then confirms
+        then: Row status changes to APPROVED; success toast shown
       - id: E2E-4-2
         scenario: Reject leave request with reason
-        given: Supervisor is authenticated and has a pending leave request from a report
+        given: Supervisor is authenticated and has a pending request from a report
         when: Supervisor opens detail, selects Reject, enters a reason, and confirms
-        then: >
-          Request status changes to REJECTED; rejection reason visible in detail modal
+        then: Row status changes to REJECTED; rejection reason visible in detail modal
       - id: E2E-4-3
-        scenario: Reject without reason blocked
+        scenario: Reject without reason is blocked
         given: Supervisor is on the reject confirm modal
-        when: Supervisor leaves reason textarea empty
+        when: Reason textarea is empty
         then: Confirm button is disabled (opacity 0.5)
     features:
+
       - id: FEAT-9
         title: View leave requests from managed employees
         type: fullstack
         description: >
           Supervisor views all LeaveRequest records for employees where
-          Employee.supervisorId equals the authenticated user's ID. Records include
-          computed status (PENDING / APPROVED / REJECTED) and employee name resolved
-          via employee-subgraph reference.
-          Frontend: Leave Approvals page table with columns Employee, Type, Start,
-          End, Reason, Submitted, Status badge. Row click opens detail modal.
-          Empty state: "No pending leave requests from your reports."
+          Employee.supervisorId equals the authenticated supervisor's ID. Records
+          include computed status and employee name resolved via the employee-subgraph
+          reference stub.
+          Frontend: Leave Approvals page — table columns Employee, Type, Start, End,
+          Reason, Submitted, Status badge. Row click opens detail modal. Empty state
+          shows "No pending leave requests from your reports."
         component: leave-subgraph.LeaveService.GetManagedLeaveRequests
-        input: "supervisorId from JWT"
-        output: "List of LeaveRequest with employee name and computed status"
+        input: supervisorId from JWT
+        output: List of LeaveRequest with employee name and computed status
         edgeCases:
           - Supervisor with no reports returns empty list
           - Supervisor with reports but no requests returns empty list
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Table rows are clickable — opens leave detail modal"
-          - "Status badges use same colour scheme as employee leave history"
+          - Table rows are clickable and open the leave detail modal
+          - Status badges use same colour scheme as employee leave history
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -475,22 +477,22 @@ userStories:
         description: >
           Supervisor approves a pending leave request. Leave service creates a
           LeaveApproval record (status true, processedAt now, supervisorId from JWT).
-          After persist, produces a Kafka notification event targeting the requesting
-          employee.
-          Frontend: detail modal Actions dropdown → Approve → confirm modal
-          ("Approve leave request?") with green Approve button.
+          After persisting, produces a Kafka notification event targeting the
+          requesting employee.
+          Frontend: detail modal Actions dropdown → Approve → confirm modal with
+          green Approve button.
         component: leave-subgraph.LeaveService.ApproveLeaveRequest
-        input: "requestId (supervisorId from JWT)"
-        output: "LeaveApproval record"
+        input: requestId (supervisorId from JWT)
+        output: LeaveApproval record
         edgeCases:
           - Request already approved or rejected must return ALREADY_PROCESSED error
-          - Request does not belong to supervisor's reports must return FORBIDDEN error
+          - Request not belonging to supervisor's reports must return FORBIDDEN error
           - requestId not found must return NOT_FOUND error
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Actions ▾ button in detail modal opens dropdown with Approve and Reject"
-          - "Approve opens confirm modal with green confirm button"
-          - "On success: detail modal closes, row status updates to APPROVED, toast shown"
+          - Actions ▾ button in detail modal opens dropdown with Approve and Reject options
+          - Approve opens confirm modal with green confirm button
+          - On success detail modal closes, row status updates to APPROVED, toast shown
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -502,7 +504,7 @@ userStories:
               LeaveApproval with status true and processedAt populated
           - id: INT-4-3
             scenario: >
-              POST approveLeaveRequest mutation on already-processed request
+              POST approveLeaveRequest mutation on an already-processed request
               returns ALREADY_PROCESSED error
 
       - id: FEAT-11
@@ -511,22 +513,22 @@ userStories:
         description: >
           Supervisor rejects a pending leave request with a mandatory reason.
           Leave service creates a LeaveApproval record (status false, reason,
-          processedAt now, supervisorId from JWT). After persist, produces a
+          processedAt now, supervisorId from JWT). After persisting, produces a
           Kafka notification event targeting the requesting employee.
-          Frontend: Actions ▾ → Reject → confirm modal with reason textarea
-          (mandatory). Confirm button disabled while textarea is empty.
+          Frontend: Actions dropdown → Reject → confirm modal with mandatory reason
+          textarea. Confirm button disabled while textarea is empty (opacity 0.5).
         component: leave-subgraph.LeaveService.RejectLeaveRequest
-        input: "requestId, reason (supervisorId from JWT)"
-        output: "LeaveApproval record"
+        input: requestId, reason (supervisorId from JWT)
+        output: LeaveApproval record
         edgeCases:
-          - Empty reason must return BAD_USER_INPUT error
+          - Empty reason string must return BAD_USER_INPUT error
           - Request already processed must return ALREADY_PROCESSED error
           - Request not belonging to supervisor's reports must return FORBIDDEN error
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Reject confirm modal shows reason textarea; Reject button disabled when empty (opacity 0.5)"
-          - "On success: detail modal closes, row status updates to REJECTED, toast shown"
-          - "Rejection reason visible in detail modal when row is reopened"
+          - Reject confirm modal shows reason textarea; button disabled when empty
+          - On success detail modal closes, row status updates to REJECTED, toast shown
+          - Rejection reason visible in detail modal when the row is reopened
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -544,41 +546,43 @@ userStories:
   - id: US-5
     title: Employee Payslip Access
     persona: Employee
-    goal: View monthly payslips and download them
+    goal: View generated payslips and download them
     outcome: >
-      Employee sees a list of all their generated payslips with month and
-      generation date. Each payslip can be downloaded via a presigned MinIO URL.
+      Employee sees a list of all their generated payslips ordered by most recent
+      first. Each payslip can be downloaded via a presigned MinIO URL valid for
+      5 minutes.
     labels:
       - user-story
       - e2e
     acceptanceCriteria:
-      - Employee can view a list of their payslips ordered by most recent first
-      - Each payslip row shows the month/year and generation date
-      - Download button triggers retrieval of a presigned MinIO URL and initiates download
+      - Employee can view all their payslips ordered by createdAt descending
+      - Each row shows month/year (derived from createdAt) and generation date
+      - Download button retrieves a presigned MinIO URL and initiates the browser download
     e2eTestPlan:
       - id: E2E-5-1
         scenario: View and download payslip
-        given: Employee is authenticated and has at least one payslip generated
+        given: Employee is authenticated and has at least one generated payslip
         when: Employee navigates to Payslips page and clicks Download on a row
-        then: Browser initiates download of the payslip PDF
+        then: Browser initiates download of the payslip PDF via the presigned URL
     features:
+
       - id: FEAT-12
         title: View payslip list
         type: fullstack
         description: >
-          Payslip service returns all Payslip records for the authenticated employee,
-          ordered by createdAt descending. Frontend renders the Payslips page table
-          with columns Month (derived from createdAt), Generated Date, and Download
-          action button.
+          Payslip service returns all Payslip records for the authenticated employee
+          ordered by createdAt descending.
+          Frontend: Payslips page — table columns Month (formatted as "June 2026"
+          derived from createdAt), Generated Date, Download action button.
         component: payslip-subgraph.PayslipService.GetMyPayslips
-        input: "employeeId from JWT"
-        output: "List of Payslip records (id, url, createdAt)"
+        input: employeeId from JWT
+        output: List of Payslip records (id, url, createdAt, updatedAt)
         edgeCases:
-          - Employee with no payslips returns empty list (not an error)
+          - Employee with no payslips returns empty list without error
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Table with Month, Generated Date, Download button columns"
-          - "Month formatted as 'June 2026' derived from createdAt"
+          - Table columns Month, Generated Date, Download button (blue outlined)
+          - Month formatted as "June 2026" derived from createdAt
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -595,18 +599,18 @@ userStories:
         description: >
           When employee clicks Download, the payslip service generates a presigned
           MinIO URL from the stored object path (Payslip.url) and returns it.
-          Frontend opens the URL in a new tab or triggers browser download.
+          Frontend opens the URL to trigger the browser download. URL expires after
+          5 minutes.
         component: payslip-subgraph.PayslipService.GetPayslipDownloadURL
-        input: "payslipId (employeeId from JWT for ownership check)"
-        output: "presigned URL string (time-limited)"
+        input: payslipId (employeeId from JWT for ownership check)
+        output: presigned URL string (5-minute expiry)
         edgeCases:
           - payslipId not belonging to requesting employee must return FORBIDDEN error
           - MinIO object not found must return NOT_FOUND error
-          - Presigned URL expiry set to 5 minutes
+          - Presigned URL expiry is fixed at 5 minutes
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Download button (blue outlined, 'Download' label) calls getPayslipDownloadURL"
-          - "On success: browser opens presigned URL"
+          - Download button calls payslipDownloadURL query and opens resulting URL
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -614,61 +618,64 @@ userStories:
         integrationTestPlan:
           - id: INT-5-2
             scenario: >
-              GET payslipDownloadURL query with valid payslipId belonging to
-              authenticated employee returns non-empty presigned URL string
+              GET payslipDownloadURL query with valid payslipId owned by the
+              authenticated employee returns a non-empty presigned URL string
           - id: INT-5-3
             scenario: >
-              GET payslipDownloadURL query with payslipId belonging to a different
-              employee returns FORBIDDEN error
+              GET payslipDownloadURL query with a payslipId belonging to a
+              different employee returns FORBIDDEN error
 
   - id: US-6
     title: Cron Monthly Payslip Generation
     persona: System (cron)
-    goal: Automatically generate monthly payslips for all employees
+    goal: Automatically generate monthly payslips for all active employees
     outcome: >
-      On the first day of each month, a cron job runs for every active employee:
-      calculates net salary (deducting approved unpaid leave days in the prior month),
-      generates a PDF, saves to MinIO, writes a Payslip record via the payslip gRPC
-      service, and produces a Kafka notification event to the employee.
+      On the first day of each month the cron job iterates all active employees,
+      calculates net salary accounting for approved unpaid leave days in the prior
+      month, generates a PDF, saves it to MinIO, writes a Payslip record via the
+      payslip gRPC service, and produces a Kafka notification event.
     labels:
       - user-story
     acceptanceCriteria:
-      - Cron runs on the 1st of each month targeting the prior calendar month
-      - For each employee, counts approved unpaid LeaveRequest days within the
-        prior month (calendar days, no weekend/holiday exclusion)
+      - Cron triggers on the 1st of each month targeting the prior calendar month
+      - Counts approved unpaid LeaveRequest calendar days within the prior month
+        (no weekend or public holiday exclusion)
       - Net salary formula: grossSalary - (salaryPerDay * totalApprovedUnpaidDays)
-      - PDF content includes employee name, month/year, gross salary, unpaid days
-        deducted, deduction amount, net salary, generated-at timestamp
+      - PDF contains employee name, month/year, gross salary, unpaid days deducted,
+        deduction amount, net salary, and generated-at timestamp
       - PDF saved to MinIO; returned object URL stored in Payslip record via
-        payslip gRPC service
+        payslip gRPC CreatePayslip
       - Kafka notification event produced to notification topic after successful save
-      - MinIO connectivity verified in integration tests for both docker-compose
-        and Kubernetes environments
+      - MinIO connectivity verified under both docker-compose and Kubernetes
+      - Cron is idempotent per employee per month — skips if Payslip record
+        already exists for that month
     e2eTestPlan: []
     features:
+
       - id: FEAT-14
         title: Monthly payslip generation cron job
         type: backend
         description: >
-          Long-running cron service (no exposed HTTP endpoints except /health).
+          Long-running standalone cron service exposing only a /health endpoint.
           Scheduled to trigger on the 1st of each month. For each active employee:
-          1. Queries leave service gRPC for approved unpaid leaves in prior month
+          1. Queries leave gRPC for approved Unpaid leaves in the prior month
           2. Computes net salary
-          3. Generates PDF using embedded template engine (name, month/year, gross
-             salary, unpaid days, deduction amount, net salary, generated-at)
+          3. Generates a PDF using an embedded template engine (content: employee
+             name, month/year, gross salary, unpaid days deducted, deduction amount,
+             net salary, generated-at timestamp)
           4. Uploads PDF to MinIO; retrieves object URL
           5. Calls payslip gRPC CreatePayslip (employeeId, url)
-          6. Produces Kafka notification event (recipient: employeeId)
-          MinIO integration tested in both docker-compose and Kubernetes.
+          6. Produces Kafka notification event (recipientEmployeeId: employeeId)
+          MinIO connectivity tested under both docker-compose and Kubernetes.
         component: cron.CronService.GenerateMonthlyPayslips
-        input: "none (scheduled trigger; reads all employees from employee gRPC)"
-        output: "Payslip records created, Kafka events produced"
+        input: none (scheduled; reads active employees from employee gRPC)
+        output: Payslip records created, Kafka events produced
         edgeCases:
-          - Employee with zero unpaid leaves: deduction is 0, net salary equals gross salary
-          - MinIO upload failure: log error, skip employee, continue to next (no partial crash)
-          - payslip gRPC write failure: log error, skip Kafka event for that employee
-          - Kafka produce failure: log error only (payslip record already saved)
-          - Cron must be idempotent for a given month (skip if Payslip record already exists)
+          - Employee with zero unpaid leaves — deduction is 0, net salary equals gross salary
+          - MinIO upload failure — log error, skip employee, continue to next
+          - payslip gRPC write failure — log error, skip Kafka event for that employee
+          - Kafka produce failure — log error only (Payslip record already saved)
+          - Idempotency — skip employee if Payslip record already exists for the month
         claudeDesignURL: null
         uiInteractions: null
         responsiveBreakpoints: null
@@ -676,16 +683,18 @@ userStories:
         integrationTestPlan:
           - id: INT-6-1
             scenario: >
-              Trigger cron for a test employee with 3 approved unpaid leave days in
-              prior month; assert Payslip record created with correct net salary
+              Trigger cron for a test employee with 3 approved Unpaid leave days
+              in the prior month; assert Payslip record created with net salary
+              equal to grossSalary - (salaryPerDay * 3)
           - id: INT-6-2
             scenario: >
-              Trigger cron for a test employee with zero unpaid leaves; assert
-              Payslip record created with net salary equal to gross salary
+              Trigger cron for a test employee with zero approved Unpaid leaves;
+              assert Payslip record created with net salary equal to grossSalary
           - id: INT-6-3
             scenario: >
-              MinIO connectivity test: upload a test object and retrieve presigned
-              URL; assert URL is non-empty and object is retrievable
+              MinIO connectivity test — upload a test object and retrieve presigned
+              URL; assert URL is non-empty and object is retrievable in both
+              docker-compose and Kubernetes environments
 
   - id: US-7
     title: Notification Service
@@ -693,53 +702,55 @@ userStories:
     goal: Receive and view real-time in-portal notifications for relevant events
     outcome: >
       Notification service consumes Kafka events and persists Notification records.
-      Employees and supervisors see notifications in the bell dropdown with unread
-      count badge. Notifications are pushed in real time via GraphQL subscription
-      (SSE via Apollo Router). Clicking the bell marks all as read.
+      Users see notifications in the bell dropdown with an unread count badge.
+      New notifications are pushed in real time via GraphQL subscription over SSE
+      through Apollo Router. Opening the bell dropdown marks all notifications as read.
     labels:
       - user-story
       - e2e
     acceptanceCriteria:
-      - Kafka consumer persists Notification records for leave submitted (to supervisor),
-        leave decided (to employee), and payslip generated (to employee) events
+      - Kafka consumer persists Notification records for leave-submitted (to supervisor),
+        leave-decided (to employee), and payslip-generated (to employee) events
       - Authenticated user can query their notification list ordered by createdAt desc
-      - Unread notifications are visually distinct (bold text, light blue background)
+      - Unread notifications are visually distinct (bold text, #f7f9ff background)
       - Bell icon shows unread count badge when unreadCount > 0
-      - Clicking bell marks all notifications as read (readAt populated)
-      - GraphQL subscription pushes new notifications in real time via SSE
+      - Opening the bell dropdown marks all notifications as read (readAt populated)
+      - GraphQL subscription pushes new Notification records in real time via SSE
       - Employee can mark individual notifications as read via mutation
     e2eTestPlan:
       - id: E2E-7-1
-        scenario: Supervisor receives notification on leave submission
+        scenario: Supervisor receives real-time notification on leave submission
         given: Supervisor is authenticated with SSE subscription active
         when: An employee under the supervisor submits a leave request
-        then: New notification appears in supervisor's bell dropdown without page refresh
+        then: >
+          New notification appears in supervisor's bell dropdown without page
+          refresh; unread badge increments
       - id: E2E-7-2
-        scenario: Employee receives notification on leave decision
+        scenario: Employee receives real-time notification on leave decision
         given: Employee is authenticated with SSE subscription active
         when: Supervisor approves or rejects the employee's leave request
         then: New notification appears in employee's bell dropdown
       - id: E2E-7-3
-        scenario: Mark all as read
-        given: Employee has unread notifications and opens the bell dropdown
-        when: Dropdown opens
-        then: All notifications marked read; unread badge disappears
+        scenario: Mark all as read on dropdown open
+        given: Employee has unread notifications
+        when: Employee opens the bell dropdown
+        then: All notifications are marked read and the unread badge disappears
     features:
+
       - id: FEAT-15
         title: Kafka consumer — persist notification records
         type: backend
         description: >
           Notification service subscribes to the notification Kafka topic.
           Each message payload contains recipientEmployeeId, title, shortDesc,
-          and desc. Consumer persists a Notification record
-          (employeeId, title, shortDesc, desc, createdAt; readAt null).
+          and desc. Consumer persists a Notification record (employeeId, title,
+          shortDesc, desc, createdAt; readAt null initially).
         component: notification-subgraph.NotificationService.ConsumeKafkaEvents
         input: "Kafka message: { recipientEmployeeId, title, shortDesc, desc }"
-        output: "Notification record persisted"
+        output: Notification record persisted to database
         edgeCases:
           - Malformed Kafka message must be dead-lettered (logged, skipped, not crashed)
-          - recipientEmployeeId not found in employee service — log warning, persist anyway
-            (employee may have been deleted; notification is low-risk)
+          - recipientEmployeeId not found — log warning and persist anyway
           - Consumer must be idempotent (deduplicate by Kafka offset / message key)
         claudeDesignURL: null
         uiInteractions: null
@@ -748,33 +759,32 @@ userStories:
         integrationTestPlan:
           - id: INT-7-1
             scenario: >
-              Produce a test notification message to Kafka topic; assert Notification
-              record is created in the database with correct fields
+              Produce a test notification message to the Kafka topic; assert a
+              Notification record is created in the database with correct fields
 
       - id: FEAT-16
         title: Serve notification list per employee
         type: fullstack
         description: >
-          Notification subgraph exposes a query for the authenticated employee's
-          notifications ordered by createdAt descending. Response includes id,
-          title, shortDesc, desc, readAt (null if unread), createdAt.
-          Frontend: bell dropdown lists notifications with bold text + #f7f9ff
-          background for unread, normal weight + white for read. Shows time
-          relative label. Max visible height 320px with scroll.
+          Notification subgraph exposes a query returning the authenticated
+          employee's notifications ordered by createdAt descending. Response
+          includes id, title, shortDesc, desc, readAt, createdAt, updatedAt.
+          Frontend: bell dropdown — unread rows bold with #f7f9ff background,
+          read rows normal weight on white. Max visible height 320 px with scroll.
+          Bell shows unread count badge (red) when unreadCount > 0.
         component: notification-subgraph.NotificationService.GetMyNotifications
-        input: "employeeId from JWT"
-        output: "List of Notification records ordered by createdAt desc"
+        input: employeeId from JWT
+        output: List of Notification records ordered by createdAt desc
         edgeCases:
           - Employee with no notifications returns empty list
-          - Dropdown renders up to 320px height then scrolls
+          - Dropdown renders up to 320 px height then scrolls
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Bell button (38x38 circle) with unread count badge (red, top-right)"
-          - "Badge hidden when unreadCount is 0"
-          - "Dropdown: 320px wide, max 320px tall with scroll, 10px border-radius"
-          - "Unread row: bold text, #f7f9ff background"
-          - "Read row: normal weight, white background"
-          - "Each row shows notification text and relative time"
+          - Bell button (38×38 px circle) with red unread count badge top-right
+          - Badge hidden when unreadCount is 0
+          - Dropdown 320 px wide, max 320 px tall with scroll, 10 px border-radius
+          - Unread row — bold text, #f7f9ff background
+          - Read row — normal weight, white background
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -783,27 +793,26 @@ userStories:
           - id: INT-7-2
             scenario: >
               GET myNotifications query returns list ordered by createdAt desc
-              with correct readAt values
+              with correct readAt values for read and unread records
 
       - id: FEAT-17
         title: Mark notifications as read
         type: fullstack
         description: >
-          When employee opens the bell dropdown, all unread notifications are
-          marked as read (readAt = now). Also exposes a markNotificationRead
-          mutation for individual mark-as-read.
-          Frontend: opening the bell dropdown triggers markAllNotificationsRead
-          mutation; badge disappears after response.
+          Opening the bell dropdown fires markAllNotificationsRead, setting readAt
+          to now on all unread Notification records for the authenticated employee.
+          A markNotificationRead mutation is also exposed for individual mark-as-read.
+          Frontend: badge count drops to 0 after mutation resolves.
         component: notification-subgraph.NotificationService.MarkNotificationsRead
-        input: "employeeId from JWT (mark all), or notificationId (mark one)"
-        output: "Updated Notification records"
+        input: employeeId from JWT (mark all) or notificationId (mark one)
+        output: Updated Notification records
         edgeCases:
-          - Already-read notification: markRead is a no-op (idempotent)
+          - Already-read notification is a no-op (idempotent)
           - notificationId not belonging to authenticated employee returns FORBIDDEN
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Opening bell dropdown fires markAllNotificationsRead mutation"
-          - "Unread badge count drops to 0 after mutation resolves"
+          - Opening bell dropdown fires markAllNotificationsRead mutation
+          - Unread badge count drops to 0 after mutation resolves
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:
@@ -812,29 +821,29 @@ userStories:
           - id: INT-7-3
             scenario: >
               POST markAllNotificationsRead mutation sets readAt on all unread
-              notifications for the authenticated employee
+              Notification records for the authenticated employee
 
       - id: FEAT-18
-        title: Real-time notification push via GraphQL subscription (SSE)
+        title: Real-time notification push via GraphQL subscription over SSE
         type: fullstack
         description: >
           Notification subgraph exposes a Subscription type (notificationAdded)
           that pushes new Notification records to the authenticated subscriber.
           Apollo Router transports the subscription as SSE to the frontend.
-          Frontend subscribes on login and appends incoming notifications to
-          the dropdown list, incrementing the unread badge count.
+          Frontend subscribes on login and appends incoming notifications to the
+          dropdown, incrementing the unread badge. Subscription torn down on logout.
         component: notification-subgraph.NotificationService.NotificationSubscription
-        input: "employeeId from JWT (subscription scoped to authenticated user)"
-        output: "Stream of Notification records pushed on creation"
+        input: employeeId from JWT (subscription scoped to authenticated user)
+        output: Stream of Notification records pushed on creation
         edgeCases:
-          - Client disconnects: subscription cleaned up server-side (no leak)
-          - Employee receives only their own notifications (never another user's)
-          - Apollo Router SSE transport must be configured for subscription forwarding
+          - Client disconnect must clean up the server-side subscription (no leak)
+          - Employee receives only their own notifications — never another user's
+          - Apollo Router must be configured for SSE subscription forwarding
         claudeDesignURL: "https://claude.ai/design/p/172c2a11-5f37-4fa7-8a42-5dd734ebf3a1?file=HR+Portal.dc.html&via=share"
         uiInteractions:
-          - "Frontend opens SSE subscription after successful login"
-          - "Incoming notification increments bell badge and prepends to dropdown list"
-          - "Subscription torn down on logout"
+          - Frontend opens SSE subscription after successful login
+          - Incoming notification increments bell badge and prepends to dropdown list
+          - Subscription torn down on logout
         responsiveBreakpoints: null
         graphqlChanges: true
         affectedSubgraphs:

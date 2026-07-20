@@ -15,18 +15,18 @@ type Employee @key(fields: "id") {
 }
 
 """
-A payslip generated for an employee.
+A payslip generated for an employee by the cron service.
 Maps directly to the Payslip database entity.
-The url field stores the MinIO object path (not a presigned URL).
+The url field stores the MinIO object path, not a presigned URL.
 """
 type Payslip @key(fields: "id") {
   "Unique identifier (UUID)."
   id: ID!
 
-  "MinIO object path for the payslip PDF. Used internally to generate presigned URLs."
+  "MinIO object path for the payslip PDF. Used internally to generate presigned download URLs."
   url: String!
 
-  "ISO 8601 datetime when this payslip was generated."
+  "ISO 8601 datetime when this payslip was generated and stored."
   createdAt: String!
 
   "ISO 8601 datetime of last update."
@@ -40,7 +40,7 @@ type Payslip @key(fields: "id") {
 A time-limited presigned URL for downloading a payslip PDF from MinIO.
 """
 type PayslipDownloadURL {
-  "Presigned MinIO URL valid for 5 minutes."
+  "Presigned MinIO URL. Valid for 5 minutes from time of generation."
   url: String!
 }
 
@@ -52,9 +52,9 @@ type Query {
 
   """
   Generates and returns a presigned MinIO download URL for the specified payslip.
+  URL expires after 5 minutes.
   Returns FORBIDDEN if the payslip does not belong to the authenticated employee.
   Returns NOT_FOUND if the MinIO object cannot be located.
-  URL expires after 5 minutes.
   """
   payslipDownloadURL(
     "The payslip to generate a download URL for."

@@ -3,8 +3,8 @@
 # Feature references: FEAT-5
 # Implementation target: ./servers/auth-subgraph/src/schema/
 #
-# Note: signIn and signOut already exist in the auth service.
-# This SDL adds only the changePassword mutation (FEAT-5).
+# signIn and signOut already exist in the auth service and are untouched.
+# This file adds only the changePassword mutation introduced by FEAT-5.
 # The existing self-service signUp operation must be marked @inaccessible
 # so Apollo Router never exposes it to external clients.
 
@@ -15,22 +15,22 @@ extend schema
   ])
 
 """
-Result of a successful password change operation.
+Result returned after a successful password change.
 """
 type ChangePasswordResult {
   """
-  True when the password was changed and mustChangePassword cleared.
+  True when the password was updated and mustChangePassword was cleared on
+  the Authentik account.
   """
   success: Boolean!
 }
 
 extend type Mutation {
   """
-  Changes the authenticated employee's password via Authentik.
-  Clears the mustChangePassword flag on the Authentik account.
-  Requires a valid JWT in the Authorization header.
-  Returns UNAUTHENTICATED if currentPassword is incorrect.
-  Returns BAD_USER_INPUT if newPassword is the same as currentPassword.
+  Changes the authenticated employee's password via Authentik and clears the
+  mustChangePassword flag. Requires a valid JWT in the Authorization header.
+  Returns UNAUTHENTICATED if currentPassword does not match.
+  Returns BAD_USER_INPUT if newPassword is identical to currentPassword.
   """
   changePassword(
     "The employee's current password for verification."
