@@ -143,10 +143,7 @@ test('createUser() with groupNames resolves each name to a PK then sends them on
   const client = new AuthentikClient(CONFIG);
   let createBody: unknown;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/api/v3/core/groups/')) {
       return jsonResponse(200, { results: [{ pk: 'group-pk-1' }] });
