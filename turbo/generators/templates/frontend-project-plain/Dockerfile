@@ -2,33 +2,52 @@
 #   docker build -f {{ location }}/{{ name }}/Dockerfile -t {{ name }} .
 
 ARG BUN_VERSION=1.3.14
+# Keep in sync with root package.json's "turbo" dependency version.
+ARG TURBO_VERSION=2.10.3
 # Rsbuild inlines PUBLIC_* env vars into the client bundle at *build* time (see
 # src/config/env.ts), not at container start — a docker-compose `environment:` entry on the
 # runtime container has no effect on this. Override via `docker build --build-arg` /
 # docker-compose's `build.args:` instead (see docker-compose.yml).
 ARG PUBLIC_GRAPHQL_URL=http://router:4000/graphql
 
+# ── pruner ─────────────────────────────────────────────────────────────────────
+# `turbo prune --docker` computes the subset of the monorepo this app actually depends on — a
+# hand-picked partial COPY (packages/*, this project) fails bun install with "Workspace not
+# found" for entirely unrelated workspaces (e.g. e2e/), since bun validates the full
+# lockfile-recorded graph, not just what this app happens to import — see apps/docs/Dockerfile /
+# servers/auth/Dockerfile for the identical reasoning.
+FROM oven/bun:${BUN_VERSION}-slim AS pruner
+
+ARG TURBO_VERSION
+
+WORKDIR /app
+
+RUN bun add --global turbo@"${TURBO_VERSION}"
+
+COPY . .
+
+RUN turbo prune {{ name }} --docker
+
+# ── installer ──────────────────────────────────────────────────────────────────
+FROM oven/bun:${BUN_VERSION}-slim AS installer
+
+WORKDIR /app
+
+COPY --from=pruner /app/out/json/ .
+
+RUN bun install --ignore-scripts
+
 # ── builder ────────────────────────────────────────────────────────────────────
-FROM oven/bun:${BUN_VERSION}-slim AS builder
+FROM installer AS builder
 
 ARG PUBLIC_GRAPHQL_URL
 ENV PUBLIC_GRAPHQL_URL=${PUBLIC_GRAPHQL_URL}
 
-WORKDIR /app
-
-COPY package.json bun.lock* turbo.json ./
-COPY packages ./packages
-COPY {{ location }}/{{ name }} ./{{ location }}/{{ name }}
-
-# Not --frozen-lockfile: bun.lock was generated against the full monorepo workspace set, but
-# this build only copies the subset actually needed (packages + this project) — bun's freeze
-# check requires exact workspace-membership parity with the lockfile and fails on that partial
-# copy. Same reason servers/*/Dockerfile doesn't use it either.
-RUN bun install --ignore-scripts
+COPY --from=pruner /app/out/full/ .
 
 # Root-level build (turbo run build) — builds packages/api's dist (this app imports its
 # generated GraphQL types) before this project's own "build" script (rsbuild build), same
-# root-then-workspace order servers/demo1/Dockerfile relies on.
+# root-then-workspace order servers/auth/Dockerfile relies on.
 RUN bun run build
 
 # ── runtime ────────────────────────────────────────────────────────────────────
