@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import {
+  inputStyle,
+  labelStyle,
+  primaryButtonStyle,
+} from '../../../lib/formStyles';
 import { useEmployees } from '../viewmodel/useEmployees';
 import { useRegisterEmployee } from '../viewmodel/useRegisterEmployee';
 import { ModalShell } from './ModalShell';
@@ -31,36 +36,6 @@ const titleStyle: React.CSSProperties = {
   fontWeight: 800,
   margin: '0 0 20px 0',
   color: 'var(--hr-color-text)',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: 'var(--hr-color-text-secondary)',
-  display: 'block',
-  marginBottom: 6,
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 12px',
-  border: '1px solid var(--hr-color-border)',
-  borderRadius: 'var(--hr-radius)',
-  fontSize: 14,
-  fontFamily: 'inherit',
-  marginBottom: 14,
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  width: '100%',
-  background: 'var(--hr-color-primary)',
-  color: 'var(--hr-color-surface)',
-  border: 'none',
-  padding: 11,
-  borderRadius: 'var(--hr-radius)',
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: 'pointer',
 };
 
 export function RegisterEmployeeModal({

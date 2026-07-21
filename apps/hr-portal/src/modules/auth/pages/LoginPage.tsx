@@ -1,4 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import {
+  labelStyle,
+  inputStyle as sharedInputStyle,
+  primaryButtonStyle as sharedPrimaryButtonStyle,
+} from '../../../lib/formStyles';
 import { useSignIn } from '../viewmodel/useSignIn';
 
 export interface SignInPayload {
@@ -38,34 +43,14 @@ const cardStyle: React.CSSProperties = {
   padding: 40,
 };
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: 'var(--hr-color-text-secondary)',
-  display: 'block',
-  marginBottom: 6,
-};
-
 const inputStyle: React.CSSProperties = {
-  width: '100%',
+  ...sharedInputStyle,
   padding: '11px 14px',
-  border: '1px solid var(--hr-color-border)',
-  borderRadius: 'var(--hr-radius)',
-  fontSize: 14,
-  fontFamily: 'inherit',
-  marginBottom: 14,
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  width: '100%',
+  ...sharedPrimaryButtonStyle,
   padding: 12,
-  background: 'var(--hr-color-primary)',
-  color: 'var(--hr-color-surface)',
-  border: 'none',
-  borderRadius: 'var(--hr-radius)',
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: 'pointer',
 };
 
 const linkStyle: React.CSSProperties = {
@@ -85,14 +70,21 @@ export function LoginPage({ onSignedIn }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
+  // `loading` from useMutation only flips after a render following the click — a fast double
+  // click can fire handleSubmit twice before that happens. This ref guards synchronously.
+  const submittingRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     try {
       const { data } = await signIn({ email, password });
       if (data?.signIn) onSignedIn(data.signIn);
     } catch {
       // Surfaced via the `error` state from useSignIn below — nothing else to do here.
+    } finally {
+      submittingRef.current = false;
     }
   }
 
@@ -207,12 +199,14 @@ export function LoginPage({ onSignedIn }: LoginPageProps) {
               value={forgotEmail}
               onChange={(e) => setForgotEmail(e.target.value)}
               style={inputStyle}
+              required
             />
             <button
               type="button"
               data-testid="forgot-password-submit"
               style={primaryButtonStyle}
-              onClick={() => setView('forgot-sent')}
+              disabled={!forgotEmail}
+              onClick={() => forgotEmail && setView('forgot-sent')}
             >
               Send Reset Link
             </button>

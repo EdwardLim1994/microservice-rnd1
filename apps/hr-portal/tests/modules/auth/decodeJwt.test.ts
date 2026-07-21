@@ -10,9 +10,30 @@ function makeJwt(payload: Record<string, unknown>) {
   return `${header}.${body}.signature`;
 }
 
+// btoa() only accepts Latin-1 input, so a payload with non-ASCII characters needs UTF-8 encoding
+// first — same asymmetry decodeJwt() itself has to undo on the way back out.
+function makeJwtWithUnicode(payload: Record<string, unknown>) {
+  const encode = (obj: unknown) => {
+    const bytes = new TextEncoder().encode(JSON.stringify(obj));
+    return btoa(String.fromCharCode(...bytes));
+  };
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(payload)}.signature`;
+}
+
 test('decodeJwt decodes the payload segment', () => {
   const token = makeJwt({ groups: ['hr-admin'], sub: 'user-1' });
   expect(decodeJwt(token)).toEqual({ groups: ['hr-admin'], sub: 'user-1' });
+});
+
+test('decodeJwt correctly decodes multi-byte UTF-8 characters in a claim', () => {
+  const token = makeJwtWithUnicode({
+    name: 'José García',
+    groups: ['employee'],
+  });
+  expect(decodeJwt(token)).toEqual({
+    name: 'José García',
+    groups: ['employee'],
+  });
 });
 
 test('decodeJwt returns null for a malformed token', () => {

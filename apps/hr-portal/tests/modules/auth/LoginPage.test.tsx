@@ -69,6 +69,52 @@ test('submits the form and calls onSignedIn with the sign-in payload', async () 
   });
 });
 
+test('a fast double-click only submits one signIn mutation', async () => {
+  const mocks = [
+    {
+      request: {
+        query: SIGN_IN_MUTATION,
+        variables: {
+          email: 'jane.doe@example.com',
+          password: 'correct-password',
+        },
+      },
+      result: {
+        data: {
+          signIn: {
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            idToken: 'id-token',
+            mustChangePassword: false,
+          },
+        },
+      },
+    },
+  ];
+  let signedInCallCount = 0;
+
+  render(
+    <MockedProvider mocks={mocks}>
+      <LoginPage
+        onSignedIn={() => {
+          signedInCallCount += 1;
+        }}
+      />
+    </MockedProvider>,
+  );
+
+  fillForm();
+  const submitButton = screen.getByTestId('login-submit');
+  // Only one mock is registered — if the second synchronous click weren't guarded, Apollo would
+  // reject it with "no more mocked responses", proving the guard by the sole successful call.
+  fireEvent.click(submitButton);
+  fireEvent.click(submitButton);
+
+  await waitFor(() => {
+    expect(signedInCallCount).toBe(1);
+  });
+});
+
 test('shows the error message returned by the API and does not call onSignedIn', async () => {
   const mocks = [
     {
@@ -133,4 +179,24 @@ test('forgot-password flow shows a confirmation after Send Reset Link', () => {
   expect(screen.getByTestId('forgot-password-sent')).toHaveTextContent(
     'jane.doe@example.com',
   );
+});
+
+test('forgot-password Send Reset Link is disabled until an email is entered', () => {
+  render(
+    <MockedProvider mocks={[]}>
+      <LoginPage onSignedIn={() => {}} />
+    </MockedProvider>,
+  );
+
+  fireEvent.click(screen.getByTestId('login-forgot-password-link'));
+  const submitButton = screen.getByTestId('forgot-password-submit');
+  expect(submitButton).toBeDisabled();
+
+  fireEvent.click(submitButton);
+  expect(screen.queryByTestId('forgot-password-sent')).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByTestId('forgot-password-email'), {
+    target: { value: 'jane.doe@example.com' },
+  });
+  expect(submitButton).not.toBeDisabled();
 });
