@@ -1,0 +1,74 @@
+---
+title: HR Admin Employee Registration and Supervisor Assignment
+description: How the employee service and hr-portal implement US-1 — register employees, list them, and assign supervisors
+version: 0.1.0
+draft: true
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+## Overview
+
+An HR Admin registers new employees, views the full employee roster, and assigns a supervisor to
+an existing employee. Every employee gets a matching Authentik account so they can sign in
+elsewhere in the system; supervisor assignment additionally promotes the assignee's Authentik
+account into the `supervisor` group, gated on that assignee having been employed for at least 5
+years.
+
+This user story spans one gRPC + GraphQL Federation server (`servers/employee`) and one frontend
+webapp (`apps/hr-portal`), following this repo's standard server shape — see
+`packages/server/CLAUDE.md`.
+
+## Components
+
+| Component | Role |
+|---|---|
+| `servers/employee` | Owns the `Employee` entity. Exposes `registerEmployee`/`assignSupervisor` mutations and an `employees` query over both GraphQL (federated subgraph) and gRPC. |
+| `packages/server`'s `AuthentikPlugin` | Shared `AuthentikClient` — creates/updates Authentik user accounts and group membership via the Authentik Admin API. Not employee-specific; any server can depend on it. |
+| `apps/hr-portal` | React + Apollo Client webapp. HR Admin-facing UI for all three features. |
+| Apollo Router | Federates `employee-subgraph` (and other subgraphs) into one supergraph the frontend queries. |
+
+## Features
+
+<Steps>
+1. **FEAT-1 — Register new employee** (`RegisterEmployeeSaga`)
+
+   Creates the `Employee` Postgres record, then creates a matching Authentik account
+   (`employee` group, `mustChangePassword: true`). If Authentik account creation fails, the saga's
+   compensation deletes the just-created `Employee` record — the two systems never end up
+   out of sync. Returns a one-time temporary password to the HR Admin.
+
+2. **FEAT-2 — List employees** (`ListEmployeesUseCase` / `ResolveEmployeeSupervisorUseCase`)
+
+   `Query.employees` returns every `Employee` record. `Employee.supervisor` is a field resolver
+   that re-fetches the referenced employee by `supervisorId` (self-referential — no separate
+   supervisor entity).
+
+3. **FEAT-3 — Assign supervisor to employee** (`AssignSupervisorSaga`)
+
+   Validates `employeeId !== supervisorId` (`BAD_USER_INPUT`) and that both records exist
+   (`NOT_FOUND`), checks the target supervisor's `createdAt` is at least 5 years ago
+   (`INELIGIBLE` otherwise — computed inline at assignment time, no cron), persists the new
+   `supervisorId`, then promotes the **supervisor's** (not the employee's) Authentik account into
+   the `supervisor` group. If the Authentik update fails, the saga's compensation reverts
+   `supervisorId` back to its previous value.
+</Steps>
+
+<Aside type="caution">
+  All three features follow the same saga pattern (`ProcedureOrchestrator`): the Postgres write
+  always happens before the Authentik call, and a failed Authentik call always rolls back the
+  Postgres write. This keeps `Employee` and Authentik consistent even though they're two separate
+  systems with no shared transaction.
+</Aside>
+
+## Data ownership
+
+- `Employee` (Postgres, owned by `servers/employee`, provisioned via Vault-issued short-lived
+  credentials — see `packages/server/CLAUDE.md`'s Database section) is the single source of truth
+  for employee records.
+- Authentik owns identity/auth — the `employee` server never stores passwords, only calls
+  Authentik's Admin API to create accounts and manage group membership.
+
+## Related
+
+- [HR Admin Employee Registration Data Flow](/data-flows/hr-admin-employee-registration/) — end-to-end request lifecycle for all three features

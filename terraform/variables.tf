@@ -33,3 +33,27 @@ variable "docs_app_image_tag" {
   type        = string
   default     = "local"
 }
+
+variable "employee_namespace" {
+  description = "Kubernetes namespace employee is deployed into"
+  type        = string
+  default     = "employee"
+}
+
+variable "employee_app_image_tag" {
+  description = "Tag of the employee runtime image, built into minikube's docker daemon"
+  type        = string
+  default     = "local"
+}
+
+variable "hr_portal_namespace" {
+  description = "Kubernetes namespace hr-portal is deployed into"
+  type        = string
+  default     = "hr-portal"
+}
+
+variable "hr_portal_app_image_tag" {
+  description = "Tag of the hr-portal runtime image, built into minikube's docker daemon"
+  type        = string
+  default     = "local"
+}

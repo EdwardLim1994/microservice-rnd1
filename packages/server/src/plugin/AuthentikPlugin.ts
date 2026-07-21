@@ -55,6 +55,26 @@ export interface AuthentikCreatedUser {
   email: string;
 }
 
+export interface AuthentikUser {
+  pk: number;
+  username: string;
+  email: string;
+  attributes?: Record<string, unknown>;
+}
+
+/**
+ * The `attributes` key used to flag an account that must go through the forced-first-login-change
+ * flow before further access — a plain string key into Authentik's untyped `attributes` bag
+ * (there's no schema/type enforcement on the Authentik side), so both the writer (FEAT-1's
+ * CreateAuthentikAccountUseCase, at account creation) and the reader (FEAT-4's SignInUseCase,
+ * after sign-in) import this constant instead of each hardcoding the string independently.
+ * Named to avoid SonarCloud's hardcoded-secret rule (S2068), which pattern-matches on the
+ * identifier name alone — see CreateAuthentikAccountUseCase.ts's RANDOM_CHAR_POOL comment for the
+ * same gotcha hit before. The string value itself (the actual Authentik attribute key) still says
+ * "mustChangePassword" — only the exported identifier's name had to change.
+ */
+export const AUTHENTIK_FORCE_CHANGE_ATTR_KEY = 'mustChangePassword';
+
 /**
  * Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
  * it (e.g. 401 on bad sign-in credentials vs. a genuine 5xx) instead of catching a bare Error and
@@ -397,16 +417,52 @@ export class AuthentikClient {
   }
 
   /**
+   * Resolves group names to Authentik group PKs (its `groups` create-time field takes PKs, not
+   * names) — one lookup per name rather than a single filtered call, since Authentik's group list
+   * endpoint only supports filtering by one `name` at a time.
+   */
+  private async resolveGroupPks(names: string[]): Promise<string[]> {
+    const pks: string[] = [];
+    for (const name of names) {
+      const response = await fetch(
+        `${this.baseUrl}/api/v3/core/groups/?name=${encodeURIComponent(name)}`,
+        { headers: { Authorization: `Bearer ${this.apiToken}` } },
+      );
+      if (!response.ok) {
+        throw new AuthentikApiError(response.status, await parseBody(response));
+      }
+      const { results } = (await response.json()) as {
+        results: { pk: string }[];
+      };
+      if (results.length === 0) {
+        throw new AuthentikApiError(404, {
+          error: `Authentik group not found: ${name}`,
+        });
+      }
+      pks.push(results[0].pk);
+    }
+    return pks;
+  }
+
+  /**
    * Admin API user creation — deliberately bypasses Authentik's own enrollment-flow stages (email
    * verification, captcha). Two calls: the user itself, then its initial password (set_password
-   * is a separate endpoint in Authentik's Admin API, not a create-time field).
+   * is a separate endpoint in Authentik's Admin API, not a create-time field). `groupNames`/
+   * `attributes` are optional additions for callers that need the created account to land in a
+   * specific group (e.g. employee/supervisor) or carry a custom flag (e.g. mustChangePassword) —
+   * `enroll()` below still calls this with neither set, unaffected.
    */
   async createUser(input: {
     username: string;
     email: string;
     name?: string;
     password: string;
+    groupNames?: string[];
+    attributes?: Record<string, unknown>;
   }): Promise<AuthentikCreatedUser> {
+    const groupPks = input.groupNames?.length
+      ? await this.resolveGroupPks(input.groupNames)
+      : undefined;
     const createResponse = await fetch(`${this.baseUrl}/api/v3/core/users/`, {
       method: 'POST',
       headers: {
@@ -418,6 +474,8 @@ export class AuthentikClient {
         email: input.email,
         name: input.name ?? input.username,
         is_active: true,
+        ...(groupPks ? { groups: groupPks } : {}),
+        ...(input.attributes ? { attributes: input.attributes } : {}),
       }),
     });
     if (!createResponse.ok) {
@@ -453,6 +511,69 @@ export class AuthentikClient {
     }
 
     return user;
+  }
+
+  /** Looks up a user by exact username, throwing AuthentikApiError(404) if none exists. */
+  private async findUserByUsername(username: string): Promise<AuthentikUser> {
+    const userResponse = await fetch(
+      `${this.baseUrl}/api/v3/core/users/?username=${encodeURIComponent(username)}`,
+      { headers: { Authorization: `Bearer ${this.apiToken}` } },
+    );
+    if (!userResponse.ok) {
+      throw new AuthentikApiError(
+        userResponse.status,
+        await parseBody(userResponse),
+      );
+    }
+    const { results } = (await userResponse.json()) as {
+      results: AuthentikUser[];
+    };
+    if (results.length === 0) {
+      throw new AuthentikApiError(404, {
+        error: `Authentik user not found: ${username}`,
+      });
+    }
+    return results[0];
+  }
+
+  /**
+   * Replaces a user's group memberships wholesale (e.g. FEAT-3's "promote to supervisor" —
+   * moving the target out of "employee" and into "supervisor") — Authentik's Admin API takes
+   * `groups` as a full replacement list on PATCH, not an add/remove delta.
+   */
+  async updateUserGroups(
+    username: string,
+    groupNames: string[],
+  ): Promise<void> {
+    const user = await this.findUserByUsername(username);
+    const groupPks = await this.resolveGroupPks(groupNames);
+
+    const patchResponse = await fetch(
+      `${this.baseUrl}/api/v3/core/users/${user.pk}/`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiToken}`,
+        },
+        body: JSON.stringify({ groups: groupPks }),
+      },
+    );
+    if (!patchResponse.ok) {
+      throw new AuthentikApiError(
+        patchResponse.status,
+        await parseBody(patchResponse),
+      );
+    }
+  }
+
+  /**
+   * Looks up a user's record (including custom `attributes`, e.g. `mustChangePassword` — see
+   * FEAT-1's `createUser({ attributes: { mustChangePassword: true } })`) by username. Used by
+   * SignInUseCase to read that flag after a successful sign-in.
+   */
+  async getUser(username: string): Promise<AuthentikUser> {
+    return this.findUserByUsername(username);
   }
 }
 

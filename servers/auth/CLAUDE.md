@@ -9,14 +9,18 @@ Apollo Router endpoint for everything — see the root `CLAUDE.md`'s Layout sect
 
 ## The three mutations, and which Authentik API each one calls
 
-- **`signIn(username, password): AuthTokens!`** — **not** the OAuth2 "password" grant (see below
+- **`signIn(email, password): AuthPayload!`** — **not** the OAuth2 "password" grant (see below
   for why) — drives Authentik's Flow Executor API (`/api/v3/flows/executor/
   default-authentication-flow/`) through its identification → password stages (which *does* check
   the account's real password), then completes a standard Authorization Code exchange
   (`/application/o/authorize/` → `/application/o/token/`) once the resulting session is
   authenticated. On a failure anywhere in that sequence, returns a `GraphQLError` with
-  `extensions.code: 'INVALID_CREDENTIALS'` — never Authentik's raw error body, to avoid leaking IdP
-  internals to the client.
+  `extensions.code: 'UNAUTHENTICATED'` — never Authentik's raw error body, to avoid leaking IdP
+  internals to the client. Empty email/password is rejected before calling Authentik at all, with
+  `extensions.code: 'BAD_USER_INPUT'`. After a successful sign-in, looks the user back up
+  (`AuthentikClient.getUser`) to read its `attributes.mustChangePassword` flag (set at account
+  creation — see FEAT-1's `CreateAuthentikAccountUseCase`) into `AuthPayload.mustChangePassword`,
+  which FEAT-5's forced-password-change screen keys off of.
 - **`signUp(input): SignUpResult!`** — direct Admin API user creation: `POST
   /api/v3/core/users/` then `POST /api/v3/core/users/{pk}/set_password/`, authenticated with a
   service-account API token (provisioned below). **Deliberately bypasses Authentik's own

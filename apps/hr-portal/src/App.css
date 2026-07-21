@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* Design tokens lifted from the Claude Design HR Portal project (HR Portal.dc.html) — the
+   modal's own color palette. Not a full theme yet (this app has no design-token system beyond
+   this), but named custom properties instead of inline hex strings scattered across components,
+   so RegisterEmployeeModal.tsx and any future HR Portal form can share the same values. */
+:root {
+  --hr-color-primary: #1e3a8a;
+  --hr-color-primary-bg: #eef2ff;
+  --hr-color-primary-border: #dbe4ff;
+  --hr-color-success: #166534;
+  --hr-color-danger: #dc2626;
+  --hr-color-text: #1c2333;
+  --hr-color-text-secondary: #374151;
+  --hr-color-text-muted: #6b7280;
+  --hr-color-border: #d6dbe3;
+  --hr-color-close-bg: #f3f5f8;
+  --hr-color-close-border: #e5e9f0;
+  --hr-color-input-readonly-bg: #f7f8fa;
+  --hr-color-surface: #fff;
+  --hr-color-overlay: rgba(20, 26, 40, 0.45);
+  --hr-color-table-header-bg: #f7f8fa;
+  --hr-color-row-border: #f0f1f4;
+  --hr-radius: 8px;
+  --hr-radius-lg: 14px;
+  --hr-font-family: "Inter", sans-serif;
+  --hr-font-family-mono: "SF Mono", Consolas, monospace;
+}
+
+body {
+  margin: 0;
+  color: #fff;
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  background-image: linear-gradient(to bottom, #020917, #101725);
+}
+
+.content {
+  display: flex;
+  min-height: 100vh;
+  line-height: 1.1;
+  text-align: center;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.content h1 {
+  font-size: 3.6rem;
+  font-weight: 700;
+}
+
+.content p {
+  font-size: 1.2rem;
+  font-weight: 400;
+  opacity: 0.5;
+}

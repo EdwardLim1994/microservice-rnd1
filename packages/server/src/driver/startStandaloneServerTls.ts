@@ -1,8 +1,8 @@
 import http from 'node:http';
 import https from 'node:https';
 import type { ApolloServer, BaseContext } from '@apollo/server';
-import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import { HeaderMap } from '@apollo/server';
+import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import type { TlsConfig } from '../database/VaultTlsAdapter';
 
 export interface StandaloneServerTlsListenOptions {
@@ -51,7 +51,9 @@ export async function startStandaloneServerTls(
         httpGraphQLRequest: {
           method: (req.method ?? 'GET').toUpperCase(),
           headers,
-          search: req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : '',
+          search: req.url?.includes('?')
+            ? req.url.slice(req.url.indexOf('?'))
+            : '',
           body: bodyText.length > 0 ? JSON.parse(bodyText) : undefined,
         },
         context,
@@ -100,7 +102,8 @@ export async function startStandaloneServerTls(
   });
 
   const address = httpServer.address();
-  const port = typeof address === 'object' && address ? address.port : listenOptions.port;
+  const port =
+    typeof address === 'object' && address ? address.port : listenOptions.port;
   const scheme = tls ? 'https' : 'http';
   return { url: `${scheme}://${listenOptions.host}:${port}/` };
 }

@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package employee;
+
+message Employee {
+  string id = 1;
+  string firstName = 2;
+  string lastName = 3;
+  string gender = 4;
+  string email = 5;
+  double grossSalary = 6;
+  double salaryPerDay = 7;
+  optional string supervisorId = 8;
+  string createdAt = 9;
+  string updatedAt = 10;
+}
+
+message RegisterEmployeeRequest {
+  string firstName = 1;
+  string lastName = 2;
+  string gender = 3;
+  string email = 4;
+  double grossSalary = 5;
+  double salaryPerDay = 6;
+  optional string supervisorId = 7;
+}
+
+message RegisterEmployeeResponse {
+  Employee employee = 1;
+  string temporaryPassword = 2;
+}
+
+message AssignSupervisorRequest {
+  string employeeId = 1;
+  string supervisorId = 2;
+}
+
+message AssignSupervisorResponse {
+  Employee employee = 1;
+}
+
+message ListEmployeesRequest {
+}
+
+message ListEmployeesResponse {
+  repeated Employee employees = 1;
+}
+
+service EmployeeService {
+  rpc RegisterEmployee (RegisterEmployeeRequest) returns (RegisterEmployeeResponse);
+  rpc AssignSupervisor (AssignSupervisorRequest) returns (AssignSupervisorResponse);
+  rpc ListEmployees (ListEmployeesRequest) returns (ListEmployeesResponse);
+}

@@ -139,6 +139,89 @@ test('createUser() throws AuthentikApiError when set_password fails after user c
   ).rejects.toBeInstanceOf(AuthentikApiError);
 });
 
+test('createUser() with groupNames resolves each name to a PK then sends them on create', async () => {
+  const client = new AuthentikClient(CONFIG);
+  let createBody: unknown;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('/api/v3/core/groups/')) {
+      return jsonResponse(200, { results: [{ pk: 'group-pk-1' }] });
+    }
+    if (url.includes('/api/v3/core/users/') && !url.includes('set_password')) {
+      createBody = JSON.parse(init?.body as string);
+      return jsonResponse(201, {
+        pk: 1,
+        username: 'jane',
+        email: 'jane@example.com',
+      });
+    }
+    return jsonResponse(200, {});
+  }) as typeof fetch;
+
+  try {
+    await client.createUser({
+      username: 'jane',
+      email: 'jane@example.com',
+      password: 'pw',
+      groupNames: ['employee'],
+      attributes: { mustChangePassword: true },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  expect(createBody).toMatchObject({
+    groups: ['group-pk-1'],
+    attributes: { mustChangePassword: true },
+  });
+});
+
+test('createUser() throws AuthentikApiError when a group name does not resolve', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(200, { results: [] })], () =>
+      client.createUser({
+        username: 'jane',
+        email: 'jane@example.com',
+        password: 'pw',
+        groupNames: ['nonexistent-group'],
+      }),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('createUser() throws AuthentikApiError when the group lookup itself fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(503, { detail: 'unavailable' })], () =>
+      client.createUser({
+        username: 'jane',
+        email: 'jane@example.com',
+        password: 'pw',
+        groupNames: ['employee'],
+      }),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('createUser() without groupNames never calls the group lookup endpoint', async () => {
+  const client = new AuthentikClient(CONFIG);
+  const result = await withMockFetch(
+    [
+      jsonResponse(201, { pk: 1, username: 'jane', email: 'jane@example.com' }),
+      jsonResponse(200, {}),
+    ],
+    () =>
+      client.createUser({
+        username: 'jane',
+        email: 'jane@example.com',
+        password: 'pw',
+      }),
+  );
+  expect(result.pk).toBe(1);
+});
+
 test('enroll() delegates to createUser() using the email as the username', async () => {
   const client = new AuthentikClient(CONFIG);
   const result = await withMockFetch(
@@ -153,6 +236,130 @@ test('enroll() delegates to createUser() using the email as the username', async
     () => client.enroll('jane@example.com', 'pw'),
   );
   expect(result.username).toBe('jane@example.com');
+});
+
+// --- updateUserGroups() ------------------------------------------------------------------------
+
+test('updateUserGroups() looks up the user by username, resolves group names, then PATCHes groups', async () => {
+  const client = new AuthentikClient(CONFIG);
+  let patchUrl: string | undefined;
+  let patchBody: unknown;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('/api/v3/core/users/?username=')) {
+      return jsonResponse(200, { results: [{ pk: 1 }] });
+    }
+    if (url.includes('/api/v3/core/groups/')) {
+      return jsonResponse(200, { results: [{ pk: 'group-pk-1' }] });
+    }
+    if (url.includes('/api/v3/core/users/1/') && init?.method === 'PATCH') {
+      patchUrl = url;
+      patchBody = JSON.parse(init.body as string);
+      return jsonResponse(200, {});
+    }
+    return jsonResponse(200, {});
+  }) as typeof fetch;
+
+  try {
+    await client.updateUserGroups('jane@example.com', ['supervisor']);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  expect(patchUrl).toContain('/api/v3/core/users/1/');
+  expect(patchBody).toEqual({ groups: ['group-pk-1'] });
+});
+
+test('updateUserGroups() throws AuthentikApiError when the username does not resolve to a user', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(200, { results: [] })], () =>
+      client.updateUserGroups('unknown@example.com', ['supervisor']),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('updateUserGroups() throws AuthentikApiError when the user lookup itself fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(503, { detail: 'unavailable' })], () =>
+      client.updateUserGroups('jane@example.com', ['supervisor']),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('updateUserGroups() throws AuthentikApiError when a group name does not resolve', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch(
+      [
+        jsonResponse(200, { results: [{ pk: 1 }] }),
+        jsonResponse(200, { results: [] }),
+      ],
+      () => client.updateUserGroups('jane@example.com', ['nonexistent-group']),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('updateUserGroups() throws AuthentikApiError when the PATCH itself fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch(
+      [
+        jsonResponse(200, { results: [{ pk: 1 }] }),
+        jsonResponse(200, { results: [{ pk: 'group-pk-1' }] }),
+        jsonResponse(500, {}),
+      ],
+      () => client.updateUserGroups('jane@example.com', ['supervisor']),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+// --- getUser() --------------------------------------------------------------------------------
+
+test('getUser() returns the looked-up user record, including attributes', async () => {
+  const client = new AuthentikClient(CONFIG);
+  const user = await withMockFetch(
+    [
+      jsonResponse(200, {
+        results: [
+          {
+            pk: 1,
+            username: 'jane@example.com',
+            email: 'jane@example.com',
+            attributes: { mustChangePassword: true },
+          },
+        ],
+      }),
+    ],
+    () => client.getUser('jane@example.com'),
+  );
+
+  expect(user).toEqual({
+    pk: 1,
+    username: 'jane@example.com',
+    email: 'jane@example.com',
+    attributes: { mustChangePassword: true },
+  });
+});
+
+test('getUser() throws AuthentikApiError when the username does not resolve to a user', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(200, { results: [] })], () =>
+      client.getUser('unknown@example.com'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
+});
+
+test('getUser() throws AuthentikApiError when the lookup itself fails', async () => {
+  const client = new AuthentikClient(CONFIG);
+  await expect(
+    withMockFetch([jsonResponse(503, { detail: 'unavailable' })], () =>
+      client.getUser('jane@example.com'),
+    ),
+  ).rejects.toBeInstanceOf(AuthentikApiError);
 });
 
 // --- revokeToken() ----------------------------------------------------------------------------
