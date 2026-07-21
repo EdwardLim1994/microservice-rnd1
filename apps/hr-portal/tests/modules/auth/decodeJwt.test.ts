@@ -1,0 +1,57 @@
+import { expect, test } from '@rstest/core';
+import {
+  decodeJwt,
+  resolveRole,
+} from '../../../src/modules/auth/lib/decodeJwt';
+
+function makeJwt(payload: Record<string, unknown>) {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const body = btoa(JSON.stringify(payload));
+  return `${header}.${body}.signature`;
+}
+
+// btoa() only accepts Latin-1 input, so a payload with non-ASCII characters needs UTF-8 encoding
+// first — same asymmetry decodeJwt() itself has to undo on the way back out.
+function makeJwtWithUnicode(payload: Record<string, unknown>) {
+  const encode = (obj: unknown) => {
+    const bytes = new TextEncoder().encode(JSON.stringify(obj));
+    return btoa(String.fromCharCode(...bytes));
+  };
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(payload)}.signature`;
+}
+
+test('decodeJwt decodes the payload segment', () => {
+  const token = makeJwt({ groups: ['hr-admin'], sub: 'user-1' });
+  expect(decodeJwt(token)).toEqual({ groups: ['hr-admin'], sub: 'user-1' });
+});
+
+test('decodeJwt correctly decodes multi-byte UTF-8 characters in a claim', () => {
+  const token = makeJwtWithUnicode({
+    name: 'José García',
+    groups: ['employee'],
+  });
+  expect(decodeJwt(token)).toEqual({
+    name: 'José García',
+    groups: ['employee'],
+  });
+});
+
+test('decodeJwt returns null for a malformed token', () => {
+  expect(decodeJwt('not-a-jwt')).toBeNull();
+});
+
+test('resolveRole returns hr-admin when present in groups', () => {
+  expect(resolveRole({ groups: ['employee', 'hr-admin'] })).toBe('hr-admin');
+});
+
+test('resolveRole returns supervisor when present and hr-admin is not', () => {
+  expect(resolveRole({ groups: ['employee', 'supervisor'] })).toBe(
+    'supervisor',
+  );
+});
+
+test('resolveRole defaults to employee when no recognized group is present', () => {
+  expect(resolveRole({ groups: ['employee'] })).toBe('employee');
+  expect(resolveRole({})).toBe('employee');
+  expect(resolveRole(null)).toBe('employee');
+});

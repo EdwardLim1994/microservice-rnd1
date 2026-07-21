@@ -1,34 +1,22 @@
-import { ApolloProvider } from '@apollo/client/react';
 import { useState } from 'react';
-import { GRAPHQL_URL } from './config/env';
-import { createApolloClient } from './lib/apolloClient';
-import { EmployeesPage, RegisterEmployeeModal } from './modules/employee';
+import { AppShell } from './AppShell';
+import {
+  deriveSession,
+  type Session,
+  type SignInPayload,
+} from './modules/auth';
+import { setAccessToken } from './modules/auth/lib/tokenStore';
 import './App.css';
 
-const apolloClient = createApolloClient(GRAPHQL_URL);
-
 const App = () => {
-  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [session, setSession] = useState<Session>({ status: 'signed-out' });
 
-  return (
-    <ApolloProvider client={apolloClient}>
-      <div className="content">
-        <h1>hr-portal</h1>
-        <button
-          type="button"
-          data-testid="open-register-employee-modal"
-          onClick={() => setIsRegisterModalOpen(true)}
-        >
-          Register Employee
-        </button>
-        <RegisterEmployeeModal
-          isOpen={isRegisterModalOpen}
-          onClose={() => setIsRegisterModalOpen(false)}
-        />
-        <EmployeesPage />
-      </div>
-    </ApolloProvider>
-  );
+  function handleSignedIn(payload: SignInPayload) {
+    setAccessToken(payload.accessToken);
+    setSession(deriveSession(payload));
+  }
+
+  return <AppShell session={session} onSignedIn={handleSignedIn} />;
 };
 
 export default App;
