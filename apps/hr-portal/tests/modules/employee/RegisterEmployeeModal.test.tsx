@@ -2,7 +2,23 @@ import { MockedProvider } from '@apollo/client/testing/react';
 import { expect, test } from '@rstest/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RegisterEmployeeModal } from '../../../src/modules/employee/components/RegisterEmployeeModal';
-import { REGISTER_EMPLOYEE_MUTATION } from '../../../src/modules/employee/types/repository';
+import {
+  EMPLOYEES_QUERY,
+  REGISTER_EMPLOYEE_MUTATION,
+} from '../../../src/modules/employee/types/repository';
+
+// RegisterEmployeeModal always queries EMPLOYEES_QUERY on mount (for its SupervisorSearch field),
+// and registerEmployee also triggers a refetchQueries: [EMPLOYEES_QUERY] (see
+// useRegisterEmployee.ts) so the Employees table picks up newly-registered employees. Each mock
+// below is consumed once, so every test needs its own initial-mount mock, plus a second one for
+// tests that submit the mutation.
+function employeesQueryMock() {
+  return {
+    request: { query: EMPLOYEES_QUERY },
+    result: { data: { employees: [] } },
+  };
+}
+const employeesRefetchMock = employeesQueryMock();
 
 function fillForm() {
   fireEvent.change(screen.getByTestId('register-employee-first-name'), {
@@ -26,6 +42,7 @@ function fillForm() {
 }
 
 test('does not render anything when closed', () => {
+  // No EMPLOYEES_QUERY mock needed — useEmployees({ skip: !isOpen }) shouldn't fire it while closed.
   render(
     <MockedProvider mocks={[]}>
       <RegisterEmployeeModal isOpen={false} onClose={() => {}} />
@@ -38,7 +55,7 @@ test('does not render anything when closed', () => {
 
 test('renders the form when open', () => {
   render(
-    <MockedProvider mocks={[]}>
+    <MockedProvider mocks={[employeesQueryMock()]}>
       <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
     </MockedProvider>,
   );
@@ -76,10 +93,11 @@ test('submits the form and shows the success screen with the temporary password'
         },
       },
     },
+    employeesRefetchMock,
   ];
 
   render(
-    <MockedProvider mocks={mocks}>
+    <MockedProvider mocks={[employeesQueryMock(), ...mocks]}>
       <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
     </MockedProvider>,
   );
@@ -119,7 +137,7 @@ test('shows the error message returned by the API', async () => {
   ];
 
   render(
-    <MockedProvider mocks={mocks}>
+    <MockedProvider mocks={[employeesQueryMock(), ...mocks]}>
       <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
     </MockedProvider>,
   );
@@ -129,6 +147,155 @@ test('shows the error message returned by the API', async () => {
 
   await waitFor(() => {
     expect(screen.getByTestId('register-employee-error')).toBeInTheDocument();
+  });
+});
+
+test('submits the selected supervisorId when a supervisor is picked from the search', async () => {
+  const mocks = [
+    {
+      request: { query: EMPLOYEES_QUERY },
+      result: {
+        data: {
+          employees: [
+            {
+              id: 'sup-1',
+              firstName: 'Morgan',
+              lastName: 'Blake',
+              email: 'morgan.blake@example.com',
+              grossSalary: 98000,
+              supervisor: null,
+            },
+          ],
+        },
+      },
+    },
+    {
+      request: {
+        query: REGISTER_EMPLOYEE_MUTATION,
+        variables: {
+          input: {
+            firstName: 'Jane',
+            lastName: 'Doe',
+            gender: 'FEMALE',
+            email: 'jane.doe@example.com',
+            grossSalary: 5000,
+            salaryPerDay: 200,
+            supervisorId: 'sup-1',
+          },
+        },
+      },
+      result: {
+        data: {
+          registerEmployee: {
+            employee: {
+              id: 'emp-1',
+              firstName: 'Jane',
+              lastName: 'Doe',
+              email: 'jane.doe@example.com',
+            },
+            temporaryPassword: 'temp-pass-123',
+          },
+        },
+      },
+    },
+    employeesRefetchMock,
+  ];
+
+  render(
+    <MockedProvider mocks={mocks}>
+      <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
+    </MockedProvider>,
+  );
+
+  fillForm();
+  await waitFor(() => {
+    expect(
+      screen.getByTestId('register-employee-supervisor-option-sup-1'),
+    ).toBeInTheDocument();
+  });
+  fireEvent.click(
+    screen.getByTestId('register-employee-supervisor-option-sup-1'),
+  );
+  fireEvent.click(screen.getByTestId('register-employee-submit'));
+
+  await waitFor(() => {
+    expect(screen.getByTestId('register-employee-success')).toBeInTheDocument();
+  });
+});
+
+test('clearing the supervisor search text after selecting clears supervisorId, submitting without one', async () => {
+  const mocks = [
+    {
+      request: { query: EMPLOYEES_QUERY },
+      result: {
+        data: {
+          employees: [
+            {
+              id: 'sup-1',
+              firstName: 'Morgan',
+              lastName: 'Blake',
+              email: 'morgan.blake@example.com',
+              grossSalary: 98000,
+              supervisor: null,
+            },
+          ],
+        },
+      },
+    },
+    {
+      request: {
+        query: REGISTER_EMPLOYEE_MUTATION,
+        variables: {
+          input: {
+            firstName: 'Jane',
+            lastName: 'Doe',
+            gender: 'FEMALE',
+            email: 'jane.doe@example.com',
+            grossSalary: 5000,
+            salaryPerDay: 200,
+            supervisorId: undefined,
+          },
+        },
+      },
+      result: {
+        data: {
+          registerEmployee: {
+            employee: {
+              id: 'emp-1',
+              firstName: 'Jane',
+              lastName: 'Doe',
+              email: 'jane.doe@example.com',
+            },
+            temporaryPassword: 'temp-pass-123',
+          },
+        },
+      },
+    },
+    employeesRefetchMock,
+  ];
+
+  render(
+    <MockedProvider mocks={mocks}>
+      <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
+    </MockedProvider>,
+  );
+
+  fillForm();
+  await waitFor(() => {
+    expect(
+      screen.getByTestId('register-employee-supervisor-option-sup-1'),
+    ).toBeInTheDocument();
+  });
+  fireEvent.click(
+    screen.getByTestId('register-employee-supervisor-option-sup-1'),
+  );
+  fireEvent.change(screen.getByTestId('register-employee-supervisor-search'), {
+    target: { value: '' },
+  });
+  fireEvent.click(screen.getByTestId('register-employee-submit'));
+
+  await waitFor(() => {
+    expect(screen.getByTestId('register-employee-success')).toBeInTheDocument();
   });
 });
 
@@ -163,11 +330,12 @@ test('calls onClose and resets the form after Done is clicked', async () => {
         },
       },
     },
+    employeesRefetchMock,
   ];
   let closed = false;
 
   render(
-    <MockedProvider mocks={mocks}>
+    <MockedProvider mocks={[employeesQueryMock(), ...mocks]}>
       <RegisterEmployeeModal
         isOpen={true}
         onClose={() => {
@@ -219,6 +387,7 @@ test('copies the temporary password to the clipboard and shows "Copied!" briefly
         },
       },
     },
+    employeesRefetchMock,
   ];
   const originalClipboard = globalThis.navigator.clipboard;
   let writtenText: string | undefined;
@@ -232,7 +401,7 @@ test('copies the temporary password to the clipboard and shows "Copied!" briefly
   });
 
   render(
-    <MockedProvider mocks={mocks}>
+    <MockedProvider mocks={[employeesQueryMock(), ...mocks]}>
       <RegisterEmployeeModal isOpen={true} onClose={() => {}} />
     </MockedProvider>,
   );

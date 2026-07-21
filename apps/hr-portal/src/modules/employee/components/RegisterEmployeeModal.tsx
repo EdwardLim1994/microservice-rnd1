@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { useEmployees } from '../viewmodel/useEmployees';
 import { useRegisterEmployee } from '../viewmodel/useRegisterEmployee';
+import { ModalShell } from './ModalShell';
+import { SupervisorSearch } from './SupervisorSearch';
 
 export interface RegisterEmployeeModalProps {
   isOpen: boolean;
@@ -13,6 +16,7 @@ const EMPTY_FORM = {
   email: '',
   grossSalary: '',
   salaryPerDay: '',
+  supervisorSearch: '',
   supervisorId: '',
 };
 
@@ -22,47 +26,6 @@ const EMPTY_FORM = {
 // department fields exist server-side; gender/email/salaryPerDay are required but not shown in
 // the mockup at all) — the visual language is applied to the real fields instead of copying the
 // mockup's field list 1:1.
-const overlayStyle: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'var(--hr-color-overlay)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 50,
-  padding: 20,
-};
-
-const modalStyle: React.CSSProperties = {
-  position: 'relative',
-  width: 480,
-  maxWidth: '100%',
-  background: 'var(--hr-color-surface)',
-  borderRadius: 'var(--hr-radius-lg)',
-  padding: 28,
-  maxHeight: '90vh',
-  overflowY: 'auto',
-  fontFamily: 'var(--hr-font-family)',
-};
-
-const closeButtonStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: 16,
-  right: 16,
-  width: 28,
-  height: 28,
-  borderRadius: '50%',
-  background: 'var(--hr-color-close-bg)',
-  border: '1px solid var(--hr-color-close-border)',
-  cursor: 'pointer',
-  color: 'var(--hr-color-text-muted)',
-  fontSize: 14,
-  lineHeight: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
 const titleStyle: React.CSSProperties = {
   fontSize: 18,
   fontWeight: 800,
@@ -106,6 +69,9 @@ export function RegisterEmployeeModal({
 }: RegisterEmployeeModalProps) {
   const { registerEmployee, result, loading, error, reset } =
     useRegisterEmployee();
+  // skip while closed — this modal is always mounted (see App.tsx), so without `skip` it would
+  // fire EMPLOYEES_QUERY on every app load whether or not the user ever opens it.
+  const { employees } = useEmployees({ skip: !isOpen });
   const [form, setForm] = useState(EMPTY_FORM);
   const [copied, setCopied] = useState(false);
 
@@ -148,231 +114,237 @@ export function RegisterEmployeeModal({
   }
 
   return (
-    <div data-testid="register-employee-modal" style={overlayStyle}>
-      <div style={modalStyle}>
-        <button
-          type="button"
-          data-testid="register-employee-close"
-          onClick={handleClose}
-          style={closeButtonStyle}
-        >
-          ✕
-        </button>
-
-        {result ? (
-          <div data-testid="register-employee-success">
-            <h2
+    <ModalShell
+      testId="register-employee-modal"
+      closeTestId="register-employee-close"
+      onClose={handleClose}
+      width={480}
+      scrollable
+    >
+      {result ? (
+        <div data-testid="register-employee-success">
+          <h2
+            style={{
+              ...titleStyle,
+              margin: '0 0 8px 0',
+              color: 'var(--hr-color-success)',
+            }}
+          >
+            Employee Registered
+          </h2>
+          <div
+            style={{
+              fontSize: 13,
+              color: 'var(--hr-color-text-muted)',
+              marginBottom: 18,
+            }}
+          >
+            A temporary password has been generated. Share it securely with{' '}
+            {form.firstName} {form.lastName}.
+          </div>
+          <label htmlFor="register-employee-temp-password" style={labelStyle}>
+            Temporary Password
+          </label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <input
+              id="register-employee-temp-password"
+              data-testid="register-employee-temp-password"
+              readOnly
+              value={result.temporaryPassword}
               style={{
-                ...titleStyle,
-                margin: '0 0 8px 0',
-                color: 'var(--hr-color-success)',
+                flex: 1,
+                padding: '10px 12px',
+                border: '1px solid var(--hr-color-border)',
+                borderRadius: 'var(--hr-radius)',
+                fontSize: 14,
+                fontFamily: 'var(--hr-font-family-mono)',
+                background: 'var(--hr-color-input-readonly-bg)',
               }}
-            >
-              Employee Registered
-            </h2>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--hr-color-text-muted)',
-                marginBottom: 18,
-              }}
-            >
-              A temporary password has been generated. Share it securely with{' '}
-              {form.firstName} {form.lastName}.
-            </div>
-            <label htmlFor="register-employee-temp-password" style={labelStyle}>
-              Temporary Password
-            </label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              <input
-                id="register-employee-temp-password"
-                data-testid="register-employee-temp-password"
-                readOnly
-                value={result.temporaryPassword}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  border: '1px solid var(--hr-color-border)',
-                  borderRadius: 'var(--hr-radius)',
-                  fontSize: 14,
-                  fontFamily: 'var(--hr-font-family-mono)',
-                  background: 'var(--hr-color-input-readonly-bg)',
-                }}
-              />
-              <button
-                type="button"
-                data-testid="register-employee-copy"
-                onClick={handleCopy}
-                style={{
-                  background: 'var(--hr-color-primary-bg)',
-                  color: 'var(--hr-color-primary)',
-                  border: '1px solid var(--hr-color-primary-border)',
-                  padding: '10px 16px',
-                  borderRadius: 'var(--hr-radius)',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
+            />
             <button
               type="button"
-              data-testid="register-employee-done"
-              onClick={handleClose}
-              style={primaryButtonStyle}
+              data-testid="register-employee-copy"
+              onClick={handleCopy}
+              style={{
+                background: 'var(--hr-color-primary-bg)',
+                color: 'var(--hr-color-primary)',
+                border: '1px solid var(--hr-color-primary-border)',
+                padding: '10px 16px',
+                borderRadius: 'var(--hr-radius)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
             >
-              Done
+              {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-        ) : (
-          <form
-            data-testid="register-employee-form"
-            onSubmit={handleSubmit}
-            style={loading ? { opacity: 0.6 } : undefined}
+          <button
+            type="button"
+            data-testid="register-employee-done"
+            onClick={handleClose}
+            style={primaryButtonStyle}
           >
-            <h2 style={titleStyle}>Register Employee</h2>
+            Done
+          </button>
+        </div>
+      ) : (
+        <form
+          data-testid="register-employee-form"
+          onSubmit={handleSubmit}
+          style={loading ? { opacity: 0.6 } : undefined}
+        >
+          <h2 style={titleStyle}>Register Employee</h2>
 
-            <label htmlFor="register-employee-first-name" style={labelStyle}>
-              First Name
-            </label>
-            <input
-              id="register-employee-first-name"
-              data-testid="register-employee-first-name"
-              placeholder="e.g. Alex"
-              value={form.firstName}
-              onChange={handleChange('firstName')}
-              style={inputStyle}
-              required
+          <label htmlFor="register-employee-first-name" style={labelStyle}>
+            First Name
+          </label>
+          <input
+            id="register-employee-first-name"
+            data-testid="register-employee-first-name"
+            placeholder="e.g. Alex"
+            value={form.firstName}
+            onChange={handleChange('firstName')}
+            style={inputStyle}
+            required
+          />
+
+          <label htmlFor="register-employee-last-name" style={labelStyle}>
+            Last Name
+          </label>
+          <input
+            id="register-employee-last-name"
+            data-testid="register-employee-last-name"
+            placeholder="e.g. Morgan"
+            value={form.lastName}
+            onChange={handleChange('lastName')}
+            style={inputStyle}
+            required
+          />
+
+          <label htmlFor="register-employee-email" style={labelStyle}>
+            Email
+          </label>
+          <input
+            id="register-employee-email"
+            data-testid="register-employee-email"
+            type="email"
+            placeholder="you@company.com"
+            value={form.email}
+            onChange={handleChange('email')}
+            style={inputStyle}
+            required
+          />
+
+          <label htmlFor="register-employee-gender" style={labelStyle}>
+            Gender
+          </label>
+          <input
+            id="register-employee-gender"
+            data-testid="register-employee-gender"
+            placeholder="e.g. Female"
+            value={form.gender}
+            onChange={handleChange('gender')}
+            style={inputStyle}
+            required
+          />
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 14,
+              marginBottom: 14,
+            }}
+          >
+            <div>
+              <label
+                htmlFor="register-employee-gross-salary"
+                style={labelStyle}
+              >
+                Gross Salary
+              </label>
+              <input
+                id="register-employee-gross-salary"
+                data-testid="register-employee-gross-salary"
+                type="number"
+                placeholder="e.g. 72000"
+                value={form.grossSalary}
+                onChange={handleChange('grossSalary')}
+                style={{ ...inputStyle, marginBottom: 0 }}
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="register-employee-salary-per-day"
+                style={labelStyle}
+              >
+                Salary Per Day
+              </label>
+              <input
+                id="register-employee-salary-per-day"
+                data-testid="register-employee-salary-per-day"
+                type="number"
+                placeholder="e.g. 300"
+                value={form.salaryPerDay}
+                onChange={handleChange('salaryPerDay')}
+                style={{ ...inputStyle, marginBottom: 0 }}
+                required
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <SupervisorSearch
+              employees={employees}
+              search={form.supervisorSearch}
+              selectedId={form.supervisorId || null}
+              onSearchChange={(value) =>
+                // Editing the search text after a selection invalidates that selection — clear
+                // supervisorId too, or the form would silently submit a stale supervisor that no
+                // longer matches what's shown as selected.
+                setForm((prev) => ({
+                  ...prev,
+                  supervisorSearch: value,
+                  supervisorId: '',
+                }))
+              }
+              onSelect={(employee) =>
+                setForm((prev) => ({
+                  ...prev,
+                  supervisorId: employee.id,
+                  supervisorSearch: `${employee.firstName} ${employee.lastName}`,
+                }))
+              }
+              testIdPrefix="register-employee-supervisor"
             />
+          </div>
 
-            <label htmlFor="register-employee-last-name" style={labelStyle}>
-              Last Name
-            </label>
-            <input
-              id="register-employee-last-name"
-              data-testid="register-employee-last-name"
-              placeholder="e.g. Morgan"
-              value={form.lastName}
-              onChange={handleChange('lastName')}
-              style={inputStyle}
-              required
-            />
-
-            <label htmlFor="register-employee-email" style={labelStyle}>
-              Email
-            </label>
-            <input
-              id="register-employee-email"
-              data-testid="register-employee-email"
-              type="email"
-              placeholder="you@company.com"
-              value={form.email}
-              onChange={handleChange('email')}
-              style={inputStyle}
-              required
-            />
-
-            <label htmlFor="register-employee-gender" style={labelStyle}>
-              Gender
-            </label>
-            <input
-              id="register-employee-gender"
-              data-testid="register-employee-gender"
-              placeholder="e.g. Female"
-              value={form.gender}
-              onChange={handleChange('gender')}
-              style={inputStyle}
-              required
-            />
-
-            <div
+          {error ? (
+            <p
+              data-testid="register-employee-error"
               style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 14,
+                fontSize: 13,
+                color: 'var(--hr-color-danger)',
+                marginTop: -8,
                 marginBottom: 14,
               }}
             >
-              <div>
-                <label
-                  htmlFor="register-employee-gross-salary"
-                  style={labelStyle}
-                >
-                  Gross Salary
-                </label>
-                <input
-                  id="register-employee-gross-salary"
-                  data-testid="register-employee-gross-salary"
-                  type="number"
-                  placeholder="e.g. 72000"
-                  value={form.grossSalary}
-                  onChange={handleChange('grossSalary')}
-                  style={{ ...inputStyle, marginBottom: 0 }}
-                  required
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="register-employee-salary-per-day"
-                  style={labelStyle}
-                >
-                  Salary Per Day
-                </label>
-                <input
-                  id="register-employee-salary-per-day"
-                  data-testid="register-employee-salary-per-day"
-                  type="number"
-                  placeholder="e.g. 300"
-                  value={form.salaryPerDay}
-                  onChange={handleChange('salaryPerDay')}
-                  style={{ ...inputStyle, marginBottom: 0 }}
-                  required
-                />
-              </div>
-            </div>
+              {error.message}
+            </p>
+          ) : null}
 
-            <label htmlFor="register-employee-supervisor-id" style={labelStyle}>
-              Supervisor
-            </label>
-            {/* Plain ID input for now, styled to match the mockup's supervisor field — the
-                mockup's inline-filtered name search needs FEAT-2's employees list query, which
-                doesn't exist yet. */}
-            <input
-              id="register-employee-supervisor-id"
-              data-testid="register-employee-supervisor-id"
-              placeholder="Supervisor ID (optional)"
-              value={form.supervisorId}
-              onChange={handleChange('supervisorId')}
-              style={{ ...inputStyle, marginBottom: 18 }}
-            />
-
-            {error ? (
-              <p
-                data-testid="register-employee-error"
-                style={{
-                  fontSize: 13,
-                  color: 'var(--hr-color-danger)',
-                  marginTop: -8,
-                  marginBottom: 14,
-                }}
-              >
-                {error.message}
-              </p>
-            ) : null}
-
-            <button
-              type="submit"
-              data-testid="register-employee-submit"
-              disabled={loading}
-              style={primaryButtonStyle}
-            >
-              {loading ? 'Submitting…' : 'Register'}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
+          <button
+            type="submit"
+            data-testid="register-employee-submit"
+            disabled={loading}
+            style={primaryButtonStyle}
+          >
+            {loading ? 'Submitting…' : 'Register'}
+          </button>
+        </form>
+      )}
+    </ModalShell>
   );
 }

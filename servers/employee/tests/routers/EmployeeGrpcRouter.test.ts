@@ -3,6 +3,7 @@ import { expect, test } from "@rstest/core";
 import { createContainer, InjectionMode } from "awilix";
 import EmployeeGrpcRouter from "../../src/routers/EmployeeGrpcRouter";
 import AssignSupervisorGrpcUseCase from "../../src/usecases/AssignSupervisorGrpcUseCase";
+import ListEmployeesGrpcUseCase from "../../src/usecases/ListEmployeesGrpcUseCase";
 import RegisterEmployeeGrpcUseCase from "../../src/usecases/RegisterEmployeeGrpcUseCase";
 
 function makeContainer() {
@@ -25,4 +26,10 @@ test("handlers maps assignSupervisor to AssignSupervisorGrpcUseCase", () => {
 	const router = new EmployeeGrpcRouter(makeContainer());
 
 	expect(router.handlers.assignSupervisor).toBe(AssignSupervisorGrpcUseCase);
+});
+
+test("handlers maps listEmployees to ListEmployeesGrpcUseCase", () => {
+	const router = new EmployeeGrpcRouter(makeContainer());
+
+	expect(router.handlers.listEmployees).toBe(ListEmployeesGrpcUseCase);
 });
