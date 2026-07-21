@@ -30,6 +30,14 @@ message RegisterEmployeeResponse {
   string temporaryPassword = 2;
 }
 
+message ListEmployeesRequest {
+}
+
+message ListEmployeesResponse {
+  repeated Employee employees = 1;
+}
+
 service EmployeeService {
   rpc RegisterEmployee (RegisterEmployeeRequest) returns (RegisterEmployeeResponse);
+  rpc ListEmployees (ListEmployeesRequest) returns (ListEmployeesResponse);
 }
