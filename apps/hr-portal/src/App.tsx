@@ -2,7 +2,7 @@ import { ApolloProvider } from '@apollo/client/react';
 import { useState } from 'react';
 import { GRAPHQL_URL } from './config/env';
 import { createApolloClient } from './lib/apolloClient';
-import { RegisterEmployeeModal } from './modules/employee';
+import { EmployeesPage, RegisterEmployeeModal } from './modules/employee';
 import './App.css';
 
 const apolloClient = createApolloClient(GRAPHQL_URL);
@@ -25,6 +25,7 @@ const App = () => {
           isOpen={isRegisterModalOpen}
           onClose={() => setIsRegisterModalOpen(false)}
         />
+        <EmployeesPage />
       </div>
     </ApolloProvider>
   );
