@@ -46,7 +46,9 @@ afterAll(async () => {
   await apolloServer.stop();
 });
 
-function query(withClientCert: boolean): Promise<{ status?: number; error?: Error }> {
+function query(
+  withClientCert: boolean,
+): Promise<{ status?: number; error?: Error }> {
   return new Promise((resolve) => {
     const req = https.request(
       {

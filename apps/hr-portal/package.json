@@ -1,0 +1,50 @@
+{
+  "name": "hr-portal",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rsbuild build",
+    "check": "biome check --write",
+    "dev": "rsbuild --open",
+    "format": "biome format --write",
+    "preview": "rsbuild preview",
+    "test": "RSTEST=true rstest",
+    "test:watch": "RSTEST=true rstest --watch",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "k8s:build": "cd ../.. && docker build -f apps/hr-portal/Dockerfile --build-arg PUBLIC_GRAPHQL_URL=http://localhost:4000/graphql -t hr-portal:local ."
+  },
+  "dependencies": {
+    "@apollo/client": "^4.2.5",
+    "@heroui/react": "^3.2.1",
+    "@heroui/styles": "^3.2.1",
+    "@tanstack/react-router": "^1.170.17",
+    "graphql": "^17.0.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "api": "workspace:*",
+    "@biomejs/biome": "2.4.15",
+    "config": "workspace:*",
+    "@rsbuild/core": "^2.1.4",
+    "@rsbuild/plugin-react": "^2.1.0",
+    "@rsbuild/plugin-tailwindcss": "^2.0.3",
+    "@rstest/adapter-rsbuild": "^0.10.6",
+    "@rstest/core": "^0.10.6",
+    "@rstest/coverage-istanbul": "0.10.6",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.10.6",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^7.0.2",
+    "storybook": "^10.4.6",
+    "storybook-react-rsbuild": "^3.3.4",
+    "@storybook/addon-docs": "^10.4.6"
+  }
+}

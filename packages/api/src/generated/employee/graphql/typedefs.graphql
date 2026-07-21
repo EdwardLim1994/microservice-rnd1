@@ -1,0 +1,95 @@
+schema
+  @link(
+    url: "https://specs.apollo.dev/federation/v2.14"
+    import: ["@key", "@shareable"]
+  )
+{
+  mutation: Mutation
+}
+
+"""
+An employee registered in the HR system, owned by the employee subgraph.
+"""
+type Employee @key(fields: "id") {
+  """
+  ISO 8601 timestamp of when this Employee record was created.
+  """
+  createdAt: String!
+  """
+  Also used as the Authentik account's username.
+  """
+  email: String!
+  """
+  Given name.
+  """
+  firstName: String!
+  """
+  Free-text gender field, as supplied at registration.
+  """
+  gender: String!
+  """
+  Monthly gross salary, before deductions.
+  """
+  grossSalary: Float!
+  """
+  Unique internal identifier for the employee.
+  """
+  id: ID!
+  """
+  Family name.
+  """
+  lastName: String!
+  """
+  Per-day salary rate, used to compute unpaid-leave deductions (see FEAT-14).
+  """
+  salaryPerDay: Float!
+  """
+  Id of this employee's supervisor, if assigned. Null until FEAT-3 (Assign supervisor) sets it,
+  or if never assigned.
+  """
+  supervisorId: ID
+  """
+  ISO 8601 timestamp of the last update to this Employee record.
+  """
+  updatedAt: String!
+}
+
+type Mutation {
+  """
+  Creates an Employee record and a matching Authentik account (employee group,
+  mustChangePassword true). Rolls back the Employee record if Authentik account creation fails.
+  """
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+}
+
+"""
+Input for registerEmployee — see the Employee type for field-level docs.
+"""
+input RegisterEmployeeInput {
+  email: String!
+  firstName: String!
+  gender: String!
+  grossSalary: Float!
+  lastName: String!
+  salaryPerDay: Float!
+  """
+  Must reference an existing Employee's id, or the mutation returns NOT_FOUND.
+  """
+  supervisorId: ID
+}
+
+"""
+Result of a successful registerEmployee call.
+"""
+type RegisterEmployeeResult {
+  """
+  The newly created Employee record.
+  """
+  employee: Employee!
+  """
+  One-time password for the created Authentik account (employee group,
+  mustChangePassword: true). Returned once — the caller is responsible for delivering it to the
+  employee; it cannot be retrieved again.
+  """
+  temporaryPassword: String!
+}
