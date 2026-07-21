@@ -1,0 +1,92 @@
+---
+title: HR Admin Employee Registration Data Flow
+description: End-to-end data flow for registerEmployee, employees, and assignSupervisor through Apollo Router and the employee gRPC server
+version: 0.1.0
+draft: true
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+## Overview
+
+This page describes how data moves through the system for all three features in US-1: registering
+an employee, listing employees, and assigning a supervisor. All three follow the same shape —
+`apps/hr-portal` (Apollo Client) → Apollo Router → `employee-subgraph` (GraphQL) → the same use
+cases/sagas the gRPC driver also calls.
+
+## Flow Diagram — registerEmployee (FEAT-1)
+
+```
+hr-portal (RegisterEmployeeModal)
+  │
+  │  mutation registerEmployee(input: RegisterEmployeeInput!)
+  ▼
+Apollo Router
+  │  Resolves mutation to employee-subgraph
+  ▼
+employee-subgraph (EmployeeGraphqlRouter)
+  │  Mutation.registerEmployee → RegisterEmployeeSaga
+  ▼
+RegisterEmployeeSaga (ProcedureOrchestrator)
+  │  1. CreateEmployeeUseCase        → INSERT Employee (Postgres, via VaultPgAdapter)
+  │  2. CreateAuthentikAccountUseCase → POST /api/v3/core/users/ (Authentik Admin API)
+  │     ── on failure: compensation deletes the Employee row created in step 1 ──
+  ▼
+employee-subgraph
+  │  Maps saga result → RegisterEmployeeResult { employee, temporaryPassword }
+  ▼
+Apollo Router → hr-portal
+  Shows the temporary password once; refetches the employees list (Apollo refetchQueries)
+```
+
+## Flow Diagram — assignSupervisor (FEAT-3)
+
+```
+hr-portal (AssignSupervisorModal / RegisterEmployeeModal's SupervisorSearch)
+  │
+  │  mutation assignSupervisor(employeeId: ID!, supervisorId: ID!)
+  ▼
+Apollo Router → employee-subgraph
+  │  Mutation.assignSupervisor → AssignSupervisorGraphqlUseCase → AssignSupervisorSaga
+  ▼
+AssignSupervisorSaga (ProcedureOrchestrator)
+  │  1. AssignSupervisorUseCase
+  │       - employeeId === supervisorId?        → BAD_USER_INPUT (saga never starts)
+  │       - either record missing?               → NOT_FOUND
+  │       - supervisor.createdAt < 5 years ago?   → INELIGIBLE
+  │       - else: UPDATE Employee.supervisorId (Postgres)
+  │  2. UpdateAuthentikGroupUseCase
+  │       - PATCH the SUPERVISOR's Authentik account groups → ["supervisor"]
+  │     ── on failure: compensation (RevertEmployeeSupervisorUseCase) restores the
+  │        employee's previous supervisorId ──
+  ▼
+employee-subgraph → Apollo Router → hr-portal
+  Returns the updated Employee; refetches the employees list (awaitRefetchQueries: true,
+  so the table's Supervisor column is guaranteed fresh before the modal closes)
+```
+
+## Key Data Transformations
+
+| Stage | Input | Output |
+|---|---|---|
+| hr-portal → Apollo Router | Form/modal state | GraphQL mutation/query |
+| Apollo Router → employee-subgraph | GraphQL operation | Resolver call (`EmployeeGraphqlRouter`'s handler map) |
+| Resolver → Saga/UseCase | GraphQL args | Saga context (e.g. `AssignSupervisorContext`) |
+| UseCase → Postgres | Saga context fields | `EmployeeRepository` Prisma calls |
+| UseCase → Authentik | Employee/supervisor email | Authentik Admin API request (`AuthentikClient`) |
+| gRPC driver (alternate entrypoint) | Proto request | Same saga, then `toProtoEmployee` mapper → proto response |
+
+<Aside type="note">
+  Both the GraphQL and gRPC drivers call the exact same sagas/use cases — see
+  `EmployeeGrpcRouter`/`EmployeeGraphqlRouter`. Business logic never diverges between protocols.
+</Aside>
+
+<Aside type="caution">
+  `UpdateAuthentikGroupUseCase` promotes the **supervisor's** Authentik account, not the
+  employee's — the saga context carries `employee` and `supervisor` as two separate fields so this
+  can't be confused, after a bug where both fields were conflated (see PR #223's fix commit).
+</Aside>
+
+## Related
+
+- [HR Admin Employee Registration — Architecture](/architecture/hr-admin-employee-registration/)

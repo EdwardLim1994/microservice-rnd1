@@ -18,10 +18,7 @@ type Employee @key(fields: "id") {
   grossSalary: Float!
   """Per-day salary rate, used to compute unpaid-leave deductions (see FEAT-14)."""
   salaryPerDay: Float!
-  """
-  Id of this employee's supervisor, if assigned. Null until FEAT-3 (Assign supervisor) sets it,
-  or if never assigned.
-  """
+  """Id of this employee's supervisor, if assigned. Null if never assigned."""
   supervisorId: ID
   """This employee's supervisor record, resolved from supervisorId. Null if none is assigned."""
   supervisor: Employee
@@ -66,4 +63,11 @@ type Mutation {
   mustChangePassword true). Rolls back the Employee record if Authentik account creation fails.
   """
   registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+  """
+  Assigns supervisorId as employeeId's supervisor, then updates the target's Authentik account
+  group to "supervisor". Requires the target to have been created at least 5 years ago — returns
+  INELIGIBLE otherwise. Returns BAD_USER_INPUT if employeeId equals supervisorId, or NOT_FOUND if
+  either id doesn't exist. Rolls back the supervisorId change if the Authentik group update fails.
+  """
+  assignSupervisor(employeeId: ID!, supervisorId: ID!): Employee!
 }

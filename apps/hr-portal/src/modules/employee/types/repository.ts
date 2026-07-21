@@ -65,3 +65,28 @@ export interface Employee {
 export interface EmployeesResult {
   employees: Employee[];
 }
+
+export const ASSIGN_SUPERVISOR_MUTATION = gql`
+  mutation AssignSupervisor($employeeId: ID!, $supervisorId: ID!) {
+    assignSupervisor(employeeId: $employeeId, supervisorId: $supervisorId) {
+      id
+      supervisor {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export interface AssignSupervisorInput {
+  employeeId: string;
+  supervisorId: string;
+}
+
+export interface AssignSupervisorResult {
+  assignSupervisor: {
+    id: string;
+    supervisor: { id: string; firstName: string; lastName: string } | null;
+  };
+}

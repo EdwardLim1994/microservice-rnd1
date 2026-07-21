@@ -36,10 +36,7 @@ export type Employee = {
   salaryPerDay: Scalars['Float']['output'];
   /** This employee's supervisor record, resolved from supervisorId. Null if none is assigned. */
   supervisor?: Maybe<Employee>;
-  /**
-   * Id of this employee's supervisor, if assigned. Null until FEAT-3 (Assign supervisor) sets it,
-   * or if never assigned.
-   */
+  /** Id of this employee's supervisor, if assigned. Null if never assigned. */
   supervisorId?: Maybe<Scalars['ID']['output']>;
   /** ISO 8601 timestamp of the last update to this Employee record. */
   updatedAt: Scalars['String']['output'];
@@ -48,10 +45,22 @@ export type Employee = {
 export type Mutation = {
   __typename?: 'Mutation';
   /**
+   * Assigns supervisorId as employeeId's supervisor, then updates the target's Authentik account
+   * group to "supervisor". Requires the target to have been created at least 5 years ago — returns
+   * INELIGIBLE otherwise. Returns BAD_USER_INPUT if employeeId equals supervisorId, or NOT_FOUND if
+   * either id doesn't exist. Rolls back the supervisorId change if the Authentik group update fails.
+   */
+  assignSupervisor: Employee;
+  /**
    * Creates an Employee record and a matching Authentik account (employee group,
    * mustChangePassword true). Rolls back the Employee record if Authentik account creation fails.
    */
   registerEmployee: RegisterEmployeeResult;
+};
+
+export type MutationAssignSupervisorArgs = {
+  employeeId: Scalars['ID']['input'];
+  supervisorId: Scalars['ID']['input'];
 };
 
 export type MutationRegisterEmployeeArgs = {
@@ -298,6 +307,12 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
+  assignSupervisor?: Resolver<
+    ResolversTypes['Employee'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationAssignSupervisorArgs, 'employeeId' | 'supervisorId'>
+  >;
   registerEmployee?: Resolver<
     ResolversTypes['RegisterEmployeeResult'],
     ParentType,

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { AssignSupervisorModal } from '../components/AssignSupervisorModal';
 import { useEmployees } from '../viewmodel/useEmployees';
 
 // Design tokens (see App.css's :root block) lifted from the Claude Design HR Portal project
@@ -47,6 +49,9 @@ function formatSalary(amount: number) {
 
 export function EmployeesPage() {
   const { employees, loading, error } = useEmployees();
+  const [assigningEmployeeId, setAssigningEmployeeId] = useState<string | null>(
+    null,
+  );
 
   return (
     <div data-testid="employees-page">
@@ -81,6 +86,7 @@ export function EmployeesPage() {
                   <th style={thStyle}>Email</th>
                   <th style={thStyle}>Salary</th>
                   <th style={thStyle}>Supervisor</th>
+                  <th style={thStyle}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,7 +95,7 @@ export function EmployeesPage() {
                     <td
                       data-testid="employees-empty"
                       style={tdStyle}
-                      colSpan={5}
+                      colSpan={6}
                     >
                       No employees yet.
                     </td>
@@ -119,6 +125,25 @@ export function EmployeesPage() {
                           ? `${employee.supervisor.firstName} ${employee.supervisor.lastName}`
                           : '—'}
                       </td>
+                      <td style={tdStyle}>
+                        <button
+                          type="button"
+                          data-testid={`assign-supervisor-action-${employee.id}`}
+                          onClick={() => setAssigningEmployeeId(employee.id)}
+                          style={{
+                            background: 'var(--hr-color-primary-bg)',
+                            color: 'var(--hr-color-primary)',
+                            border: '1px solid var(--hr-color-primary-border)',
+                            padding: '6px 12px',
+                            borderRadius: 'var(--hr-radius)',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Assign Supervisor
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -127,6 +152,14 @@ export function EmployeesPage() {
           </div>
         </div>
       )}
+
+      {assigningEmployeeId ? (
+        <AssignSupervisorModal
+          employeeId={assigningEmployeeId}
+          employees={employees}
+          onClose={() => setAssigningEmployeeId(null)}
+        />
+      ) : null}
     </div>
   );
 }
