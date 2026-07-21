@@ -35,3 +35,58 @@ export interface RegisterEmployeeResult {
     temporaryPassword: string;
   };
 }
+
+export const EMPLOYEES_QUERY = gql`
+  query Employees {
+    employees {
+      id
+      firstName
+      lastName
+      email
+      grossSalary
+      supervisor {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  grossSalary: number;
+  supervisor: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface EmployeesResult {
+  employees: Employee[];
+}
+
+export const ASSIGN_SUPERVISOR_MUTATION = gql`
+  mutation AssignSupervisor($employeeId: ID!, $supervisorId: ID!) {
+    assignSupervisor(employeeId: $employeeId, supervisorId: $supervisorId) {
+      id
+      supervisor {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export interface AssignSupervisorInput {
+  employeeId: string;
+  supervisorId: string;
+}
+
+export interface AssignSupervisorResult {
+  assignSupervisor: {
+    id: string;
+    supervisor: { id: string; firstName: string; lastName: string } | null;
+  };
+}

@@ -32,4 +32,12 @@ export default class EmployeeRepository extends BaseRepository<PrismaClient> {
 	delete(id: string) {
 		return this.prisma.employee.delete({ where: { id } });
 	}
+
+	updateSupervisor(id: string, supervisorId: string | null) {
+		return this.prisma.employee.update({ where: { id }, data: { supervisorId } });
+	}
+
+	findAll() {
+		return this.prisma.employee.findMany();
+	}
 }

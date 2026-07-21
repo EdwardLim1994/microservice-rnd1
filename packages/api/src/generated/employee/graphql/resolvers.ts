@@ -34,10 +34,9 @@ export type Employee = {
   lastName: Scalars['String']['output'];
   /** Per-day salary rate, used to compute unpaid-leave deductions (see FEAT-14). */
   salaryPerDay: Scalars['Float']['output'];
-  /**
-   * Id of this employee's supervisor, if assigned. Null until FEAT-3 (Assign supervisor) sets it,
-   * or if never assigned.
-   */
+  /** This employee's supervisor record, resolved from supervisorId. Null if none is assigned. */
+  supervisor?: Maybe<Employee>;
+  /** Id of this employee's supervisor, if assigned. Null if never assigned. */
   supervisorId?: Maybe<Scalars['ID']['output']>;
   /** ISO 8601 timestamp of the last update to this Employee record. */
   updatedAt: Scalars['String']['output'];
@@ -46,14 +45,32 @@ export type Employee = {
 export type Mutation = {
   __typename?: 'Mutation';
   /**
+   * Assigns supervisorId as employeeId's supervisor, then updates the target's Authentik account
+   * group to "supervisor". Requires the target to have been created at least 5 years ago — returns
+   * INELIGIBLE otherwise. Returns BAD_USER_INPUT if employeeId equals supervisorId, or NOT_FOUND if
+   * either id doesn't exist. Rolls back the supervisorId change if the Authentik group update fails.
+   */
+  assignSupervisor: Employee;
+  /**
    * Creates an Employee record and a matching Authentik account (employee group,
    * mustChangePassword true). Rolls back the Employee record if Authentik account creation fails.
    */
   registerEmployee: RegisterEmployeeResult;
 };
 
+export type MutationAssignSupervisorArgs = {
+  employeeId: Scalars['ID']['input'];
+  supervisorId: Scalars['ID']['input'];
+};
+
 export type MutationRegisterEmployeeArgs = {
   input: RegisterEmployeeInput;
+};
+
+export type Query = {
+  __typename?: 'Query';
+  /** All registered employees, with each one's supervisor resolved via self-reference. */
+  employees: Array<Employee>;
 };
 
 /** Input for registerEmployee — see the Employee type for field-level docs. */
@@ -237,6 +254,7 @@ export type ResolversTypes = ResolversObject<{
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
+  Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RegisterEmployeeInput: RegisterEmployeeInput;
   RegisterEmployeeResult: ResolverTypeWrapper<RegisterEmployeeResult>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
@@ -249,6 +267,7 @@ export type ResolversParentTypes = ResolversObject<{
   Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
   Mutation: Record<PropertyKey, never>;
+  Query: Record<PropertyKey, never>;
   RegisterEmployeeInput: RegisterEmployeeInput;
   RegisterEmployeeResult: RegisterEmployeeResult;
   Boolean: Scalars['Boolean']['output'];
@@ -274,6 +293,11 @@ export type EmployeeResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   lastName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   salaryPerDay?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  supervisor?: Resolver<
+    Maybe<ResolversTypes['Employee']>,
+    ParentType,
+    ContextType
+  >;
   supervisorId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
@@ -283,11 +307,29 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
+  assignSupervisor?: Resolver<
+    ResolversTypes['Employee'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationAssignSupervisorArgs, 'employeeId' | 'supervisorId'>
+  >;
   registerEmployee?: Resolver<
     ResolversTypes['RegisterEmployeeResult'],
     ParentType,
     ContextType,
     RequireFields<MutationRegisterEmployeeArgs, 'input'>
+  >;
+}>;
+
+export type QueryResolvers<
+  ContextType = EmployeeContextType,
+  ParentType extends
+    ResolversParentTypes['Query'] = ResolversParentTypes['Query'],
+> = ResolversObject<{
+  employees?: Resolver<
+    Array<ResolversTypes['Employee']>,
+    ParentType,
+    ContextType
   >;
 }>;
 
@@ -307,5 +349,6 @@ export type RegisterEmployeeResultResolvers<
 export type Resolvers<ContextType = EmployeeContextType> = ResolversObject<{
   Employee?: EmployeeResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  Query?: QueryResolvers<ContextType>;
   RegisterEmployeeResult?: RegisterEmployeeResultResolvers<ContextType>;
 }>;

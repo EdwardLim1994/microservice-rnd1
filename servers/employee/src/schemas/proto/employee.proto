@@ -30,6 +30,24 @@ message RegisterEmployeeResponse {
   string temporaryPassword = 2;
 }
 
+message AssignSupervisorRequest {
+  string employeeId = 1;
+  string supervisorId = 2;
+}
+
+message AssignSupervisorResponse {
+  Employee employee = 1;
+}
+
+message ListEmployeesRequest {
+}
+
+message ListEmployeesResponse {
+  repeated Employee employees = 1;
+}
+
 service EmployeeService {
   rpc RegisterEmployee (RegisterEmployeeRequest) returns (RegisterEmployeeResponse);
+  rpc AssignSupervisor (AssignSupervisorRequest) returns (AssignSupervisorResponse);
+  rpc ListEmployees (ListEmployeesRequest) returns (ListEmployeesResponse);
 }
