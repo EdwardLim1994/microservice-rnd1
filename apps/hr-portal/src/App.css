@@ -22,6 +22,8 @@
   --hr-color-overlay: rgba(20, 26, 40, 0.45);
   --hr-color-table-header-bg: #f7f8fa;
   --hr-color-row-border: #f0f1f4;
+  --hr-color-text-faint: #9aa3b2;
+  --hr-shadow-card: 0 20px 50px -20px rgba(30, 58, 138, 0.18);
   --hr-radius: 8px;
   --hr-radius-lg: 14px;
   --hr-font-family: "Inter", sans-serif;
