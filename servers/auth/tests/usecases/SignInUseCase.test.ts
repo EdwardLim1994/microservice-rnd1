@@ -71,6 +71,22 @@ test('returns mustChangePassword true when the Authentik user has that attribute
   expect(result.mustChangePassword).toBe(true);
 });
 
+test('throws AUTHENTIK_UNAVAILABLE if the post-sign-in user lookup fails, even though sign-in itself succeeded', async () => {
+  const { authentik } = makeMockAuthentik({
+    signInImpl: async () => VALID_TOKEN_RESPONSE,
+    getUserImpl: async () => {
+      throw new Error('lookup failed');
+    },
+  });
+  const useCase = new SignInUseCase({ authentik });
+
+  await expect(
+    useCase.execute({ email: 'user@example.com', password: 'correct-password' }),
+  ).rejects.toMatchObject({
+    extensions: { code: 'AUTHENTIK_UNAVAILABLE' },
+  });
+});
+
 test('looks up the signed-in user by the email that was used to sign in', async () => {
   const { authentik, getUserCalls } = makeMockAuthentik({
     signInImpl: async () => VALID_TOKEN_RESPONSE,

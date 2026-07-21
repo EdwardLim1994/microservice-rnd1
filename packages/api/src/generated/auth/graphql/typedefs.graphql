@@ -6,6 +6,10 @@ schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: []) {
 type AuthPayload {
   accessToken: String!
   idToken: String!
+  """
+  True when the account has a temporary/first-login password that must be changed before the employee can use the portal (see FEAT-5).
+  """
+  mustChangePassword: Boolean!
   refreshToken: String!
 }
 
@@ -15,9 +19,9 @@ type LogoutPayload {
 }
 
 type Mutation {
-  login(email: String!, password: String!): AuthPayload!
   logout(accessToken: String!): LogoutPayload!
   register(email: String!, password: String!): RegisterPayload!
+  signIn(email: String!, password: String!): AuthPayload!
 }
 
 type Query {

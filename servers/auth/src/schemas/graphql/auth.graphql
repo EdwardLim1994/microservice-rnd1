@@ -5,6 +5,8 @@ type AuthPayload {
 	accessToken: String!
 	refreshToken: String!
 	idToken: String!
+	"""True when the account has a temporary/first-login password that must be changed before the employee can use the portal (see FEAT-5)."""
+	mustChangePassword: Boolean!
 }
 
 type RegisterPayload {
@@ -22,7 +24,7 @@ type Query {
 }
 
 type Mutation {
-	login(email: String!, password: String!): AuthPayload!
+	signIn(email: String!, password: String!): AuthPayload!
 	register(email: String!, password: String!): RegisterPayload!
 	logout(accessToken: String!): LogoutPayload!
 }

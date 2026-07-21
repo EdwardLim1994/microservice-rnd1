@@ -19,6 +19,8 @@ export type AuthPayload = {
   __typename?: 'AuthPayload';
   accessToken: Scalars['String']['output'];
   idToken: Scalars['String']['output'];
+  /** True when the account has a temporary/first-login password that must be changed before the employee can use the portal (see FEAT-5). */
+  mustChangePassword: Scalars['Boolean']['output'];
   refreshToken: Scalars['String']['output'];
 };
 
@@ -30,14 +32,9 @@ export type LogoutPayload = {
 
 export type Mutation = {
   __typename?: 'Mutation';
-  login: AuthPayload;
   logout: LogoutPayload;
   register: RegisterPayload;
-};
-
-export type MutationLoginArgs = {
-  email: Scalars['String']['input'];
-  password: Scalars['String']['input'];
+  signIn: AuthPayload;
 };
 
 export type MutationLogoutArgs = {
@@ -45,6 +42,11 @@ export type MutationLogoutArgs = {
 };
 
 export type MutationRegisterArgs = {
+  email: Scalars['String']['input'];
+  password: Scalars['String']['input'];
+};
+
+export type MutationSignInArgs = {
   email: Scalars['String']['input'];
   password: Scalars['String']['input'];
 };
@@ -184,8 +186,8 @@ export type DirectiveResolverFn<
 export type ResolversTypes = ResolversObject<{
   AuthPayload: ResolverTypeWrapper<AuthPayload>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
-  LogoutPayload: ResolverTypeWrapper<LogoutPayload>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  LogoutPayload: ResolverTypeWrapper<LogoutPayload>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   RegisterPayload: ResolverTypeWrapper<RegisterPayload>;
@@ -195,8 +197,8 @@ export type ResolversTypes = ResolversObject<{
 export type ResolversParentTypes = ResolversObject<{
   AuthPayload: AuthPayload;
   String: Scalars['String']['output'];
-  LogoutPayload: LogoutPayload;
   Boolean: Scalars['Boolean']['output'];
+  LogoutPayload: LogoutPayload;
   Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
   RegisterPayload: RegisterPayload;
@@ -209,6 +211,11 @@ export type AuthPayloadResolvers<
 > = ResolversObject<{
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  mustChangePassword?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType
+  >;
   refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
@@ -226,12 +233,6 @@ export type MutationResolvers<
   ParentType extends
     ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
-  login?: Resolver<
-    ResolversTypes['AuthPayload'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationLoginArgs, 'email' | 'password'>
-  >;
   logout?: Resolver<
     ResolversTypes['LogoutPayload'],
     ParentType,
@@ -243,6 +244,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationRegisterArgs, 'email' | 'password'>
+  >;
+  signIn?: Resolver<
+    ResolversTypes['AuthPayload'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationSignInArgs, 'email' | 'password'>
   >;
 }>;
 

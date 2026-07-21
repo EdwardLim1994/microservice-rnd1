@@ -55,6 +55,13 @@ export interface AuthentikCreatedUser {
   email: string;
 }
 
+export interface AuthentikUser {
+  pk: number;
+  username: string;
+  email: string;
+  attributes?: Record<string, unknown>;
+}
+
 /**
  * Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
  * it (e.g. 401 on bad sign-in credentials vs. a genuine 5xx) instead of catching a bare Error and
@@ -493,15 +500,8 @@ export class AuthentikClient {
     return user;
   }
 
-  /**
-   * Replaces a user's group memberships wholesale (e.g. FEAT-3's "promote to supervisor" —
-   * moving the target out of "employee" and into "supervisor") — Authentik's Admin API takes
-   * `groups` as a full replacement list on PATCH, not an add/remove delta.
-   */
-  async updateUserGroups(
-    username: string,
-    groupNames: string[],
-  ): Promise<void> {
+  /** Looks up a user by exact username, throwing AuthentikApiError(404) if none exists. */
+  private async findUserByUsername(username: string): Promise<AuthentikUser> {
     const userResponse = await fetch(
       `${this.baseUrl}/api/v3/core/users/?username=${encodeURIComponent(username)}`,
       { headers: { Authorization: `Bearer ${this.apiToken}` } },
@@ -513,18 +513,30 @@ export class AuthentikClient {
       );
     }
     const { results } = (await userResponse.json()) as {
-      results: { pk: number }[];
+      results: AuthentikUser[];
     };
     if (results.length === 0) {
       throw new AuthentikApiError(404, {
         error: `Authentik user not found: ${username}`,
       });
     }
+    return results[0];
+  }
 
+  /**
+   * Replaces a user's group memberships wholesale (e.g. FEAT-3's "promote to supervisor" —
+   * moving the target out of "employee" and into "supervisor") — Authentik's Admin API takes
+   * `groups` as a full replacement list on PATCH, not an add/remove delta.
+   */
+  async updateUserGroups(
+    username: string,
+    groupNames: string[],
+  ): Promise<void> {
+    const user = await this.findUserByUsername(username);
     const groupPks = await this.resolveGroupPks(groupNames);
 
     const patchResponse = await fetch(
-      `${this.baseUrl}/api/v3/core/users/${results[0].pk}/`,
+      `${this.baseUrl}/api/v3/core/users/${user.pk}/`,
       {
         method: 'PATCH',
         headers: {
@@ -540,6 +552,15 @@ export class AuthentikClient {
         await parseBody(patchResponse),
       );
     }
+  }
+
+  /**
+   * Looks up a user's record (including custom `attributes`, e.g. `mustChangePassword` — see
+   * FEAT-1's `createUser({ attributes: { mustChangePassword: true } })`) by username. Used by
+   * SignInUseCase to read that flag after a successful sign-in.
+   */
+  async getUser(username: string): Promise<AuthentikUser> {
+    return this.findUserByUsername(username);
   }
 }
 

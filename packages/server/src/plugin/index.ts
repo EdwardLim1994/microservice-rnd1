@@ -5,6 +5,7 @@ export {
   type AuthentikCreatedUser,
   AuthentikPlugin,
   type AuthentikTokenResponse,
+  type AuthentikUser,
 } from './AuthentikPlugin';
 export { MeilisearchPlugin } from './MeilisearchPlugin';
 export { MinioPlugin } from './MinioPlugin';
