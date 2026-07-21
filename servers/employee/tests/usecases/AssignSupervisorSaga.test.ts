@@ -13,6 +13,7 @@ function makeContainer(options: { authentikFails?: boolean }) {
 		"sup-1": { id: "sup-1", email: "sup1@example.com", supervisorId: null, createdAt: SIX_YEARS_AGO },
 	};
 	const updateCalls: Array<{ id: string; supervisorId: string | null }> = [];
+	const authentikGroupCalls: Array<{ username: string; groupNames: string[] }> = [];
 
 	const employeeRepository = {
 		findById: async (id: string) => records[id] ?? null,
@@ -24,7 +25,8 @@ function makeContainer(options: { authentikFails?: boolean }) {
 	} as unknown as EmployeeRepository;
 
 	const authentik = {
-		updateUserGroups: async () => {
+		updateUserGroups: async (username: string, groupNames: string[]) => {
+			authentikGroupCalls.push({ username, groupNames });
 			if (options.authentikFails) {
 				throw new AuthentikApiError(503, { detail: "unavailable" });
 			}
@@ -38,17 +40,19 @@ function makeContainer(options: { authentikFails?: boolean }) {
 		authentik: asValue(authentik),
 	});
 
-	return { container, updateCalls: () => updateCalls };
+	return { container, updateCalls: () => updateCalls, authentikGroupCalls: () => authentikGroupCalls };
 }
 
-test("persists the new supervisorId and updates the Authentik group on the happy path", async () => {
-	const { container, updateCalls } = makeContainer({});
+test("persists the new supervisorId and promotes the supervisor's (not the employee's) Authentik account", async () => {
+	const { container, updateCalls, authentikGroupCalls } = makeContainer({});
 	const saga = new AssignSupervisorSaga({ container });
 
 	const result = await saga.execute({ employeeId: "emp-1", supervisorId: "sup-1" });
 
 	expect(result.employee).toMatchObject({ id: "emp-1", supervisorId: "sup-1" });
 	expect(updateCalls()).toEqual([{ id: "emp-1", supervisorId: "sup-1" }]);
+	// sup-1 (the tenure-checked target), not emp-1, must be the account promoted to "supervisor".
+	expect(authentikGroupCalls()).toEqual([{ username: "sup1@example.com", groupNames: ["supervisor"] }]);
 });
 
 test("reverts the supervisorId change if the Authentik group update fails", async () => {

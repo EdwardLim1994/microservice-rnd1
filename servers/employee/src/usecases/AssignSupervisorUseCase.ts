@@ -53,6 +53,6 @@ export default class AssignSupervisorUseCase extends BaseUseCase<
 
 		const updated = await this.employeeRepository.updateSupervisor(employeeId, supervisorId);
 
-		return { previousSupervisorId: employee.supervisorId, employee: updated };
+		return { previousSupervisorId: employee.supervisorId, employee: updated, supervisor };
 	}
 }

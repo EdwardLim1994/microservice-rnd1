@@ -1,5 +1,6 @@
 import type { EmployeeEmployeeProto } from "api";
 import { BaseUseCase } from "server";
+import toProtoEmployee from "../mappers/toProtoEmployee";
 import type AssignSupervisorSaga from "./AssignSupervisorSaga";
 
 type AssignSupervisorRequest = EmployeeEmployeeProto.AssignSupervisorRequest;
@@ -31,19 +32,7 @@ export default class AssignSupervisorGrpcUseCase extends BaseUseCase<
 
 		return {
 			$type: "employee.AssignSupervisorResponse",
-			employee: {
-				$type: "employee.Employee",
-				id: employee.id,
-				firstName: employee.firstName,
-				lastName: employee.lastName,
-				gender: employee.gender,
-				email: employee.email,
-				grossSalary: employee.grossSalary,
-				salaryPerDay: employee.salaryPerDay,
-				supervisorId: employee.supervisorId ?? undefined,
-				createdAt: employee.createdAt.toISOString(),
-				updatedAt: employee.updatedAt.toISOString(),
-			},
+			employee: toProtoEmployee(employee),
 		};
 	}
 }

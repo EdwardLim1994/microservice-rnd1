@@ -16,7 +16,8 @@ test("moves the target employee's Authentik account into the supervisor group", 
 	await useCase.execute({
 		employeeId: "emp-1",
 		supervisorId: "sup-1",
-		employee: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
+		employee: { id: "emp-1", email: "emp@example.com" } as unknown as Employee,
+		supervisor: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
 	});
 
 	expect(calls).toEqual([{ username: "sup@example.com", groupNames: ["supervisor"] }]);
@@ -35,7 +36,8 @@ test("throws AUTHENTIK_UNAVAILABLE when the Authentik call fails", async () => {
 		await useCase.execute({
 			employeeId: "emp-1",
 			supervisorId: "sup-1",
-			employee: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
+			employee: { id: "emp-1", email: "emp@example.com" } as unknown as Employee,
+			supervisor: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
 		});
 	} catch (error) {
 		thrown = error;
@@ -58,7 +60,8 @@ test("rethrows a non-Authentik error unchanged", async () => {
 		useCase.execute({
 			employeeId: "emp-1",
 			supervisorId: "sup-1",
-			employee: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
+			employee: { id: "emp-1", email: "emp@example.com" } as unknown as Employee,
+			supervisor: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
 		}),
 	).rejects.toBe(boom);
 });

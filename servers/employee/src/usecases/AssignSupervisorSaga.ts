@@ -9,7 +9,10 @@ export interface AssignSupervisorContext {
 	employeeId: string;
 	supervisorId: string;
 	previousSupervisorId?: string | null;
+	/** The employeeId record, post-update — this is what the gRPC/GraphQL response returns. */
 	employee?: Employee;
+	/** The supervisorId record — whose Authentik account gets promoted to the "supervisor" group. */
+	supervisor?: Employee;
 }
 
 // FEAT-3: Assign supervisor to employee — persists Employee.supervisorId, then moves the target's

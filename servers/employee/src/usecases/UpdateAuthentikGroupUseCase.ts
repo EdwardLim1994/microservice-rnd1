@@ -14,13 +14,13 @@ export default class UpdateAuthentikGroupUseCase extends BaseUseCase<
 		this.authentik = authentik;
 	}
 
-	async execute({ employee }: AssignSupervisorContext): Promise<Partial<AssignSupervisorContext>> {
-		if (!employee) {
-			throw new Error("UpdateAuthentikGroupUseCase requires the updated employee record");
+	async execute({ supervisor }: AssignSupervisorContext): Promise<Partial<AssignSupervisorContext>> {
+		if (!supervisor) {
+			throw new Error("UpdateAuthentikGroupUseCase requires the supervisor record");
 		}
 
 		try {
-			await this.authentik.updateUserGroups(employee.email, ["supervisor"]);
+			await this.authentik.updateUserGroups(supervisor.email, ["supervisor"]);
 		} catch (error) {
 			if (error instanceof AuthentikApiError) {
 				throw new GraphQLError("Failed to update the employee's Authentik account group", {

@@ -36,6 +36,10 @@ test("assigns the supervisor when the target has served at least 5 years", async
 	expect(updateCalls()).toEqual([{ id: "emp-1", supervisorId: "sup-1" }]);
 	expect(result.previousSupervisorId).toBeNull();
 	expect(result.employee).toMatchObject({ id: "emp-1", supervisorId: "sup-1" });
+	// The supervisor's own record must be threaded through separately from `employee` (the
+	// employeeId record) — UpdateAuthentikGroupUseCase promotes whichever one context carries as
+	// `supervisor`, and it must be sup-1 (the tenure-checked target), not emp-1.
+	expect(result.supervisor).toMatchObject({ id: "sup-1" });
 });
 
 test("returns the prior supervisorId for compensation", async () => {
