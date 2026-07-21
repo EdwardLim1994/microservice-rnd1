@@ -6,6 +6,7 @@ function makeMockPrisma() {
 		create: [],
 		findUnique: [],
 		delete: [],
+		update: [],
 	};
 	const prisma = {
 		employee: {
@@ -19,6 +20,10 @@ function makeMockPrisma() {
 			},
 			delete: async (args: unknown) => {
 				calls.delete.push(args);
+				return { id: "emp-1" };
+			},
+			update: async (args: unknown) => {
+				calls.update.push(args);
 				return { id: "emp-1" };
 			},
 		},
@@ -73,4 +78,24 @@ test("delete() delegates to prisma.employee.delete by id", async () => {
 	await repository.delete("emp-1");
 
 	expect(calls.delete).toEqual([{ where: { id: "emp-1" } }]);
+});
+
+test("updateSupervisor() delegates to prisma.employee.update with the given supervisorId", async () => {
+	const { prisma, calls } = makeMockPrisma();
+	// biome-ignore lint/suspicious/noExplicitAny: minimal mock, not a full PrismaClient
+	const repository = new EmployeeRepository({ prisma: prisma as any });
+
+	await repository.updateSupervisor("emp-1", "emp-2");
+
+	expect(calls.update).toEqual([{ where: { id: "emp-1" }, data: { supervisorId: "emp-2" } }]);
+});
+
+test("updateSupervisor() accepts null to clear the supervisor", async () => {
+	const { prisma, calls } = makeMockPrisma();
+	// biome-ignore lint/suspicious/noExplicitAny: minimal mock, not a full PrismaClient
+	const repository = new EmployeeRepository({ prisma: prisma as any });
+
+	await repository.updateSupervisor("emp-1", null);
+
+	expect(calls.update).toEqual([{ where: { id: "emp-1" }, data: { supervisorId: null } }]);
 });
