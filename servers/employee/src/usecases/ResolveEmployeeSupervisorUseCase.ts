@@ -7,7 +7,10 @@ interface EmployeeParent {
 
 // Field resolver for Employee.supervisor — parent is the Employee GraphQL is currently
 // resolving, per GraphqlRouter's "entity-type fields receive parent, not args" convention.
-export default class ResolveEmployeeSupervisorUseCase extends BaseUseCase<EmployeeParent, unknown> {
+export default class ResolveEmployeeSupervisorUseCase extends BaseUseCase<
+	EmployeeParent,
+	ReturnType<EmployeeRepository["findById"]> | null
+> {
 	private readonly employeeRepository: EmployeeRepository;
 
 	constructor({ employeeRepository }: { employeeRepository: EmployeeRepository }) {

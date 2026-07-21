@@ -1,5 +1,6 @@
 import type { EmployeeEmployeeProto } from "api";
 import { BaseUseCase } from "server";
+import toProtoEmployee from "../mappers/toProtoEmployee";
 import type EmployeeRepository from "../repositories/EmployeeRepository";
 
 type ListEmployeesRequest = EmployeeEmployeeProto.ListEmployeesRequest;
@@ -21,19 +22,7 @@ export default class ListEmployeesGrpcUseCase extends BaseUseCase<
 
 		return {
 			$type: "employee.ListEmployeesResponse",
-			employees: employees.map((employee) => ({
-				$type: "employee.Employee",
-				id: employee.id,
-				firstName: employee.firstName,
-				lastName: employee.lastName,
-				gender: employee.gender,
-				email: employee.email,
-				grossSalary: employee.grossSalary,
-				salaryPerDay: employee.salaryPerDay,
-				supervisorId: employee.supervisorId ?? undefined,
-				createdAt: employee.createdAt.toISOString(),
-				updatedAt: employee.updatedAt.toISOString(),
-			})),
+			employees: employees.map(toProtoEmployee),
 		};
 	}
 }
