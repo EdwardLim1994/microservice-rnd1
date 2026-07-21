@@ -156,6 +156,7 @@ export function EmployeesPage() {
       {assigningEmployeeId ? (
         <AssignSupervisorModal
           employeeId={assigningEmployeeId}
+          employees={employees}
           onClose={() => setAssigningEmployeeId(null)}
         />
       ) : null}

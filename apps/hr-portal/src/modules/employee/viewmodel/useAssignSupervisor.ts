@@ -15,10 +15,14 @@ export function useAssignSupervisor() {
   return {
     // refetchQueries — same reasoning as useRegisterEmployee: the mutation updates the Employee
     // entity's normalized cache fields, but the ROOT_QUERY.employees list needs its own refetch.
+    // awaitRefetchQueries — the caller closes this modal right after the mutation resolves; without
+    // this, the refetch is still in flight when the modal (and EmployeesPage's row) unmounts,
+    // leaving the Supervisor column briefly stale.
     assignSupervisor: (input: AssignSupervisorInput) =>
       assignSupervisorMutation({
         variables: input,
         refetchQueries: [{ query: EMPLOYEES_QUERY }],
+        awaitRefetchQueries: true,
       }),
     loading,
     error,

@@ -93,12 +93,6 @@ test('opens the AssignSupervisorModal for the clicked row and closes it', async 
       request: { query: EMPLOYEES_QUERY },
       result: { data: { employees: [employee] } },
     },
-    // AssignSupervisorModal's own useEmployees() call, deduplicated with the page's own query
-    // when it fires in the same tick — provided again in case dedup doesn't apply across mounts.
-    {
-      request: { query: EMPLOYEES_QUERY },
-      result: { data: { employees: [employee] } },
-    },
   ];
 
   render(
