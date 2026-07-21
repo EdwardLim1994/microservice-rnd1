@@ -492,6 +492,55 @@ export class AuthentikClient {
 
     return user;
   }
+
+  /**
+   * Replaces a user's group memberships wholesale (e.g. FEAT-3's "promote to supervisor" —
+   * moving the target out of "employee" and into "supervisor") — Authentik's Admin API takes
+   * `groups` as a full replacement list on PATCH, not an add/remove delta.
+   */
+  async updateUserGroups(
+    username: string,
+    groupNames: string[],
+  ): Promise<void> {
+    const userResponse = await fetch(
+      `${this.baseUrl}/api/v3/core/users/?username=${encodeURIComponent(username)}`,
+      { headers: { Authorization: `Bearer ${this.apiToken}` } },
+    );
+    if (!userResponse.ok) {
+      throw new AuthentikApiError(
+        userResponse.status,
+        await parseBody(userResponse),
+      );
+    }
+    const { results } = (await userResponse.json()) as {
+      results: { pk: number }[];
+    };
+    if (results.length === 0) {
+      throw new AuthentikApiError(404, {
+        error: `Authentik user not found: ${username}`,
+      });
+    }
+
+    const groupPks = await this.resolveGroupPks(groupNames);
+
+    const patchResponse = await fetch(
+      `${this.baseUrl}/api/v3/core/users/${results[0].pk}/`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiToken}`,
+        },
+        body: JSON.stringify({ groups: groupPks }),
+      },
+    );
+    if (!patchResponse.ok) {
+      throw new AuthentikApiError(
+        patchResponse.status,
+        await parseBody(patchResponse),
+      );
+    }
+  }
 }
 
 export class AuthentikPlugin extends BasePlugin {
