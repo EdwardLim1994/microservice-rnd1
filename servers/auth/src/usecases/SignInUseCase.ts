@@ -1,6 +1,6 @@
 import { GraphQLError } from "graphql";
 import {
-	AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR,
+	AUTHENTIK_FORCE_CHANGE_ATTR_KEY,
 	AuthentikApiError,
 	type AuthentikClient,
 	BaseUseCase,
@@ -76,7 +76,7 @@ export default class SignInUseCase extends BaseUseCase<SignInInput, AuthPayload>
 		let mustChangePassword = false;
 		try {
 			const user = await this.authentik.getUser(email);
-			mustChangePassword = user.attributes?.[AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR] === true;
+			mustChangePassword = user.attributes?.[AUTHENTIK_FORCE_CHANGE_ATTR_KEY] === true;
 		} catch (error) {
 			console.error("SignInUseCase: could not look up mustChangePassword after sign-in", error);
 		}

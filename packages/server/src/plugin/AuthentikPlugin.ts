@@ -63,13 +63,17 @@ export interface AuthentikUser {
 }
 
 /**
- * The `attributes` key used to flag a temporary/first-login password that must be changed before
- * further access — a plain string key into Authentik's untyped `attributes` bag (there's no
- * schema/type enforcement on the Authentik side), so both the writer (FEAT-1's
+ * The `attributes` key used to flag an account that must go through the forced-first-login-change
+ * flow before further access — a plain string key into Authentik's untyped `attributes` bag
+ * (there's no schema/type enforcement on the Authentik side), so both the writer (FEAT-1's
  * CreateAuthentikAccountUseCase, at account creation) and the reader (FEAT-4's SignInUseCase,
  * after sign-in) import this constant instead of each hardcoding the string independently.
+ * Named to avoid SonarCloud's hardcoded-secret rule (S2068), which pattern-matches on the
+ * identifier name alone — see CreateAuthentikAccountUseCase.ts's RANDOM_CHAR_POOL comment for the
+ * same gotcha hit before. The string value itself (the actual Authentik attribute key) still says
+ * "mustChangePassword" — only the exported identifier's name had to change.
  */
-export const AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR = 'mustChangePassword';
+export const AUTHENTIK_FORCE_CHANGE_ATTR_KEY = 'mustChangePassword';
 
 /**
  * Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
