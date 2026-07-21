@@ -293,7 +293,10 @@ test('updateUserGroups() throws AuthentikApiError when a group name does not res
   const client = new AuthentikClient(CONFIG);
   await expect(
     withMockFetch(
-      [jsonResponse(200, { results: [{ pk: 1 }] }), jsonResponse(200, { results: [] })],
+      [
+        jsonResponse(200, { results: [{ pk: 1 }] }),
+        jsonResponse(200, { results: [] }),
+      ],
       () => client.updateUserGroups('jane@example.com', ['nonexistent-group']),
     ),
   ).rejects.toBeInstanceOf(AuthentikApiError);

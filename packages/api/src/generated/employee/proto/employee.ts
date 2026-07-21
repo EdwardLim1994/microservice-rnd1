@@ -53,6 +53,17 @@ export interface RegisterEmployeeResponse {
   temporaryPassword: string;
 }
 
+export interface AssignSupervisorRequest {
+  $type: 'employee.AssignSupervisorRequest';
+  employeeId: string;
+  supervisorId: string;
+}
+
+export interface AssignSupervisorResponse {
+  $type: 'employee.AssignSupervisorResponse';
+  employee?: Employee | undefined;
+}
+
 function createBaseEmployee(): Employee {
   return {
     $type: 'employee.Employee',
@@ -595,6 +606,196 @@ messageTypeRegistry.set(
   RegisterEmployeeResponse,
 );
 
+function createBaseAssignSupervisorRequest(): AssignSupervisorRequest {
+  return {
+    $type: 'employee.AssignSupervisorRequest',
+    employeeId: '',
+    supervisorId: '',
+  };
+}
+
+export const AssignSupervisorRequest: MessageFns<
+  AssignSupervisorRequest,
+  'employee.AssignSupervisorRequest'
+> = {
+  $type: 'employee.AssignSupervisorRequest' as const,
+
+  encode(
+    message: AssignSupervisorRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
+      writer.uint32(10).string(message.employeeId);
+    }
+    if (message.supervisorId !== '') {
+      writer.uint32(18).string(message.supervisorId);
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): AssignSupervisorRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAssignSupervisorRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employeeId = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.supervisorId = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AssignSupervisorRequest {
+    return {
+      $type: AssignSupervisorRequest.$type,
+      employeeId: isSet(object.employeeId)
+        ? globalThis.String(object.employeeId)
+        : '',
+      supervisorId: isSet(object.supervisorId)
+        ? globalThis.String(object.supervisorId)
+        : '',
+    };
+  },
+
+  toJSON(message: AssignSupervisorRequest): unknown {
+    const obj: any = {};
+    if (message.employeeId !== '') {
+      obj.employeeId = message.employeeId;
+    }
+    if (message.supervisorId !== '') {
+      obj.supervisorId = message.supervisorId;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AssignSupervisorRequest>, I>>(
+    base?: I,
+  ): AssignSupervisorRequest {
+    return AssignSupervisorRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AssignSupervisorRequest>, I>>(
+    object: I,
+  ): AssignSupervisorRequest {
+    const message = createBaseAssignSupervisorRequest();
+    message.employeeId = object.employeeId ?? '';
+    message.supervisorId = object.supervisorId ?? '';
+    return message;
+  },
+};
+
+messageTypeRegistry.set(AssignSupervisorRequest.$type, AssignSupervisorRequest);
+
+function createBaseAssignSupervisorResponse(): AssignSupervisorResponse {
+  return { $type: 'employee.AssignSupervisorResponse', employee: undefined };
+}
+
+export const AssignSupervisorResponse: MessageFns<
+  AssignSupervisorResponse,
+  'employee.AssignSupervisorResponse'
+> = {
+  $type: 'employee.AssignSupervisorResponse' as const,
+
+  encode(
+    message: AssignSupervisorResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employee !== undefined) {
+      Employee.encode(message.employee, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): AssignSupervisorResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAssignSupervisorResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employee = Employee.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): AssignSupervisorResponse {
+    return {
+      $type: AssignSupervisorResponse.$type,
+      employee: isSet(object.employee)
+        ? Employee.fromJSON(object.employee)
+        : undefined,
+    };
+  },
+
+  toJSON(message: AssignSupervisorResponse): unknown {
+    const obj: any = {};
+    if (message.employee !== undefined) {
+      obj.employee = Employee.toJSON(message.employee);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<AssignSupervisorResponse>, I>>(
+    base?: I,
+  ): AssignSupervisorResponse {
+    return AssignSupervisorResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<AssignSupervisorResponse>, I>>(
+    object: I,
+  ): AssignSupervisorResponse {
+    const message = createBaseAssignSupervisorResponse();
+    message.employee =
+      object.employee !== undefined && object.employee !== null
+        ? Employee.fromPartial(object.employee)
+        : undefined;
+    return message;
+  },
+};
+
+messageTypeRegistry.set(
+  AssignSupervisorResponse.$type,
+  AssignSupervisorResponse,
+);
+
 export type EmployeeServiceService = typeof EmployeeServiceService;
 export const EmployeeServiceService = {
   registerEmployee: {
@@ -610,12 +811,29 @@ export const EmployeeServiceService = {
     responseDeserialize: (value: Buffer): RegisterEmployeeResponse =>
       RegisterEmployeeResponse.decode(value),
   },
+  assignSupervisor: {
+    path: '/employee.EmployeeService/AssignSupervisor' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: AssignSupervisorRequest): Buffer =>
+      Buffer.from(AssignSupervisorRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): AssignSupervisorRequest =>
+      AssignSupervisorRequest.decode(value),
+    responseSerialize: (value: AssignSupervisorResponse): Buffer =>
+      Buffer.from(AssignSupervisorResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): AssignSupervisorResponse =>
+      AssignSupervisorResponse.decode(value),
+  },
 } as const;
 
 export interface EmployeeServiceServer extends UntypedServiceImplementation {
   registerEmployee: handleUnaryCall<
     RegisterEmployeeRequest,
     RegisterEmployeeResponse
+  >;
+  assignSupervisor: handleUnaryCall<
+    AssignSupervisorRequest,
+    AssignSupervisorResponse
   >;
 }
 
@@ -642,6 +860,30 @@ export interface EmployeeServiceClient extends Client {
     callback: (
       error: ServiceError | null,
       response: RegisterEmployeeResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  assignSupervisor(
+    request: AssignSupervisorRequest,
+    callback: (
+      error: ServiceError | null,
+      response: AssignSupervisorResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  assignSupervisor(
+    request: AssignSupervisorRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: AssignSupervisorResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  assignSupervisor(
+    request: AssignSupervisorRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: AssignSupervisorResponse,
     ) => void,
   ): ClientUnaryCall;
 }

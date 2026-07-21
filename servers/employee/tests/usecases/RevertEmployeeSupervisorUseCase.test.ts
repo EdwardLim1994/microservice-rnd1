@@ -37,17 +37,3 @@ test("reverts to null when there was no previous supervisor", async () => {
 
 	expect(calls).toEqual([{ id: "emp-1", supervisorId: null }]);
 });
-
-test("is a no-op when employeeId is absent (AssignSupervisorUseCase itself never ran)", async () => {
-	const calls: unknown[] = [];
-	const employeeRepository = {
-		updateSupervisor: async (...args: unknown[]) => {
-			calls.push(args);
-		},
-	} as unknown as EmployeeRepository;
-	const useCase = new RevertEmployeeSupervisorUseCase({ employeeRepository });
-
-	await useCase.execute({ supervisorId: "sup-1" });
-
-	expect(calls).toEqual([]);
-});

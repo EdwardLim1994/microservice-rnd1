@@ -1,6 +1,7 @@
 import { expect, test } from "@rstest/core";
 import { GraphQLError } from "graphql";
 import { AuthentikApiError, type AuthentikClient } from "server";
+import type { Employee } from "../../generated/prisma";
 import UpdateAuthentikGroupUseCase from "../../src/usecases/UpdateAuthentikGroupUseCase";
 
 test("moves the target employee's Authentik account into the supervisor group", async () => {
@@ -15,7 +16,7 @@ test("moves the target employee's Authentik account into the supervisor group", 
 	await useCase.execute({
 		employeeId: "emp-1",
 		supervisorId: "sup-1",
-		employee: { id: "sup-1", email: "sup@example.com" },
+		employee: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
 	});
 
 	expect(calls).toEqual([{ username: "sup@example.com", groupNames: ["supervisor"] }]);
@@ -34,7 +35,7 @@ test("throws AUTHENTIK_UNAVAILABLE when the Authentik call fails", async () => {
 		await useCase.execute({
 			employeeId: "emp-1",
 			supervisorId: "sup-1",
-			employee: { id: "sup-1", email: "sup@example.com" },
+			employee: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
 		});
 	} catch (error) {
 		thrown = error;
@@ -57,7 +58,7 @@ test("rethrows a non-Authentik error unchanged", async () => {
 		useCase.execute({
 			employeeId: "emp-1",
 			supervisorId: "sup-1",
-			employee: { id: "sup-1", email: "sup@example.com" },
+			employee: { id: "sup-1", email: "sup@example.com" } as unknown as Employee,
 		}),
 	).rejects.toBe(boom);
 });
