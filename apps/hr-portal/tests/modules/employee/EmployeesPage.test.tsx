@@ -1,6 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing/react';
 import { expect, test } from '@rstest/core';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { EmployeesPage } from '../../../src/modules/employee/pages/EmployeesPage';
 import { EMPLOYEES_QUERY } from '../../../src/modules/employee/types/repository';
 
@@ -77,6 +77,54 @@ test('renders employee rows with supervisor resolved and an em dash when none is
   expect(screen.getByTestId('employee-row-emp-2')).toHaveTextContent(
     'Jane Doe',
   );
+});
+
+test('opens the AssignSupervisorModal for the clicked row and closes it', async () => {
+  const employee = {
+    id: 'emp-1',
+    firstName: 'Jane',
+    lastName: 'Doe',
+    email: 'jane.doe@example.com',
+    grossSalary: 72000,
+    supervisor: null,
+  };
+  const mocks = [
+    {
+      request: { query: EMPLOYEES_QUERY },
+      result: { data: { employees: [employee] } },
+    },
+    // AssignSupervisorModal's own useEmployees() call, deduplicated with the page's own query
+    // when it fires in the same tick — provided again in case dedup doesn't apply across mounts.
+    {
+      request: { query: EMPLOYEES_QUERY },
+      result: { data: { employees: [employee] } },
+    },
+  ];
+
+  render(
+    <MockedProvider mocks={mocks}>
+      <EmployeesPage />
+    </MockedProvider>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId('employee-row-emp-1')).toBeInTheDocument();
+  });
+  expect(
+    screen.queryByTestId('assign-supervisor-modal'),
+  ).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByTestId('assign-supervisor-action-emp-1'));
+
+  await waitFor(() => {
+    expect(screen.getByTestId('assign-supervisor-modal')).toBeInTheDocument();
+  });
+
+  fireEvent.click(screen.getByTestId('assign-supervisor-close'));
+
+  expect(
+    screen.queryByTestId('assign-supervisor-modal'),
+  ).not.toBeInTheDocument();
 });
 
 test('shows the error message when the employees query fails', async () => {

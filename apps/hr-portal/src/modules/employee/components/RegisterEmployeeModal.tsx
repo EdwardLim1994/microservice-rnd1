@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useEmployees } from '../viewmodel/useEmployees';
 import { useRegisterEmployee } from '../viewmodel/useRegisterEmployee';
+import { SupervisorSearch } from './SupervisorSearch';
 
 export interface RegisterEmployeeModalProps {
   isOpen: boolean;
@@ -13,6 +15,7 @@ const EMPTY_FORM = {
   email: '',
   grossSalary: '',
   salaryPerDay: '',
+  supervisorSearch: '',
   supervisorId: '',
 };
 
@@ -106,6 +109,7 @@ export function RegisterEmployeeModal({
 }: RegisterEmployeeModalProps) {
   const { registerEmployee, result, loading, error, reset } =
     useRegisterEmployee();
+  const { employees } = useEmployees();
   const [form, setForm] = useState(EMPTY_FORM);
   const [copied, setCopied] = useState(false);
 
@@ -333,20 +337,24 @@ export function RegisterEmployeeModal({
               </div>
             </div>
 
-            <label htmlFor="register-employee-supervisor-id" style={labelStyle}>
-              Supervisor
-            </label>
-            {/* Plain ID input for now, styled to match the mockup's supervisor field — the
-                mockup's inline-filtered name search needs FEAT-2's employees list query, which
-                doesn't exist yet. */}
-            <input
-              id="register-employee-supervisor-id"
-              data-testid="register-employee-supervisor-id"
-              placeholder="Supervisor ID (optional)"
-              value={form.supervisorId}
-              onChange={handleChange('supervisorId')}
-              style={{ ...inputStyle, marginBottom: 18 }}
-            />
+            <div style={{ marginBottom: 18 }}>
+              <SupervisorSearch
+                employees={employees}
+                search={form.supervisorSearch}
+                selectedId={form.supervisorId || null}
+                onSearchChange={(value) =>
+                  setForm((prev) => ({ ...prev, supervisorSearch: value }))
+                }
+                onSelect={(employee) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    supervisorId: employee.id,
+                    supervisorSearch: `${employee.firstName} ${employee.lastName}`,
+                  }))
+                }
+                testIdPrefix="register-employee-supervisor"
+              />
+            </div>
 
             {error ? (
               <p
