@@ -53,6 +53,15 @@ export interface RegisterEmployeeResponse {
   temporaryPassword: string;
 }
 
+export interface ListEmployeesRequest {
+  $type: 'employee.ListEmployeesRequest';
+}
+
+export interface ListEmployeesResponse {
+  $type: 'employee.ListEmployeesResponse';
+  employees: Employee[];
+}
+
 function createBaseEmployee(): Employee {
   return {
     $type: 'employee.Employee',
@@ -595,6 +604,149 @@ messageTypeRegistry.set(
   RegisterEmployeeResponse,
 );
 
+function createBaseListEmployeesRequest(): ListEmployeesRequest {
+  return { $type: 'employee.ListEmployeesRequest' };
+}
+
+export const ListEmployeesRequest: MessageFns<
+  ListEmployeesRequest,
+  'employee.ListEmployeesRequest'
+> = {
+  $type: 'employee.ListEmployeesRequest' as const,
+
+  encode(
+    _: ListEmployeesRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ListEmployeesRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseListEmployeesRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): ListEmployeesRequest {
+    return { $type: ListEmployeesRequest.$type };
+  },
+
+  toJSON(_: ListEmployeesRequest): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListEmployeesRequest>, I>>(
+    base?: I,
+  ): ListEmployeesRequest {
+    return ListEmployeesRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListEmployeesRequest>, I>>(
+    _: I,
+  ): ListEmployeesRequest {
+    const message = createBaseListEmployeesRequest();
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ListEmployeesRequest.$type, ListEmployeesRequest);
+
+function createBaseListEmployeesResponse(): ListEmployeesResponse {
+  return { $type: 'employee.ListEmployeesResponse', employees: [] };
+}
+
+export const ListEmployeesResponse: MessageFns<
+  ListEmployeesResponse,
+  'employee.ListEmployeesResponse'
+> = {
+  $type: 'employee.ListEmployeesResponse' as const,
+
+  encode(
+    message: ListEmployeesResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    for (const v of message.employees) {
+      Employee.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ListEmployeesResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseListEmployeesResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.employees.push(Employee.decode(reader, reader.uint32()));
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ListEmployeesResponse {
+    return {
+      $type: ListEmployeesResponse.$type,
+      employees: globalThis.Array.isArray(object?.employees)
+        ? object.employees.map((e: any) => Employee.fromJSON(e))
+        : [],
+    };
+  },
+
+  toJSON(message: ListEmployeesResponse): unknown {
+    const obj: any = {};
+    if (message.employees?.length) {
+      obj.employees = message.employees.map((e) => Employee.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ListEmployeesResponse>, I>>(
+    base?: I,
+  ): ListEmployeesResponse {
+    return ListEmployeesResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ListEmployeesResponse>, I>>(
+    object: I,
+  ): ListEmployeesResponse {
+    const message = createBaseListEmployeesResponse();
+    message.employees =
+      object.employees?.map((e) => Employee.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(ListEmployeesResponse.$type, ListEmployeesResponse);
+
 export type EmployeeServiceService = typeof EmployeeServiceService;
 export const EmployeeServiceService = {
   registerEmployee: {
@@ -610,6 +762,19 @@ export const EmployeeServiceService = {
     responseDeserialize: (value: Buffer): RegisterEmployeeResponse =>
       RegisterEmployeeResponse.decode(value),
   },
+  listEmployees: {
+    path: '/employee.EmployeeService/ListEmployees' as const,
+    requestStream: false as const,
+    responseStream: false as const,
+    requestSerialize: (value: ListEmployeesRequest): Buffer =>
+      Buffer.from(ListEmployeesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ListEmployeesRequest =>
+      ListEmployeesRequest.decode(value),
+    responseSerialize: (value: ListEmployeesResponse): Buffer =>
+      Buffer.from(ListEmployeesResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ListEmployeesResponse =>
+      ListEmployeesResponse.decode(value),
+  },
 } as const;
 
 export interface EmployeeServiceServer extends UntypedServiceImplementation {
@@ -617,6 +782,7 @@ export interface EmployeeServiceServer extends UntypedServiceImplementation {
     RegisterEmployeeRequest,
     RegisterEmployeeResponse
   >;
+  listEmployees: handleUnaryCall<ListEmployeesRequest, ListEmployeesResponse>;
 }
 
 export interface EmployeeServiceClient extends Client {
@@ -642,6 +808,30 @@ export interface EmployeeServiceClient extends Client {
     callback: (
       error: ServiceError | null,
       response: RegisterEmployeeResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  listEmployees(
+    request: ListEmployeesRequest,
+    callback: (
+      error: ServiceError | null,
+      response: ListEmployeesResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  listEmployees(
+    request: ListEmployeesRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: ListEmployeesResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  listEmployees(
+    request: ListEmployeesRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: ListEmployeesResponse,
     ) => void,
   ): ClientUnaryCall;
 }
