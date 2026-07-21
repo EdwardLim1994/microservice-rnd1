@@ -63,6 +63,15 @@ export interface AuthentikUser {
 }
 
 /**
+ * The `attributes` key used to flag a temporary/first-login password that must be changed before
+ * further access — a plain string key into Authentik's untyped `attributes` bag (there's no
+ * schema/type enforcement on the Authentik side), so both the writer (FEAT-1's
+ * CreateAuthentikAccountUseCase, at account creation) and the reader (FEAT-4's SignInUseCase,
+ * after sign-in) import this constant instead of each hardcoding the string independently.
+ */
+export const AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR = 'mustChangePassword';
+
+/**
  * Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
  * it (e.g. 401 on bad sign-in credentials vs. a genuine 5xx) instead of catching a bare Error and
  * guessing — same rationale as VaultPgAdapter's typed response interfaces, one level further.

@@ -1,5 +1,10 @@
 import { GraphQLError } from "graphql";
-import { AuthentikApiError, type AuthentikClient, BaseUseCase } from "server";
+import {
+	AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR,
+	AuthentikApiError,
+	type AuthentikClient,
+	BaseUseCase,
+} from "server";
 
 interface SignInInput {
 	email: string;
@@ -65,14 +70,15 @@ export default class SignInUseCase extends BaseUseCase<SignInInput, AuthPayload>
 			});
 		}
 
+		// By this point Authentik has already verified the real password and minted real tokens —
+		// a failure here must not throw those away and reject an otherwise-legitimate sign-in.
+		// Fail open on mustChangePassword (default false) rather than fail the whole request.
 		let mustChangePassword = false;
 		try {
 			const user = await this.authentik.getUser(email);
-			mustChangePassword = user.attributes?.mustChangePassword === true;
-		} catch {
-			throw new GraphQLError("Authentication service is unavailable", {
-				extensions: { code: "AUTHENTIK_UNAVAILABLE" },
-			});
+			mustChangePassword = user.attributes?.[AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR] === true;
+		} catch (error) {
+			console.error("SignInUseCase: could not look up mustChangePassword after sign-in", error);
 		}
 
 		return {

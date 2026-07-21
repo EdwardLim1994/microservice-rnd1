@@ -1,6 +1,6 @@
 import { GraphQLError } from "graphql";
 import type { AuthentikClient } from "server";
-import { AuthentikApiError, BaseUseCase } from "server";
+import { AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR, AuthentikApiError, BaseUseCase } from "server";
 import type { RegisterEmployeeContext } from "./RegisterEmployeeSaga";
 
 // Not a secret itself — just the character set a temporary password is drawn from. Named to avoid
@@ -45,7 +45,7 @@ export default class CreateAuthentikAccountUseCase extends BaseUseCase<
 				name: `${firstName} ${lastName}`,
 				password: temporaryPassword,
 				groupNames: ["employee"],
-				attributes: { mustChangePassword: true },
+				attributes: { [AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR]: true },
 			});
 		} catch (error) {
 			if (error instanceof AuthentikApiError) {

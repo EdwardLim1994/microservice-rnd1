@@ -1,4 +1,5 @@
 export {
+  AUTHENTIK_MUST_CHANGE_PASSWORD_ATTR,
   AuthentikApiError,
   AuthentikClient,
   type AuthentikClientConfig,
