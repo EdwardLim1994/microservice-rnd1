@@ -20,6 +20,8 @@
   --hr-color-input-readonly-bg: #f7f8fa;
   --hr-color-surface: #fff;
   --hr-color-overlay: rgba(20, 26, 40, 0.45);
+  --hr-color-table-header-bg: #f7f8fa;
+  --hr-color-row-border: #f0f1f4;
   --hr-radius: 8px;
   --hr-radius-lg: 14px;
   --hr-font-family: "Inter", sans-serif;

@@ -36,4 +36,8 @@ export default class EmployeeRepository extends BaseRepository<PrismaClient> {
 	updateSupervisor(id: string, supervisorId: string | null) {
 		return this.prisma.employee.update({ where: { id }, data: { supervisorId } });
 	}
+
+	findAll() {
+		return this.prisma.employee.findMany();
+	}
 }

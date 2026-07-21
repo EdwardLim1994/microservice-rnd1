@@ -20,6 +20,8 @@ type Employee @key(fields: "id") {
   salaryPerDay: Float!
   """Id of this employee's supervisor, if assigned. Null if never assigned."""
   supervisorId: ID
+  """This employee's supervisor record, resolved from supervisorId. Null if none is assigned."""
+  supervisor: Employee
   """ISO 8601 timestamp of when this Employee record was created."""
   createdAt: String!
   """ISO 8601 timestamp of the last update to this Employee record."""
@@ -48,6 +50,11 @@ type RegisterEmployeeResult {
   employee; it cannot be retrieved again.
   """
   temporaryPassword: String!
+}
+
+type Query {
+  """All registered employees, with each one's supervisor resolved via self-reference."""
+  employees: [Employee!]!
 }
 
 type Mutation {

@@ -7,6 +7,7 @@ function makeMockPrisma() {
 		findUnique: [],
 		delete: [],
 		update: [],
+		findMany: [],
 	};
 	const prisma = {
 		employee: {
@@ -25,6 +26,10 @@ function makeMockPrisma() {
 			update: async (args: unknown) => {
 				calls.update.push(args);
 				return { id: "emp-1" };
+			},
+			findMany: async (args: unknown) => {
+				calls.findMany.push(args);
+				return [{ id: "emp-1" }];
 			},
 		},
 	};
@@ -98,4 +103,14 @@ test("updateSupervisor() accepts null to clear the supervisor", async () => {
 	await repository.updateSupervisor("emp-1", null);
 
 	expect(calls.update).toEqual([{ where: { id: "emp-1" }, data: { supervisorId: null } }]);
+});
+
+test("findAll() delegates to prisma.employee.findMany with no filter", async () => {
+	const { prisma, calls } = makeMockPrisma();
+	// biome-ignore lint/suspicious/noExplicitAny: minimal mock, not a full PrismaClient
+	const repository = new EmployeeRepository({ prisma: prisma as any });
+
+	await repository.findAll();
+
+	expect(calls.findMany).toEqual([undefined]);
 });

@@ -1,7 +1,9 @@
 import { EmployeeGraphql } from "api";
 import { type GraphqlHandlerMap, GraphqlRouter } from "server";
 import AssignSupervisorGraphqlUseCase from "../usecases/AssignSupervisorGraphqlUseCase";
+import ListEmployeesUseCase from "../usecases/ListEmployeesUseCase";
 import RegisterEmployeeSaga from "../usecases/RegisterEmployeeSaga";
+import ResolveEmployeeSupervisorUseCase from "../usecases/ResolveEmployeeSupervisorUseCase";
 
 export default class EmployeeGraphqlRouter extends GraphqlRouter {
 	get typeDefs(): string {
@@ -10,9 +12,15 @@ export default class EmployeeGraphqlRouter extends GraphqlRouter {
 
 	get handlers(): GraphqlHandlerMap {
 		return {
+			Query: {
+				employees: ListEmployeesUseCase,
+			},
 			Mutation: {
 				registerEmployee: RegisterEmployeeSaga,
 				assignSupervisor: AssignSupervisorGraphqlUseCase,
+			},
+			Employee: {
+				supervisor: ResolveEmployeeSupervisorUseCase,
 			},
 		};
 	}

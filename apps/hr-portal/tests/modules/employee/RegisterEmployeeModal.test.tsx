@@ -2,7 +2,19 @@ import { MockedProvider } from '@apollo/client/testing/react';
 import { expect, test } from '@rstest/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { RegisterEmployeeModal } from '../../../src/modules/employee/components/RegisterEmployeeModal';
-import { REGISTER_EMPLOYEE_MUTATION } from '../../../src/modules/employee/types/repository';
+import {
+  EMPLOYEES_QUERY,
+  REGISTER_EMPLOYEE_MUTATION,
+} from '../../../src/modules/employee/types/repository';
+
+// registerEmployee triggers a refetchQueries: [EMPLOYEES_QUERY] (see useRegisterEmployee.ts) so
+// the Employees table picks up newly-registered employees — every mock list below that resolves
+// the mutation needs a matching EMPLOYEES_QUERY mock or MockedProvider logs an unmatched-query
+// warning.
+const employeesRefetchMock = {
+  request: { query: EMPLOYEES_QUERY },
+  result: { data: { employees: [] } },
+};
 
 function fillForm() {
   fireEvent.change(screen.getByTestId('register-employee-first-name'), {
@@ -76,6 +88,7 @@ test('submits the form and shows the success screen with the temporary password'
         },
       },
     },
+    employeesRefetchMock,
   ];
 
   render(
@@ -163,6 +176,7 @@ test('calls onClose and resets the form after Done is clicked', async () => {
         },
       },
     },
+    employeesRefetchMock,
   ];
   let closed = false;
 
@@ -219,6 +233,7 @@ test('copies the temporary password to the clipboard and shows "Copied!" briefly
         },
       },
     },
+    employeesRefetchMock,
   ];
   const originalClipboard = globalThis.navigator.clipboard;
   let writtenText: string | undefined;

@@ -35,3 +35,33 @@ export interface RegisterEmployeeResult {
     temporaryPassword: string;
   };
 }
+
+export const EMPLOYEES_QUERY = gql`
+  query Employees {
+    employees {
+      id
+      firstName
+      lastName
+      email
+      grossSalary
+      supervisor {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  grossSalary: number;
+  supervisor: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface EmployeesResult {
+  employees: Employee[];
+}
