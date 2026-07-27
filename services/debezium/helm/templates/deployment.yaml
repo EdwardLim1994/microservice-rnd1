@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-connect
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "debezium.labels" . | nindent 4 }}
+spec:
+  # Always 1 — Kafka Connect's own distributed-mode state (connector configs/offsets/status) lives
+  # in Kafka topics, not in this pod, but a second replica would just be a second worker in the
+  # same "kafka-connect-cluster" group doing nothing useful without more brokers/partitions to
+  # split across. Not a real HA setup, same scope as every other single-instance infra chart here.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "debezium.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "debezium.labels" . | nindent 8 }}
+    spec:
+      # Kubernetes auto-injects <SVC>_PORT env vars into every pod in this namespace (here, that'd
+      # be KAFKA_CONNECT_PORT); disabling Service env var injection avoids relying on the Confluent
+      # image never hitting a similar collision, same as every other infra pod in this repo.
+      enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
+      # Kubernetes has no docker-compose-style `depends_on: condition: service_healthy` — gate
+      # startup explicitly rather than rely solely on Kafka Connect's own client retry.
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command: ["sh", "-c", "until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done"]
+        - name: wait-for-apicurio-registry
+          image: busybox:1.36
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z apicurio-registry 8080; do echo waiting for apicurio-registry; sleep 2; done",
+            ]
+      containers:
+        - name: kafka-connect
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 128Mi
+            limits:
+              memory: 256Mi
+          ports:
+            - name: http
+              containerPort: 8083
+          env:
+            - name: CONNECT_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: CONNECT_REST_ADVERTISED_HOST_NAME
+              value: "kafka-connect"
+            - name: CONNECT_REST_PORT
+              value: "8083"
+            - name: CONNECT_GROUP_ID
+              value: "kafka-connect-cluster"
+            # Single broker (services/kafka/helm), so replication factor 1 for all three internal
+            # topics — same reasoning as services/debezium/docker-compose.yml's own env block.
+            - name: CONNECT_CONFIG_STORAGE_TOPIC
+              value: "_connect-configs"
+            - name: CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_OFFSET_STORAGE_TOPIC
+              value: "_connect-offsets"
+            - name: CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            - name: CONNECT_STATUS_STORAGE_TOPIC
+              value: "_connect-status"
+            - name: CONNECT_STATUS_STORAGE_REPLICATION_FACTOR
+              value: "1"
+            # Avro, registered against services/apicurio-registry via its Confluent-compatible API
+            # (Apicurio Registry v3 serves this at /apis/ccompat/v7 on its normal HTTP port) — lets
+            # this stay on Confluent's own AvroConverter/schema-registry-client wire format without
+            # needing Apicurio's own converter classes.
+            - name: CONNECT_KEY_CONVERTER
+              value: "io.confluent.connect.avro.AvroConverter"
+            - name: CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL
+              value: "http://apicurio-registry:8080/apis/ccompat/v7"
+            - name: CONNECT_VALUE_CONVERTER
+              value: "io.confluent.connect.avro.AvroConverter"
+            - name: CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL
+              value: "http://apicurio-registry:8080/apis/ccompat/v7"
+            - name: CONNECT_PLUGIN_PATH
+              value: "/usr/share/confluent-hub-components"
+            - name: CONNECT_LOG4J_ROOT_LOGLEVEL
+              value: "INFO"
+          readinessProbe:
+            httpGet:
+              path: /connectors
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /connectors
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20

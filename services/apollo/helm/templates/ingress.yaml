@@ -1,0 +1,23 @@
+# Same Host() this stack uses in docker-compose (services/apollo/docker-compose.yml's
+# `traefik.http.routers.apollo-router.rule` label) — kept identical across both environments so
+# nothing consuming this address needs an environment-specific override.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apollo-router
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "router.labels" . | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: graphql.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: apollo-router
+                port:
+                  number: 4000

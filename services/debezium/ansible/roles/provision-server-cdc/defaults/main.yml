@@ -1,0 +1,49 @@
+---
+# Overridable per-server via ansible/vars.yml, but these prototype defaults are fine for every
+# server today — both are reached from inside the "debezium-ansible" runner container, which
+# shares the "kafka" Docker network (see services/debezium/docker-compose.yml), NOT from the host.
+kafka_connect_addr: http://kafka-connect:8083
+schema_registry_addr: http://schema-registry:8081
+
+# Empty list by default — captures every table via publication.autocreate.mode: all_tables. Set to
+# a list of fully-qualified "schema.table" entries (e.g. ["public.Foo", "public.Bar"]) to scope the
+# connector and its publication to just those tables instead — populated by `turbo gen cdc` (see
+# turbo/generators/serverExtension/CdcGenerator.ts) from a checkbox prompt of the target server's
+# own schema.prisma models. Unlike the connector's own table.include.list config (which Kafka
+# Connect happily overwrites on every PUT), the underlying Postgres publication is NOT
+# automatically kept in sync by Debezium when this list changes on a later run — tasks/main.yml
+# reconciles it explicitly (ADD/DROP TABLE) against whatever's actually in the publication, so
+# removing an entry here actually stops that table, not just this list.
+cdc_tables: []
+publication_name: "{{ server_name }}_publication"
+publication_autocreate_mode: "{{ 'filtered' if cdc_tables | length > 0 else 'all_tables' }}"
+
+# Only applies when cdc_tables is empty (capturing "every table") — Prisma's own
+# migrations-tracking table isn't a business table and doesn't need a CDC topic of its own. When
+# cdc_tables is non-empty, table.include.list is already an allow-list, so there's nothing to
+# additionally exclude.
+cdc_default_exclude_list: public._prisma_migrations
+
+# Debezium's own default: snapshot every row that already exists once, then stream changes from
+# there. Override per-server (e.g. "no_data") to skip an expensive initial snapshot on a table
+# with a lot of pre-existing rows nobody needs the history of.
+cdc_snapshot_mode: initial
+
+# Kafka Connect's own framework default is `errors.tolerance: none` — one bad message (e.g. a
+# value Avro can't encode against the registered schema) fails the entire connector task, not just
+# that message. Routing failures to a dead-letter topic instead keeps the rest of the table's
+# events flowing. Replication factor 1 matches every other internal topic in this single-broker
+# setup (see services/kafka/docker-compose.yml's own KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR).
+cdc_errors_tolerance: all
+cdc_dlq_topic: "{{ server_name }}-cdc-dlq"
+cdc_dlq_replication_factor: 1
+
+# db_admin_url is a full postgresql://user:pass@host:port/db connection string (see
+# servers/<name>/ansible/vars.yml, shared with services/vault/ansible's own use of the same var) —
+# split here the same way services/vault/ansible/roles/provision-server-vault/defaults/main.yml
+# does, since Debezium's database.user/database.password config fields (and the
+# community.postgresql.postgresql_query login_* args below) want the plain parts, not the combined
+# URL.
+db_admin_url_parts: "{{ db_admin_url | urlsplit }}"
+db_admin_username: "{{ db_admin_url_parts.username }}"
+db_admin_password: "{{ db_admin_url_parts.password }}"

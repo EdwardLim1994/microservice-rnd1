@@ -1,0 +1,8 @@
+{
+	"name": "debezium",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"k8s:build": "cd ../.. && docker build -f services/debezium/kafka-connect/Dockerfile -t debezium-kafka-connect:local services/debezium/kafka-connect"
+	}
+}

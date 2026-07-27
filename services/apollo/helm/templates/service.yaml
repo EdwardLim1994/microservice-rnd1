@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: apollo-router
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "router.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "router.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 4000
+      targetPort: http

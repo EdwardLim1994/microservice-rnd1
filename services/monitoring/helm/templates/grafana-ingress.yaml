@@ -1,0 +1,24 @@
+# Same Host() as services/monitoring/docker-compose.yml's `traefik.http.routers.grafana.rule`
+# label — not behind Traefik's admin-auth middleware there either, since Grafana already gates
+# itself with its own login; same reasoning applies here (see services/traefik/CLAUDE.md's
+# Kubernetes section for why no equivalent middleware exists in-cluster anyway).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: grafana.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000

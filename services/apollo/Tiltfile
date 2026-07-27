@@ -1,0 +1,2 @@
+k8s_yaml(helm("./helm", name="apollo-router", namespace="infra"))
+k8s_resource("apollo-router", labels=["infra"])

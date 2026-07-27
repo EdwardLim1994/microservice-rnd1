@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "prometheus.labels" . | nindent 4 }}
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "prometheus.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "prometheus.labels" . | nindent 8 }}
+    spec:
+      # See services/terraform/CLAUDE.md's "enableServiceLinks: false is required on the Schema
+      # Registry pod, not optional" note — applied defensively to every component here too.
+      enableServiceLinks: false
+      # No use of the Kubernetes API from within this pod.
+      automountServiceAccountToken: false
+      containers:
+        - name: prometheus
+          image: "{{ .Values.prometheus.image }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            # Both flags needed: OtelPlugin's direct OTLP push needs --web.enable-otlp-receiver,
+            # Tempo's metrics_generator remote_write (see helm/files/tempo.yaml) needs
+            # --web.enable-remote-write-receiver below.
+            - --web.enable-otlp-receiver
+            - --web.enable-remote-write-receiver
+          ports:
+            - name: http
+              containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.prometheus.persistence.size }}

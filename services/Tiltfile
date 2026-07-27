@@ -1,1 +1,6 @@
 include("./kafka/Tiltfile")
+include("./meilisearch/Tiltfile")
+include("./apollo/Tiltfile")
+include("./apicurio-registry/Tiltfile")
+include("./debezium/Tiltfile")
+include("./monitoring/Tiltfile")
