@@ -1,0 +1,9 @@
+namespace: infra
+
+image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+
+rootUser: minioadmin
+rootPassword: minioadmin
+
+persistence:
+  size: 1Gi

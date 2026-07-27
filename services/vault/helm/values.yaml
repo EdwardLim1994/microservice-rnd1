@@ -1,0 +1,8 @@
+namespace: infra
+
+image: hashicorp/vault:1.18
+
+rootToken: vaultroottoken
+
+persistence:
+  size: 1Gi
