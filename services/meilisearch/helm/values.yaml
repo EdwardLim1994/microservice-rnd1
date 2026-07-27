@@ -1,9 +1,0 @@
-namespace: infra
-
-image: getmeili/meilisearch:v1.14
-
-# Matches services/meilisearch/docker-compose.yml's MEILISEARCH_MASTER_KEY default.
-masterKey: meilimasterkey
-
-persistence:
-  size: 1Gi

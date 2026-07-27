@@ -1,9 +1,0 @@
-namespace: infra
-
-image:
-  # Built via `bun run k8s:build` (see services/debezium/package.json's own k8s:build script)
-  # against minikube's own Docker daemon, not pulled from a registry — same local-image pattern as
-  # servers/test1/helm/values.yaml's image.app.
-  repository: debezium-kafka-connect
-  tag: local
-  pullPolicy: IfNotPresent

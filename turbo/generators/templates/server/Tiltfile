@@ -1,0 +1,8 @@
+docker_build("{{name}}", "apps/servers/{{name}}")
+
+k8s_yaml(helm("apps/servers/{{name}}/helm", name="{{name}}"))
+
+k8s_resource(
+    "{{name}}",
+    labels=["servers"],
+)

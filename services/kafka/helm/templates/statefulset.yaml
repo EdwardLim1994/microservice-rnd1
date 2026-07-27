@@ -7,7 +7,7 @@ metadata:
     {{- include "kafka.labels" . | nindent 4 }}
 spec:
   serviceName: kafka
-  replicas: 1
+  replicas: {{ .Values.replicaCounts }} 
   selector:
     matchLabels:
       {{- include "kafka.labels" . | nindent 6 }}
@@ -16,11 +16,10 @@ spec:
       labels:
         {{- include "kafka.labels" . | nindent 8 }}
     spec:
-      # See schema-registry-deployment.yaml's comment — the Confluent Schema Registry image's
-      # entrypoint outright refused to start over an auto-injected <SVC>_PORT env var; Kafka's own
-      # entrypoint didn't hit that specific check, but disabling Service env var injection here
-      # too avoids relying on that being true forever, for no functional loss (nothing here reads
-      # KAFKA_PORT or any other auto-injected var).
+      # Kubernetes auto-injects <SVC>_PORT env vars into every pod in this namespace; disabling
+      # Service env var injection avoids relying on none of those ever colliding with something
+      # Kafka's entrypoint reads, for no functional loss (nothing here reads KAFKA_PORT or any
+      # other auto-injected var).
       enableServiceLinks: false
       # No use of the Kubernetes API from within this pod.
       automountServiceAccountToken: false

@@ -1,8 +1,0 @@
-{
-	"name": "authentik",
-	"type": "module",
-	"private": true,
-	"devDependencies": {
-		"@types/bun": "latest"
-	}
-}

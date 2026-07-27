@@ -1,5 +1,4 @@
 include:
+  - ./mcp/docker-compose.yml
   - ./services/docker-compose.yml
-  - ./servers/docker-compose.yml
-  - ./frontends/docker-compose.yml
   - ./apps/docker-compose.yml

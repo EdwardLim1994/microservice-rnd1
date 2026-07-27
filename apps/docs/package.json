@@ -7,8 +7,7 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro",
-    "k8s:build": "cd ../.. && docker build -f apps/docs/Dockerfile -t docs:local ."
+    "astro": "astro"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.41.3",

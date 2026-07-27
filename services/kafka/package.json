@@ -1,8 +1,5 @@
 {
   "name": "kafka",
   "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  }
+  "private": true
 }

@@ -1,0 +1,5 @@
+services:
+  playwright:
+    image: mcp/playwright:latest
+    env_file:
+      - .env

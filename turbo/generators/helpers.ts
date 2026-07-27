@@ -11,15 +11,15 @@ function isServerWorkspace(absDir: string): boolean {
 }
 
 /**
- * Only servers/<name> that actually depend on the `server` framework package.
+ * Only apps/servers/<name> that actually depend on the `server` framework package.
  */
 export function findServerWorkspaces(root: string): string[] {
-	const serversDir = path.join(root, "servers");
+	const serversDir = path.join(root, "apps", "servers");
 	if (!fs.existsSync(serversDir)) return [];
 	return fs
 		.readdirSync(serversDir, { withFileTypes: true })
 		.filter((entry) => entry.isDirectory())
-		.map((entry) => path.join("servers", entry.name))
+		.map((entry) => path.join("apps", "servers", entry.name))
 		.filter((rel) => isServerWorkspace(path.join(root, rel)));
 }
 
@@ -29,7 +29,9 @@ export function findServerWorkspaces(root: string): string[] {
  */
 export function findPrismaServerWorkspaces(root: string): string[] {
 	return findServerWorkspaces(root).filter((rel) =>
-		fs.existsSync(path.join(root, rel, "src", "schemas", "prisma", "schema.prisma")),
+		fs.existsSync(
+			path.join(root, rel, "src", "schemas", "prisma", "schema.prisma"),
+		),
 	);
 }
 
@@ -47,7 +49,11 @@ export function findServerWorkspacesWithoutPrisma(root: string): string[] {
  * the driver's export name, e.g. "GrpcDriver"/"ApolloDriver"/"KafkaDriver") — the eligibility
  * check behind the unified "extension" generator's per-server driver choices.
  */
-export function serverHasDriver(root: string, location: string, driverName: string): boolean {
+export function serverHasDriver(
+	root: string,
+	location: string,
+	driverName: string,
+): boolean {
 	const appPath = path.join(root, location, "src", "app.ts");
 	if (!fs.existsSync(appPath)) return false;
 	return fs.readFileSync(appPath, "utf-8").includes(driverName);
@@ -93,11 +99,19 @@ export function findMatchingBracket(
 			if (depth === 0) return i;
 		}
 	}
-	throw new Error(`No matching "${closeChar}" found starting at index ${openIndex}`);
+	throw new Error(
+		`No matching "${closeChar}" found starting at index ${openIndex}`,
+	);
 }
 
-export function addNamedImport(raw: string, source: string, importName: string): string {
-	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
+export function addNamedImport(
+	raw: string,
+	source: string,
+	importName: string,
+): string {
+	const importRegex = new RegExp(
+		String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`,
+	);
 	const match = importRegex.exec(raw);
 	if (!match) {
 		throw new Error(`Could not find an import from "${source}"`);
@@ -109,7 +123,10 @@ export function addNamedImport(raw: string, source: string, importName: string):
 	if (names.includes(importName)) return raw;
 	names.push(importName);
 	names.sort((a, b) => a.localeCompare(b));
-	return raw.replace(importRegex, `import { ${names.join(", ")} } from "${source}";`);
+	return raw.replace(
+		importRegex,
+		`import { ${names.join(", ")} } from "${source}";`,
+	);
 }
 
 /**
@@ -119,8 +136,14 @@ export function addNamedImport(raw: string, source: string, importName: string):
  * imports from that source (e.g. injecting a new page's import into a router file that may not
  * yet import anything from that page's module).
  */
-export function addOrMergeNamedImport(raw: string, source: string, importName: string): string {
-	const importRegex = new RegExp(String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`);
+export function addOrMergeNamedImport(
+	raw: string,
+	source: string,
+	importName: string,
+): string {
+	const importRegex = new RegExp(
+		String.raw`import\s*\{([^}]*)\}\s*from\s*["']${source}["'];?`,
+	);
 	if (importRegex.test(raw)) {
 		return addNamedImport(raw, source, importName);
 	}
@@ -190,14 +213,21 @@ export function ensureGenScript(pkg: PackageJson): string {
 	return "";
 }
 
-export function writePackageJson(absPackageJsonPath: string, pkg: PackageJson, indent: string): void {
-	fs.writeFileSync(absPackageJsonPath, `${JSON.stringify(pkg, null, indent)}\n`);
+export function writePackageJson(
+	absPackageJsonPath: string,
+	pkg: PackageJson,
+	indent: string,
+): void {
+	fs.writeFileSync(
+		absPackageJsonPath,
+		`${JSON.stringify(pkg, null, indent)}\n`,
+	);
 }
 
 /**
  * Rewrites `ServerApp.init(...)` to add a driver entry — handling both the bare
- * single-driver form (servers/templates/server's own scaffold, `ServerApp.init(CronDriver)`)
- * and the array-of-entries form (servers/demo1's shape). Converting from the bare form also
+ * single-driver form (apps/servers/templates/server's own scaffold, `ServerApp.init(CronDriver)`)
+ * and the array-of-entries form (apps/servers/demo1's shape). Converting from the bare form also
  * collapses its now-redundant `.run(() => \`...\`)` callback to a bare `.run()`, since once a
  * driver has its own onReady, a single global "server is running" callback doesn't fit.
  * `buildEntry(itemIndent)` renders the `{ driver: ..., ... }` object literal text (no trailing
@@ -238,9 +268,15 @@ export function injectDriverEntry(
 
 	if (trimmedArgs.startsWith("[")) {
 		const openBracketIndex = openParenIndex + 1 + argsText.indexOf("[");
-		const closeBracketIndex = findMatchingBracket(raw, openBracketIndex, "[", "]");
+		const closeBracketIndex = findMatchingBracket(
+			raw,
+			openBracketIndex,
+			"[",
+			"]",
+		);
 		const inner = raw.slice(openBracketIndex + 1, closeBracketIndex).trimEnd();
-		const separator = inner.trim() === "" || inner.trim().endsWith(",") ? "" : ",";
+		const separator =
+			inner.trim() === "" || inner.trim().endsWith(",") ? "" : ",";
 		const newInner = `${inner}${separator}\n${itemIndent}${entry},\n${baseIndent}`;
 		raw = `${raw.slice(0, openBracketIndex)}[${newInner}]${raw.slice(closeBracketIndex + 1)}`;
 	} else {
@@ -256,7 +292,9 @@ export function injectDriverEntry(
 function appendBarrelExport(absBarrelPath: string, name: string): string {
 	fs.mkdirSync(path.dirname(absBarrelPath), { recursive: true });
 	const line = `export { default as ${name} } from "./${name}";`;
-	const existing = fs.existsSync(absBarrelPath) ? fs.readFileSync(absBarrelPath, "utf-8") : "";
+	const existing = fs.existsSync(absBarrelPath)
+		? fs.readFileSync(absBarrelPath, "utf-8")
+		: "";
 	if (existing.includes(line)) {
 		return `${absBarrelPath} already exports ${name}`;
 	}
@@ -274,7 +312,13 @@ export function registerAppendBarrelAction(plop: PlopTypes.NodePlopAPI): void {
 	plop.setActionType("appendBarrel", (answers, config) => {
 		const { location, name } = answers as { location: string; name: string };
 		const { folder } = (config.data ?? {}) as { folder: string };
-		const absBarrel = path.join(process.cwd(), location, "src", folder, "index.ts");
+		const absBarrel = path.join(
+			process.cwd(),
+			location,
+			"src",
+			folder,
+			"index.ts",
+		);
 		return appendBarrelExport(absBarrel, name);
 	});
 }
@@ -284,18 +328,23 @@ export function registerAppendBarrelAction(plop: PlopTypes.NodePlopAPI): void {
  * metro.config.js — a "react-dom" dependency check isn't reliable since apps/mobile's
  * package.json happens to list one too.
  */
-export function frontendPlatform(root: string, location: string): "web" | "native" | null {
-	if (fs.existsSync(path.join(root, location, "rsbuild.config.ts"))) return "web";
-	if (fs.existsSync(path.join(root, location, "metro.config.js"))) return "native";
+export function frontendPlatform(
+	root: string,
+	location: string,
+): "web" | "native" | null {
+	if (fs.existsSync(path.join(root, location, "rsbuild.config.ts")))
+		return "web";
+	if (fs.existsSync(path.join(root, location, "metro.config.js")))
+		return "native";
 	return null;
 }
 
 /**
- * React frontend workspaces (web or native) under apps/* and frontends/* — see
- * frontendPlatform for how each is told apart.
+ * React frontend workspaces (web or native) under apps/web/*, apps/mfe/* and apps/mobile/* —
+ * see frontendPlatform for how each is told apart.
  */
 export function findFrontendWorkspaces(root: string): string[] {
-	return ["apps", "frontends"].flatMap((dir) => {
+	return ["apps/web", "apps/mfe", "apps/mobile"].flatMap((dir) => {
 		const base = path.join(root, dir);
 		if (!fs.existsSync(base)) return [];
 		return fs
@@ -309,23 +358,25 @@ export function findFrontendWorkspaces(root: string): string[] {
 export const DEFAULT_FRONTEND_PORT = 3000;
 
 /**
- * Scans every apps/* /rsbuild.config.ts and frontends/* /rsbuild.config.ts for a dev server port
- * already in use (matched within its `server: { ... port: N ... }` block specifically, not the
- * `dev.assetPrefix` string which embeds the same port number in a different spot) and returns
- * the lowest one >= DEFAULT_FRONTEND_PORT not already taken — e.g. apps/portal has 3000 and
- * frontends/frontend1 has 3001, so a third project gets 3002.
+ * Scans every apps/web/* /rsbuild.config.ts and apps/mfe/* /rsbuild.config.ts for a dev server
+ * port already in use (matched within its `server: { ... port: N ... }` block specifically, not
+ * the `dev.assetPrefix` string which embeds the same port number in a different spot) and
+ * returns the lowest one >= DEFAULT_FRONTEND_PORT not already taken — e.g. apps/web/portal has
+ * 3000 and apps/mfe/frontend1 has 3001, so a third project gets 3002.
  */
 export function findAvailableFrontendPort(root: string): number {
 	const usedPorts = new Set<number>();
 
-	for (const dir of ["apps", "frontends"]) {
+	for (const dir of ["apps/web", "apps/mfe"]) {
 		const base = path.join(root, dir);
 		if (!fs.existsSync(base)) continue;
 		for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
 			if (!entry.isDirectory()) continue;
 			const configPath = path.join(base, entry.name, "rsbuild.config.ts");
 			if (!fs.existsSync(configPath)) continue;
-			const match = /server:\s*\{[^}]*port:\s*(\d+)/s.exec(fs.readFileSync(configPath, "utf-8"));
+			const match = /server:\s*\{[^}]*port:\s*(\d+)/s.exec(
+				fs.readFileSync(configPath, "utf-8"),
+			);
 			if (match) usedPorts.add(Number(match[1]));
 		}
 	}
@@ -338,34 +389,35 @@ export function findAvailableFrontendPort(root: string): number {
 const DEFAULT_MOBILE_PORT = 3011;
 
 /**
- * Reads a single apps/* /package.json's "dev" script for a `--port N` already in use — the
+ * Reads a single apps/mobile/* /package.json's "dev" script for a `--port N` already in use — the
  * per-workspace half of findAvailableMobilePort's scan, split out to keep that function's
- * cognitive complexity down. Harmless to call for every apps/* workspace, not just Expo ones —
- * an Rsbuild-based app's "dev" script ("rsbuild --open") never matches the `--port` pattern, so
- * it just returns null.
+ * cognitive complexity down. Harmless to call for every apps/mobile/* workspace, not just Expo
+ * ones — an Rsbuild-based app's "dev" script ("rsbuild --open") never matches the `--port`
+ * pattern, so it just returns null.
  */
 function extractMobilePortFromPackageJson(pkgPath: string): number | null {
 	if (!fs.existsSync(pkgPath)) return null;
-	const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts?.dev as
-		| string
-		| undefined;
+	const devScript = JSON.parse(fs.readFileSync(pkgPath, "utf-8")).scripts
+		?.dev as string | undefined;
 	const match = devScript ? /--port\s+(\d+)/.exec(devScript) : null;
 	return match ? Number(match[1]) : null;
 }
 
 /**
- * Scans every apps/* /package.json for a `--port N` already used in its "dev" script (Expo's
- * dev-server/tunnel port — apps/mobile's own is `expo start --host tunnel --port 3011`) and
- * returns the lowest one >= DEFAULT_MOBILE_PORT not already taken.
+ * Scans every apps/mobile/* /package.json for a `--port N` already used in its "dev" script
+ * (Expo's dev-server/tunnel port — apps/mobile/mobile's own is `expo start --host tunnel --port
+ * 3011`) and returns the lowest one >= DEFAULT_MOBILE_PORT not already taken.
  */
 export function findAvailableMobilePort(root: string): number {
 	const usedPorts = new Set<number>();
 
-	const appsDir = path.join(root, "apps");
+	const appsDir = path.join(root, "apps", "mobile");
 	if (fs.existsSync(appsDir)) {
 		for (const entry of fs.readdirSync(appsDir, { withFileTypes: true })) {
 			if (!entry.isDirectory()) continue;
-			const port = extractMobilePortFromPackageJson(path.join(appsDir, entry.name, "package.json"));
+			const port = extractMobilePortFromPackageJson(
+				path.join(appsDir, entry.name, "package.json"),
+			);
 			if (port !== null) usedPorts.add(port);
 		}
 	}
@@ -397,7 +449,9 @@ export function findFrontendModules(root: string, location: string): string[] {
  */
 export function appendBarrelLine(absBarrelPath: string, line: string): string {
 	fs.mkdirSync(path.dirname(absBarrelPath), { recursive: true });
-	const existing = fs.existsSync(absBarrelPath) ? fs.readFileSync(absBarrelPath, "utf-8") : "";
+	const existing = fs.existsSync(absBarrelPath)
+		? fs.readFileSync(absBarrelPath, "utf-8")
+		: "";
 	if (existing.includes(line)) {
 		return `${relToRoot(absBarrelPath)} already has this export`;
 	}
@@ -422,88 +476,34 @@ export function collapseTrailingNewlines(raw: string, count = 1): string {
 }
 
 /**
- * Registers a newly-scaffolded <location>/<name>/docker-compose.yml in <location>'s own
- * centralized docker-compose.yml (services/servers/frontends/apps each own one, included by the
- * root docker-compose.yml — see root CLAUDE.md's Layout section), so `docker compose up` from
- * repo root actually brings it up. Shared by the "server" and "web" project generators, both of
- * which scaffold their own docker-compose.yml but otherwise had no way to wire it in.
+ * Registers a newly-scaffolded <location>/<name>/Tiltfile in <location>'s own Tiltfile (itself
+ * included by the root Tiltfile — see services/Tiltfile for the established pattern), so `tilt
+ * up` from repo root actually brings it up. Shared by the "server" and "web" project generators,
+ * both of which scaffold their own helm/ chart + Tiltfile but otherwise had no way to wire it in.
  */
-export function appendRootComposeInclude(root: string, location: string, name: string): string {
-	const locationComposePath = path.join(root, location, "docker-compose.yml");
-	if (!fs.existsSync(locationComposePath)) {
-		return `${path.relative(root, locationComposePath)} not found, skipped`;
+export function appendRootTiltfileInclude(
+	root: string,
+	location: string,
+	name: string,
+): string {
+	const locationTiltfilePath = path.join(root, location, "Tiltfile");
+	if (!fs.existsSync(locationTiltfilePath)) {
+		return `${path.relative(root, locationTiltfilePath)} not found, skipped`;
 	}
-	const line = `  - ./${name}/docker-compose.yml`;
-	const raw = fs.readFileSync(locationComposePath, "utf-8");
+	const line = `include("./${name}/Tiltfile")`;
+	const raw = fs.readFileSync(locationTiltfilePath, "utf-8");
 	if (raw.includes(line)) {
-		return `${path.relative(root, locationComposePath)} already includes ${name}`;
+		return `${path.relative(root, locationTiltfilePath)} already includes ${name}`;
 	}
-	const withoutEmptyInclude = raw.trim() === "include: []" ? "include:\n" : raw;
 	fs.writeFileSync(
-		locationComposePath,
-		`${collapseTrailingNewlines(withoutEmptyInclude)}${line}\n`,
+		locationTiltfilePath,
+		`${collapseTrailingNewlines(raw)}${line}\n`,
 	);
-	return `${path.relative(root, locationComposePath)} (+${name})`;
+	return `${path.relative(root, locationTiltfilePath)} (+${name})`;
 }
 
 /**
- * Recursively copies srcDir to destDir, substituting every `{{ key }}` (whitespace-tolerant)
- * with its value from `replacements` — a plain, targeted string substitution, NOT Handlebars
- * compilation. Used for helm/terraform deploy scaffolding (servers/demo1/helm's own
- * `{{ include "server.fullname" . | nindent 4 }}`-style Go-template syntax, and every
- * terraform/*.tf file's HCL `${ }` interpolation) that must survive verbatim into the generated
- * output — running these through plop's addMany (full Handlebars compilation) would try, and
- * fail, to parse `{{ include ... }}` as a Handlebars expression. This only ever touches the
- * literal text `{{ <key> }}` for keys actually passed in `replacements`, leaving every other
- * `{{ ... }}`/`${ ... }` alone — safe regardless of what other template syntax a file contains.
- */
-export function copyWithSubstitutions(
-	srcDir: string,
-	destDir: string,
-	replacements: Record<string, string>,
-): void {
-	for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-		const srcPath = path.join(srcDir, entry.name);
-		const destPath = path.join(destDir, entry.name);
-		if (entry.isDirectory()) {
-			fs.mkdirSync(destPath, { recursive: true });
-			copyWithSubstitutions(srcPath, destPath, replacements);
-			continue;
-		}
-		let raw = fs.readFileSync(srcPath, "utf-8");
-		for (const [key, value] of Object.entries(replacements)) {
-			raw = raw.replace(new RegExp(String.raw`\{\{\s*${key}\s*\}\}`, "g"), value);
-		}
-		fs.mkdirSync(path.dirname(destPath), { recursive: true });
-		fs.writeFileSync(destPath, raw);
-	}
-}
-
-/**
- * Keeps <location>/helm/values.yaml's ports.<key> in sync with whatever port
- * GraphqlGenerator/GrpcGenerator actually assigned (findAvailableGraphqlPort/
- * findAvailableGrpcPort auto-increment past ports already used by other servers, so the
- * assigned port won't always match the chart's 4001/5001 defaults) — shared by both generators
- * since they only differ in which values.yaml key and .env.sample var they're syncing from.
- * Skipped (not an error) if helm/values.yaml doesn't exist (a server predating this generator
- * enhancement) or has no "ports.<key>:" entry to update.
- */
-export function syncHelmPort(location: string, key: "graphql" | "grpc", port: number): string {
-	const absPath = path.join(process.cwd(), location, "helm", "values.yaml");
-	if (!fs.existsSync(absPath)) {
-		return `${relToRoot(absPath)} not found, skipped`;
-	}
-	const raw = fs.readFileSync(absPath, "utf-8");
-	const pattern = new RegExp(String.raw`(^\s*${key}:\s*)\d+`, "m");
-	if (!pattern.test(raw)) {
-		return `${relToRoot(absPath)} has no "${key}:" port entry, skipped`;
-	}
-	fs.writeFileSync(absPath, raw.replace(pattern, `$1${port}`));
-	return `${relToRoot(absPath)} (ports.${key} -> ${port})`;
-}
-
-/**
- * Reads one servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
+ * Reads one apps/servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
  * (demo1/demo2's pre-existing hardcoded `port: N` literal on the matching driver entry) for a
  * port already in use, adding whatever it finds to `usedPorts` — the per-server half of
  * findAvailableServerPort's scan, split out to keep that function's cognitive complexity down.
@@ -516,21 +516,23 @@ function collectServerPortUsage(
 ): void {
 	const envSamplePath = path.join(serverDir, ".env.sample");
 	if (fs.existsSync(envSamplePath)) {
-		const match = new RegExp(String.raw`^${envVar}=(\d+)`, "m").exec(fs.readFileSync(envSamplePath, "utf-8"));
+		const match = new RegExp(String.raw`^${envVar}=(\d+)`, "m").exec(
+			fs.readFileSync(envSamplePath, "utf-8"),
+		);
 		if (match) usedPorts.add(Number(match[1]));
 	}
 
 	const appPath = path.join(serverDir, "src", "app.ts");
 	if (fs.existsSync(appPath)) {
-		const match = new RegExp(String.raw`driver:\s*${driverName}[\s\S]{0,200}?port:\s*(\d+)`).exec(
-			fs.readFileSync(appPath, "utf-8"),
-		);
+		const match = new RegExp(
+			String.raw`driver:\s*${driverName}[\s\S]{0,200}?port:\s*(\d+)`,
+		).exec(fs.readFileSync(appPath, "utf-8"));
 		if (match) usedPorts.add(Number(match[1]));
 	}
 }
 
 /**
- * Scans every servers/* /.env.sample and servers/* /src/app.ts for a port already in use (see
+ * Scans every apps/servers/* /.env.sample and apps/servers/* /src/app.ts for a port already in use (see
  * collectServerPortUsage) and returns the lowest one >= defaultPort not already taken — shared by
  * GraphqlGenerator's findAvailableGraphqlPort (`envVar: "GRAPHQL_PORT"`, `driverName:
  * "ApolloDriver"`) and GrpcGenerator's findAvailableGrpcPort (`"GRPC_PORT"`, `"GrpcDriver"`),
@@ -542,13 +544,18 @@ export function findAvailableServerPort(
 	driverName: string,
 	defaultPort: number,
 ): number {
-	const serversDir = path.join(root, "servers");
+	const serversDir = path.join(root, "apps", "servers");
 	const usedPorts = new Set<number>();
 
 	if (fs.existsSync(serversDir)) {
 		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
 			if (!entry.isDirectory()) continue;
-			collectServerPortUsage(path.join(serversDir, entry.name), envVar, driverName, usedPorts);
+			collectServerPortUsage(
+				path.join(serversDir, entry.name),
+				envVar,
+				driverName,
+				usedPorts,
+			);
 		}
 	}
 
@@ -557,15 +564,10 @@ export function findAvailableServerPort(
 	return port;
 }
 
-// --- docker-compose.yml service-block editing -------------------------------------------------
+// --- indented-block text splicing ---------------------------------------------------------------
 //
-// Text-splicing, not a YAML parse/stringify round-trip — consistent with every other generator
-// action in this file (e.g. injectDockerComposeServices/ensureAdminerNetworkDeclared in
-// DatabaseGenerator.ts) and deliberately so: a full YAML round-trip would silently drop every
-// hand-written comment elsewhere in the file (docker-compose.yml files in this repo routinely
-// have them — see servers/auth/docker-compose.yml), not just in whatever block is being edited.
-// All of the below assumes this repo's consistent 2-space YAML indentation (service names at 2
-// spaces, service body keys at 4, list items/map entries under those at 6, and so on).
+// Text-splicing, not a YAML parse/stringify round-trip — a full round-trip would silently drop
+// every hand-written comment elsewhere in the file. Shared by wireHelmDeploymentConfigMap below.
 
 /**
  * Scans forward from immediately after `headerEndIndex` (the position right after a header
@@ -573,7 +575,11 @@ export function findAvailableServerPort(
  * spaces — i.e. the end of that header's indented body — or EOF. Shared primitive behind every
  * "find or create a nested block" helper below.
  */
-function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: number): number {
+function findIndentedBodyEnd(
+	raw: string,
+	headerEndIndex: number,
+	bodyIndent: number,
+): number {
 	const lines = raw.slice(headerEndIndex).split("\n");
 	let offset = headerEndIndex;
 	for (const line of lines) {
@@ -587,183 +593,46 @@ function findIndentedBodyEnd(raw: string, headerEndIndex: number, bodyIndent: nu
 }
 
 /**
- * Finds a top-level `services:` entry's own body range (everything indented under `  <name>:`),
- * e.g. for locating servers/<name>/docker-compose.yml's main app service. Returns null if that
- * service isn't declared in the file at all.
+ * Adds `- configMapRef: name: <configMapName>` to the app container's `envFrom:` list in a
+ * server's helm/templates/deployment.yaml — the k8s equivalent of wireComposeService's
+ * `environment:` splice, but referencing a whole ConfigMap instead of individual entries (each
+ * driver/extension owns its own ConfigMap, e.g. DatabaseGenerator's `<name>-env`, KafkaGenerator's
+ * `<name>-kafka-env`). Creates the `envFrom:` list on first use; appends a new entry to it on
+ * every call after, so multiple drivers/extensions on the same server each get their own line
+ * without clobbering each other. Idempotent per configMapName.
  */
-function findComposeServiceBody(raw: string, serviceName: string): { start: number; end: number } | null {
-	const header = new RegExp(String.raw`^  ${serviceName}:[ \t]*\n`, "m").exec(raw);
-	if (!header) return null;
-	const start = header.index + header[0].length;
-	return { start, end: findIndentedBodyEnd(raw, start, 4) };
-}
-
-/**
- * Returns the offset of the end of the last non-blank line within raw.slice(start, end) — i.e.
- * `end` pulled back before any trailing blank-line run. Insertion points are computed from a
- * block's full dedent boundary (findIndentedBodyEnd), which can land after a blank line some
- * earlier edit left as a section separator (e.g. ensureComposeNetworkDeclared's blank line before
- * the top-level `networks:` section) — inserting new content there would land the new lines
- * *after* that separator, visually detached from the block they actually belong to.
- */
-function trimTrailingBlankLines(raw: string, start: number, end: number): number {
-	const trimmedLength = collapseTrailingNewlines(raw.slice(start, end)).length;
-	return start + trimmedLength;
-}
-
-/**
- * Renders one `key: value` map entry line — plain `key: value` for a scalar, or `key:` (no
- * trailing space) followed by `value`'s own already-indented continuation lines when `value`
- * itself starts with a newline (a nested map, e.g. depends_on's per-service `condition:` block).
- */
-function renderMapEntryLine(key: string, value: string): string {
-	return value.startsWith("\n") ? `${key}:${value}` : `${key}: ${value}`;
-}
-
-/**
- * Ensures `  <serviceName>:` has a `    <mapKey>:` sub-block (creating an empty one at the end
- * of the service body if missing) containing every `entries` pair not already present as a
- * `      <key>: ...` line — used for both `environment:` (mapKey="environment", entries are
- * plain `KEY: value`) and a `depends_on:` map whose values are themselves nested maps (pass
- * pre-rendered multi-line entries, e.g. `kafka:\n    condition: service_healthy`, indented for
- * the depends_on map's own entry level by the caller).
- */
-function ensureComposeServiceMapEntries(
-	raw: string,
-	serviceName: string,
-	mapKey: string,
-	entries: Record<string, string>,
+export function wireHelmDeploymentConfigMap(
+	absDeploymentPath: string,
+	configMapName: string,
 ): string {
-	const service = findComposeServiceBody(raw, serviceName);
-	if (!service) return raw;
+	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
+	if (raw.includes(`name: ${configMapName}`)) {
+		return `${relToRoot(absDeploymentPath)} already references ${configMapName}`;
+	}
 
-	const mapHeader = new RegExp(String.raw`^    ${mapKey}:[ \t]*\n`, "m");
-	const withinService = raw.slice(service.start, service.end);
-	const mapMatch = mapHeader.exec(withinService);
-
-	if (mapMatch) {
-		const mapStart = service.start + mapMatch.index + mapMatch[0].length;
-		const mapEnd = findIndentedBodyEnd(raw, mapStart, 6);
-		const missing = Object.entries(entries).filter(
-			([key]) => !new RegExp(`^      ${key}:`, "m").test(raw.slice(mapStart, mapEnd)),
+	const envFromLineMatch = /^(\s+)envFrom:[ \t]*\n/m.exec(raw);
+	if (envFromLineMatch) {
+		const indent = envFromLineMatch[1];
+		const listStart = envFromLineMatch.index + envFromLineMatch[0].length;
+		const insertAt = findIndentedBodyEnd(raw, listStart, indent.length + 1);
+		const entry = `${indent}  - configMapRef:\n${indent}      name: ${configMapName}\n`;
+		fs.writeFileSync(
+			absDeploymentPath,
+			`${raw.slice(0, insertAt)}${entry}${raw.slice(insertAt)}`,
 		);
-		if (missing.length === 0) return raw;
-		const insertAt = trimTrailingBlankLines(raw, mapStart, mapEnd);
-		const lines = missing.map(([key, value]) => `      ${renderMapEntryLine(key, value)}\n`).join("");
-		return `${raw.slice(0, insertAt)}${lines}${raw.slice(insertAt)}`;
+		return `${relToRoot(absDeploymentPath)} (+envFrom ${configMapName})`;
 	}
 
-	const block = `    ${mapKey}:\n${Object.entries(entries)
-		.map(([key, value]) => `      ${renderMapEntryLine(key, value)}\n`)
-		.join("")}`;
-	const insertAt = trimTrailingBlankLines(raw, service.start, service.end);
-	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
-}
-
-/**
- * Same idea as ensureComposeServiceMapEntries, but for a `    networks:` YAML list (`      -
- * item`) instead of a map.
- */
-function ensureComposeServiceListItems(
-	raw: string,
-	serviceName: string,
-	listKey: string,
-	items: string[],
-): string {
-	const service = findComposeServiceBody(raw, serviceName);
-	if (!service) return raw;
-
-	const listHeader = new RegExp(String.raw`^    ${listKey}:[ \t]*\n`, "m");
-	const withinService = raw.slice(service.start, service.end);
-	const listMatch = listHeader.exec(withinService);
-
-	if (listMatch) {
-		const listStart = service.start + listMatch.index + listMatch[0].length;
-		const listEnd = findIndentedBodyEnd(raw, listStart, 6);
-		const existing = raw.slice(listStart, listEnd);
-		const missing = items.filter((item) => !new RegExp(String.raw`^\s*-\s*${item}\s*$`, "m").test(existing));
-		if (missing.length === 0) return raw;
-		const insertAt = trimTrailingBlankLines(raw, listStart, listEnd);
-		const lines = missing.map((item) => `      - ${item}\n`).join("");
-		return `${raw.slice(0, insertAt)}${lines}${raw.slice(insertAt)}`;
+	const imageLineMatch = /^(\s+)image: .*\n/m.exec(raw);
+	if (!imageLineMatch) {
+		throw new Error(`Could not find an "image:" line in ${absDeploymentPath}`);
 	}
-
-	const itemLines = items.map((item) => `      - ${item}\n`).join("");
-	const block = `    ${listKey}:\n${itemLines}`;
-	const insertAt = trimTrailingBlankLines(raw, service.start, service.end);
-	return `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`;
-}
-
-/**
- * Ensures the top-level `networks:` stanza declares `<networkName>:` with an empty body — the
- * "real" definition (driver: bridge) lives wherever that network actually originates (e.g.
- * services/kafka/docker-compose.yml for "kafka"); Compose merges same-named top-level networks
- * across every file pulled in by the root docker-compose.yml's `include:`, so an empty
- * re-declaration here is enough. Creates the whole `networks:` section if the file doesn't have
- * one yet.
- */
-export function ensureComposeNetworkDeclared(absComposePath: string, networkName: string): string {
-	if (!fs.existsSync(absComposePath)) {
-		return `${relToRoot(absComposePath)} not found, skipped`;
-	}
-	const raw = fs.readFileSync(absComposePath, "utf-8");
-	if (new RegExp(`^  ${networkName}:`, "m").test(raw) && /^networks:\s*$/m.test(raw)) {
-		// Only treat as already-declared if it's under a real top-level `networks:` section —
-		// a same-named service/env key elsewhere shouldn't false-positive this check.
-		const networksIndex = raw.search(/^networks:\s*$/m);
-		if (networksIndex !== -1 && raw.includes(`\n  ${networkName}:`, networksIndex)) {
-			return `${relToRoot(absComposePath)} already declares ${networkName}`;
-		}
-	}
-	const next = /^networks:\s*$/m.test(raw)
-		? raw.replace(/^networks:\s*$/m, `networks:\n  ${networkName}:`)
-		: `${collapseTrailingNewlines(raw)}\nnetworks:\n  ${networkName}:\n`;
-	fs.writeFileSync(absComposePath, next);
-	return `${relToRoot(absComposePath)} (+${networkName} network)`;
-}
-
-/**
- * Wires an existing service in docker-compose.yml onto a Docker network, with `environment:`
- * overrides (for env vars that otherwise come from .env — written for host-based `bun run dev`
- * and meaningless inside a container, see servers/auth/docker-compose.yml's comments for the
- * full story) and `depends_on:` entries for startup ordering. Skips (returns a "not found"
- * message) if the target service doesn't exist in the file — same "skip, don't error" convention
- * as syncHelmPort/addKafkaHelmValues for a server predating whatever's calling this.
- */
-export function wireComposeService(
-	location: string,
-	serviceName: string,
-	options: {
-		networks: string[];
-		environment: Record<string, string>;
-		dependsOn: Record<string, string>;
-	},
-): string {
-	const absPath = path.join(process.cwd(), location, "docker-compose.yml");
-	if (!fs.existsSync(absPath)) {
-		return `${relToRoot(absPath)} not found, skipped`;
-	}
-	let raw = fs.readFileSync(absPath, "utf-8");
-
-	if (Object.keys(options.environment).length > 0) {
-		raw = ensureComposeServiceMapEntries(raw, serviceName, "environment", options.environment);
-	}
-	if (options.networks.length > 0) {
-		raw = ensureComposeServiceListItems(raw, serviceName, "networks", options.networks);
-	}
-	if (Object.keys(options.dependsOn).length > 0) {
-		const dependsOnEntries = Object.fromEntries(
-			Object.entries(options.dependsOn).map(([service, condition]) => [
-				service,
-				`\n        condition: ${condition}`,
-			]),
-		);
-		raw = ensureComposeServiceMapEntries(raw, serviceName, "depends_on", dependsOnEntries);
-	}
-
-	fs.writeFileSync(absPath, raw);
-	for (const networkName of options.networks) {
-		ensureComposeNetworkDeclared(absPath, networkName);
-	}
-	return `${relToRoot(absPath)} (${serviceName}: +networks/environment/depends_on)`;
+	const indent = imageLineMatch[1];
+	const insertAt = imageLineMatch.index + imageLineMatch[0].length;
+	const envFromBlock = `${indent}envFrom:\n${indent}  - configMapRef:\n${indent}      name: ${configMapName}\n`;
+	fs.writeFileSync(
+		absDeploymentPath,
+		`${raw.slice(0, insertAt)}${envFromBlock}${raw.slice(insertAt)}`,
+	);
+	return `${relToRoot(absDeploymentPath)} (+envFrom ${configMapName})`;
 }

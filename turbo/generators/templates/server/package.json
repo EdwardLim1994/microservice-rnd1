@@ -12,7 +12,6 @@
 		"config": "workspace:*"
 	},
 	"scripts": {
-		"dev": "bun run index.ts --watch --verbose",
-		"k8s:build": "cd ../.. && docker build -f servers/{{ name }}/Dockerfile -t {{ name }}:local ."
+		"dev": "bun run index.ts --watch --verbose"
 	}
 }

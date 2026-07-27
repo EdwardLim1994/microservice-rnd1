@@ -6,7 +6,6 @@ import {
 	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
-	syncHelmPort,
 	writePackageJson,
 } from "../helpers";
 import type { ServerDriverExtension } from "./types";
@@ -69,7 +68,7 @@ function appendGrpcPort(absPath: string, port: number, createIfMissing: boolean)
 }
 
 /**
- * Scans every servers/* /.env.sample (new GRPC_PORT convention) and servers/* /src/app.ts
+ * Scans every apps/servers/* /.env.sample (new GRPC_PORT convention) and apps/servers/* /src/app.ts
  * (demo1/demo2's pre-existing hardcoded `port: N` literal on the GrpcDriver entry) for a
  * port already in use, and returns the lowest one >= DEFAULT_GRPC_PORT not already taken.
  */
@@ -98,20 +97,6 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 			appendGrpcPort(path.join(process.cwd(), location, ".env"), port, false),
 		].filter((result): result is string => result !== null);
 		return results.length > 0 ? results.join("; ") : "no .env files updated";
-	});
-
-	plop.setActionType("syncGrpcHelmPort", (answers) => {
-		// Runs after appendGrpcPortEnv, which already wrote GRPC_PORT to .env.sample — read it
-		// back rather than recomputing findAvailableGrpcPort, same reasoning as
-		// GraphqlGenerator's appendSupergraphSubgraph/syncGraphqlHelmPort.
-		const { location } = answers as { location: string };
-		const envSamplePath = path.join(process.cwd(), location, ".env.sample");
-		const envSample = fs.readFileSync(envSamplePath, "utf-8");
-		const match = /^GRPC_PORT=(\d+)/m.exec(envSample);
-		if (!match) {
-			throw new Error(`Could not find GRPC_PORT in ${relToRoot(envSamplePath)}`);
-		}
-		return syncHelmPort(location, "grpc", Number(match[1]));
 	});
 
 	plop.setActionType("injectGrpcDriver", (answers) => {
@@ -160,7 +145,6 @@ const GrpcGenerator: ServerDriverExtension = {
 		{ type: "addGrpcBufGenYaml" },
 		{ type: "addGrpcPackageJson" },
 		{ type: "appendGrpcPortEnv" },
-		{ type: "syncGrpcHelmPort" },
 		{ type: "injectGrpcDriver" },
 	],
 };

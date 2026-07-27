@@ -7,7 +7,6 @@ import {
 	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
-	syncHelmPort,
 	writePackageJson,
 } from "../helpers";
 import type { ServerDriverExtension } from "./types";
@@ -85,9 +84,10 @@ function appendGraphqlPort(absPath: string, port: number, createIfMissing: boole
 }
 
 /**
- * Scans every servers/* /.env.sample (new GRAPHQL_PORT convention) and servers/* /src/app.ts
- * (demo1/demo2's pre-existing hardcoded `port: N` literal on the ApolloDriver entry) for a
- * port already in use, and returns the lowest one >= DEFAULT_GRAPHQL_PORT not already taken.
+ * Scans every apps/servers/* /.env.sample (new GRAPHQL_PORT convention) and
+ * apps/servers/* /src/app.ts (demo1/demo2's pre-existing hardcoded `port: N` literal on the
+ * ApolloDriver entry) for a port already in use, and returns the lowest one >=
+ * DEFAULT_GRAPHQL_PORT not already taken.
  */
 function findAvailableGraphqlPort(root: string): number {
 	return findAvailableServerPort(root, "GRAPHQL_PORT", "ApolloDriver", DEFAULT_GRAPHQL_PORT);
@@ -200,20 +200,6 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 		return results.length > 0 ? results.join("; ") : "no .env files updated";
 	});
 
-	plop.setActionType("syncGraphqlHelmPort", (answers) => {
-		// Runs after appendGraphqlPortEnv, which already wrote GRAPHQL_PORT to .env.sample —
-		// read it back rather than recomputing findAvailableGraphqlPort, same reasoning as
-		// appendSupergraphSubgraph below.
-		const { location } = answers as { location: string };
-		const envSamplePath = path.join(process.cwd(), location, ".env.sample");
-		const envSample = fs.readFileSync(envSamplePath, "utf-8");
-		const match = /^GRAPHQL_PORT=(\d+)/m.exec(envSample);
-		if (!match) {
-			throw new Error(`Could not find GRAPHQL_PORT in ${relToRoot(envSamplePath)}`);
-		}
-		return syncHelmPort(location, "graphql", Number(match[1]));
-	});
-
 	plop.setActionType("injectGraphqlDriver", (answers) => {
 		const { location } = answers as { location: string };
 		return injectDriverEntry(
@@ -249,7 +235,6 @@ const GraphqlGenerator: ServerDriverExtension = {
 		{ type: "addGraphqlCodegenConfig" },
 		{ type: "addGraphqlPackageJson" },
 		{ type: "appendGraphqlPortEnv" },
-		{ type: "syncGraphqlHelmPort" },
 		{ type: "injectGraphqlDriver" },
 		{ type: "appendSupergraphSubgraph" },
 	],

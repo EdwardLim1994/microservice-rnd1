@@ -1,6 +1,0 @@
-apiVersion: v2
-name: minio
-description: MinIO (single instance, root-credential auth) — shared infra, deployed independently of any app
-type: application
-version: 0.1.0
-appVersion: "RELEASE.2025-04-08T15-41-24Z"

@@ -1,0 +1,5 @@
+services:
+  context7:
+    image: mcp/context7:latest
+    env_file:
+      - .env

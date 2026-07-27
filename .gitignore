@@ -14,3 +14,4 @@
 /**/*/*.tfstate*
 /**/*/*.tfvars*
 /temp
+**/helm/charts/
