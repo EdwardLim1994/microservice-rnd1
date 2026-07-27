@@ -1,3 +1,2 @@
-docker_build("debezium-kafka-connect", "./kafka-connect")
 k8s_yaml(helm("./helm", name="debezium", namespace="infra"))
 k8s_resource("kafka-connect", labels=["infra"])

@@ -1,9 +1,9 @@
 namespace: infra
 
 image:
-  # Built via `bun run k8s:build` (see services/debezium/package.json's own k8s:build script)
-  # against minikube's own Docker daemon, not pulled from a registry — same local-image pattern as
-  # servers/test1/helm/values.yaml's image.app.
-  repository: debezium-kafka-connect
-  tag: local
+  # Official Debezium image — ships all connectors (including postgres) pre-installed, no
+  # custom build/push needed. Primary registry is quay.io (see debezium/container-images' own
+  # README); tag tracks the debezium-connector-postgresql version this was pinned to before.
+  repository: quay.io/debezium/connect
+  tag: "3.2"
   pullPolicy: IfNotPresent

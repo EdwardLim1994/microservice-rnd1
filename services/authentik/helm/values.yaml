@@ -1,2 +1,23 @@
 authentik:
-  secret_key: authentiksecretkey
+  authentik:
+    secret_key: authentiksecretkey
+    # Must match postgresql.auth.password below — the chart doesn't auto-wire the
+    # bundled Postgres's generated secret, both sides need the same plain value.
+    postgresql:
+      password: authentikpostgrespassword
+  # Chart defaults to no bundled DB (expects external Postgres) — enable the bundled
+  # one, matching this repo's other dev infra (vault/kafka run in-cluster too).
+  postgresql:
+    enabled: true
+    auth:
+      password: authentikpostgrespassword
+    # minikube's default hostpath storage class provisions volumes owned by root; the
+    # postgres container runs as non-root and can't write to them without this.
+    # This chart's shell-image substitution renders "registry-1.docker.io/debian:13-slim"
+    # (missing the "library/" namespace segment Docker Hub needs for official images),
+    # which containerd can't resolve — pin an explicit, correct repository instead.
+    volumePermissions:
+      enabled: true
+      image:
+        repository: library/debian
+        tag: 13-slim

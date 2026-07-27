@@ -31,12 +31,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
-          env:
-            # In-memory storage — no persistence, resets on restart. Matches this repo's other
-            # dev-default infra (no Postgres/Kafka backing store wired up here); switch to
-            # APICURIO_STORAGE_KIND=sql or kafkasql if registered schemas need to survive restarts.
-            - name: APICURIO_STORAGE_KIND
-              value: "mem"
+          # No APICURIO_STORAGE_KIND set — defaults to in-memory storage, no persistence,
+          # resets on restart. Matches this repo's other dev-default infra (no Postgres/Kafka
+          # backing store wired up here); set it to sql or kafkasql if schemas need to survive restarts.
           readinessProbe:
             httpGet:
               path: /health/ready
