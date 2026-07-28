@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ name }}-db
+  labels:
+    app: {{ name }}-db
+spec:
+  # Always 1 — a second replica would each get its own volume and diverge into two separate
+  # databases, not a real HA setup. Local/testing Postgres, same scope as every other
+  # single-instance infra chart in this repo.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ name }}-db
+  template:
+    metadata:
+      labels:
+        app: {{ name }}-db
+    spec:
+      # Postgres's image runs as a non-root uid (999) — matches every other bundled-Postgres
+      # chart in this repo (see services/authentik/helm/values.yaml's volumePermissions comment)
+      # so the default root-owned volume is actually writable by it.
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:15.3-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: myuser
+            - name: POSTGRES_PASSWORD
+              value: mypassword
+            - name: POSTGRES_DB
+              value: {{ name }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "myuser", "-d", "{{ name }}"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      # ponytail: emptyDir, not a PersistentVolumeClaim — this is a per-server dev/test database,
+      # losing data on pod restart is fine. Switch to a PVC (see git history's
+      # templates/database/helm/postgres-pvc.yaml for the old shape) if that stops being true.
+      volumes:
+        - name: data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ name }}-db
+  labels:
+    app: {{ name }}-db
+spec:
+  # ClusterIP — only this server's own app pod and the migrate Job need to reach this.
+  type: ClusterIP
+  selector:
+    app: {{ name }}-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+
+---
+# Consumed via envFrom by this chart's own deployment.yaml (see wireHelmDeploymentConfigMap) and
+# by the migrate Job below. Static superuser creds, same as every other dev-mode Postgres in this
+# repo (e.g. services/authentik/helm/values.yaml) — no Vault indirection for a test server.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ name }}-env
+data:
+  DATABASE_URL: postgresql://myuser:mypassword@{{ name }}-db:5432/{{ name }}
+  DB_HOST: {{ name }}-db
+  DB_PORT: "5432"
+  DB_NAME: {{ name }}
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job's spec is immutable — re-running `tilt up`/`helm upgrade` after a real schema change
+  # needs this Job deleted first (`kubectl delete job {{ name }}-migrate`), or the apply fails
+  # trying to update a field it can't change in place.
+  name: {{ name }}-migrate
+  labels:
+    app: {{ name }}-migrate
+spec:
+  # Postgres's own readinessProbe gates whether its Service has any endpoints at all — until it
+  # does, connections here just fail outright rather than queueing, so this Job relies on
+  # backoffLimit's retries (with backoff) rather than an initContainer wait-loop.
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: {{ name }}-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: {{ name }}-migrate
+          env:
+            - name: DATABASE_URL
+              value: postgresql://myuser:mypassword@{{ name }}-db:5432/{{ name }}

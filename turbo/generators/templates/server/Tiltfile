@@ -1,4 +1,12 @@
-docker_build("{{name}}", "apps/servers/{{name}}")
+docker_build(
+    "{{name}}",
+    "apps/servers/{{name}}",
+    target="development",
+    live_update=[
+        sync("apps/servers/{{name}}/src", "/app/apps/servers/{{name}}/src"),
+        restart_container(),
+    ],
+)
 
 k8s_yaml(helm("apps/servers/{{name}}/helm", name="{{name}}"))
 

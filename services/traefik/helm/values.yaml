@@ -1,1 +1,12 @@
-traefik: {}
+traefik:
+  ports:
+    # Pinned (not auto-assigned) so minikube's docker driver can map fixed host ports to them at
+    # cluster-creation time (`minikube start --ports=8080:30080 --ports=8443:30443`) — LAN
+    # devices then reach Traefik directly via the host's real network interface, no
+    # `kubectl port-forward` process needed. Host-side 8080/8443 intentionally match what's
+    # already baked into every app's OIDC redirect_uris/hostAliases (grafana.lan:8080, etc.), so
+    # this swap needs no changes anywhere else.
+    web:
+      nodePort: 30080
+    websecure:
+      nodePort: 30443

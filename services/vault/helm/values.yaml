@@ -6,3 +6,7 @@ rootToken: vaultroottoken
 
 persistence:
   size: 1Gi
+
+# Native OIDC login against Authentik (https://integrations.goauthentik.io/vault) — must match
+# services/authentik/helm/values.yaml's vaultOidcClientSecret.
+oidcClientSecret: vaultoidcclientsecret

@@ -7,3 +7,7 @@ rootPassword: minioadmin
 
 persistence:
   size: 1Gi
+
+# Native OIDC login against Authentik (https://integrations.goauthentik.io/minio) — must match
+# services/authentik/helm/values.yaml's minioOidcClientSecret.
+oidcClientSecret: miniooidcclientsecret

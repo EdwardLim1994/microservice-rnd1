@@ -18,6 +18,18 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
+      # Lets the container resolve "authentik.lan" (see secret.yaml's
+      # MINIO_IDENTITY_OPENID_CONFIG_URL, which points at port 8080 to match the browser-facing
+      # `kubectl port-forward ... 8080:80` — Authentik echoes back whatever authority the request
+      # arrived on, so the discovery fetch needs ":8080" too) to the traefik-web-8080 Service (see
+      # services/traefik/helm/templates/web-8080-service.yaml) — not a real Service name CoreDNS
+      # knows about, and *.localhost/*.lan can't be relied on to resolve to anything but loopback
+      # (or nothing) from inside the pod's own network namespace.
+      {{- $traefikSvc := lookup "v1" "Service" "infra" "traefik-web-8080" }}
+      hostAliases:
+        - ip: {{ if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
+          hostnames:
+            - authentik.lan
       containers:
         - name: minio
           image: "{{ .Values.image }}"

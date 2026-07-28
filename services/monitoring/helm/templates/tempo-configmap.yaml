@@ -8,7 +8,7 @@ metadata:
 data:
   # Real copy of services/monitoring/config/tempo.yaml — see prometheus-configmap.yaml's comment
   # for why (Helm .Files.Get chart-directory restriction). remote_write's "prometheus:9090" target
-  # resolves fine as-is in-cluster — both live in the same namespace (no cross-namespace FQDN
-  # rewrite needed, unlike services/apollo/helm/files/supergraph.graphql's demo1 URL).
+  # resolves fine as-is in-cluster — both live in the same namespace, no cross-namespace FQDN
+  # rewrite needed.
   tempo.yaml: |
 {{ .Files.Get "files/tempo.yaml" | indent 4 }}

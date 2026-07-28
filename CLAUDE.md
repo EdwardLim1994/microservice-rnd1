@@ -23,7 +23,7 @@ Bun + Turborepo monorepo. Run everything from repo root; Turbo fans out to works
 
 ### Workspace layout
 
-- `services/*` — third-party infra run in-repo (Apollo router/gateway, Authentik, Kafka, Redis, Meilisearch, MinIO, Vault, Traefik, Debezium, monitoring, Apicurio Registry, ClickHouse). `adminer` was retired outright (replaced by Grafana, see `services/monitoring`), not migrated to helm.
+- `services/*` — third-party infra run in-repo (Apollo router/gateway, Authentik, Kafka, Redis, Meilisearch, MinIO, Vault, Traefik, monitoring, Apicurio Registry, ClickHouse). `adminer` was retired outright (replaced by Grafana, see `services/monitoring`), not migrated to helm. Debezium was removed from here — CDC is moving to a per-server Debezium Server instance (one process per Postgres database being captured, not a shared Kafka Connect cluster), not yet scaffolded.
 - `servers/*` — backend microservices (e.g. `servers/auth`), each a thin composition root over the shared `packages/server` framework
 - `frontends/*` — React Module Federation microfrontends, generated via `turbo gen web` (remote role)
 - `apps/*` — user-facing apps: the microfrontend host, mobile app, plain (non-MF) web apps, and the docs site
@@ -37,8 +37,8 @@ Every `services/*`, `apps/servers/*`, `apps/web/*`, `apps/mfe/*` workspace owns 
 
 Patterns established during the docker-compose → Tilt/helm migration:
 - Simple single/multi-container infra (Redis, Meilisearch, MinIO, ClickHouse, Apicurio Registry, Vault, Kafka) — hand-rolled charts, no upstream chart dependency; matches what the old compose file actually ran, nothing more.
-- Infra with a real, trustworthy upstream chart (Traefik, Authentik) — that chart as a `dependencies:` entry in `Chart.yaml` instead of reinventing its RBAC/CRDs/subcharts. `charts/` (the fetched dependency `.tgz`s) is gitignored; `Chart.lock` is committed.
-- A locally-built image (Debezium's Kafka Connect + connector plugin, Apollo Router baking in `router.yaml`/`dist/supergraph.graphql`, any generated server/frontend) — a `Dockerfile` + the workspace's `Tiltfile` calls `docker_build()`, referenced by tag from `helm/templates/*.yaml`.
+- Infra with a real, trustworthy upstream chart (Traefik, Authentik, Apollo Router) — that chart as a `dependencies:` entry in `Chart.yaml` instead of reinventing its RBAC/CRDs/subcharts. `charts/` (the fetched dependency `.tgz`s) is gitignored; `Chart.lock` is committed. Apollo Router's `router.yaml`/`supergraph.graphql` config lives inline in `values.yaml` under the dependency's own schema, not `.Files.Get` — that chart takes config as values, not mounted files.
+- A locally-built image (any generated server/frontend) — a `Dockerfile` + the workspace's `Tiltfile` calls `docker_build()`, referenced by tag from `helm/templates/*.yaml`.
 - One-off provisioning tools (`*-ansible` containers, `rover`) — not migrated; they're not long-running workloads, still invoked via `docker compose run --rm <service> ...` against the kept-as-backup compose files.
 - `turbo/generators`' `database` server extension scaffolds a `<name>-db` chart (Postgres + a `<name>-migrate` k8s `Job`, the Job built from the same `Dockerfile`'s `migrate` stage via a second `docker_build()`) and wires `DB_HOST`/`DB_PORT`/etc into the server's own `Deployment` via a `ConfigMap` + `envFrom` (see `wireHelmDeploymentConfigMap` in `turbo/generators/helpers.ts`); the `kafka` server driver extension does the same for `KAFKA_BROKERS`/`SCHEMA_REGISTRY_URL`. Both append their own `configMapRef` to the same `envFrom:` list rather than clobbering each other.
 - Known gap: Vault's ansible-based provisioning (`vault:provision` script) still runs via `docker compose run` and only resolves `vault`/`<name>-db` hostnames while those compose backups are actually running alongside their k8s equivalents — not yet ported to an in-cluster k8s `Job`.
@@ -61,7 +61,7 @@ Key pieces (all under `packages/server/src/`):
 - **Interceptors** (`interceptor/`) — request-level middleware applied across drivers.
 - **Plugins** (`plugin/`) — server-lifecycle hooks (`onStart`/`onStop`) for external integrations: `AuthentikPlugin`, `RedisPlugin`, `MeilisearchPlugin`, `MinioPlugin`, `OtelPlugin`.
 - **DI container** — an `awilix` container (`InjectionMode.PROXY`) threaded through routers/interceptors/plugins; `.containers()` registers additional entries (e.g. repositories).
-- **Database** (`database/DbAdapter.ts`) — Prisma client wiring; `dbAdapter` can be a value or an async factory (e.g. `VaultPgAdapter.fromEnv()`, resolved before drivers start since Vault-backed credentials need an async round trip).
+- **Database** (`database/DbAdapter.ts`) — Prisma client wiring; `dbAdapter` can be a value (e.g. `new PgAdapter(databaseUrl)`, the generated default — static superuser creds) or an async factory, resolved before drivers start for adapters that need an async round trip to obtain credentials. Vault-backed dynamic Postgres credentials (`VaultPgAdapter`) were removed pending a redesign; `VaultTlsAdapter` (mTLS leaf certs for `GrpcDriver`/`ApolloDriver`) is unrelated and still in place.
 
 `stop()` reverses `run()`'s order: plugins stop, then drivers stop, then the DB disconnects.
 

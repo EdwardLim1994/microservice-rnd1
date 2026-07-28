@@ -109,8 +109,9 @@ export class ServerApp {
 
   /**
    * Registers the Prisma client class + adapter (or async adapter factory) — resolved inside
-   * `run()`, before plugins start, since a factory (e.g. `VaultPgAdapter.fromEnv()`) needs an
-   * awaited round-trip that can't happen synchronously here.
+   * `run()`, before plugins start, since a factory adapter may need an awaited round-trip
+   * (e.g. fetching credentials from an external secrets store) that can't happen synchronously
+   * here.
    */
   database<TClient extends PrismaLifecycle>(
     Client: PrismaClientConstructor<TClient>,

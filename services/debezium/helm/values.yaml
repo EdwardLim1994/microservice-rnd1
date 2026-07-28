@@ -1,9 +1,0 @@
-namespace: infra
-
-image:
-  # Official Debezium image — ships all connectors (including postgres) pre-installed, no
-  # custom build/push needed. Primary registry is quay.io (see debezium/container-images' own
-  # README); tag tracks the debezium-connector-postgresql version this was pinned to before.
-  repository: quay.io/debezium/connect
-  tag: "3.2"
-  pullPolicy: IfNotPresent

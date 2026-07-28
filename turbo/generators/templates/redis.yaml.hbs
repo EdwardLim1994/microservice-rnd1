@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ name }}-redis
+  labels:
+    app: {{ name }}-redis
+spec:
+  # Always 1 — dev cache, not HA. Same scope as {{ name }}-db.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ name }}-redis
+  template:
+    metadata:
+      labels:
+        app: {{ name }}-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ name }}-redis
+  labels:
+    app: {{ name }}-redis
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ name }}-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+
+---
+# Consumed via envFrom by this chart's own deployment.yaml. Bun's RedisClient() reads REDIS_URL
+# when constructed with no args (see RedisPlugin.createBunRedisClient).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ name }}-redis-env
+data:
+  REDIS_URL: redis://{{ name }}-redis:6379

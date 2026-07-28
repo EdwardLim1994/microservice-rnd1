@@ -1,4 +1,30 @@
+# Must match services/minio/helm/values.yaml's oidcClientSecret,
+# services/monitoring/helm/values.yaml's grafanaOidcClientSecret,
+# services/vault/helm/values.yaml's oidcClientSecret, and
+# services/argocd/helm/values.yaml's configs.secret.extra."oidc.auth.client.secret" — separate
+# Helm releases, no shared values, so these are duplicated by hand like every other cross-chart
+# dev secret here (authentiksecretkey, vaultroottoken, ...).
+minioOidcClientSecret: miniooidcclientsecret
+grafanaOidcClientSecret: grafanaoidcclientsecret
+vaultOidcClientSecret: vaultoidcclientsecret
+argocdOidcClientSecret: argocdoidcclientsecret
+
 authentik:
+  # akadmin's login — only takes effect on the very first bootstrap (an already-provisioned
+  # install, like this one originally was, needs its password set by hand once via
+  # `ak shell -c "u = User.objects.get(username='akadmin'); u.set_password(...); u.save()"`).
+  global:
+    env:
+      - name: AUTHENTIK_BOOTSTRAP_PASSWORD
+        value: authentikadmin
+      - name: AUTHENTIK_BOOTSTRAP_EMAIL
+        value: akadmin@authentik.local
+  # Registers minio/grafana/vault/argocd as native OIDC apps on boot — see
+  # templates/proxy-blueprint-configmap.yaml. The configmap name must match the release's
+  # rendered name exactly (Helm doesn't template values.yaml itself).
+  blueprints:
+    configMaps:
+      - authentik-proxy-blueprint
   authentik:
     secret_key: authentiksecretkey
     # Must match postgresql.auth.password below — the chart doesn't auto-wire the

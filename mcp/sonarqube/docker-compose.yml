@@ -2,4 +2,4 @@ services:
   sonarqube:
     image: mcp/sonarqube:latest
     env_file:
-      - .env
+      - path: .env

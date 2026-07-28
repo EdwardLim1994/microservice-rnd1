@@ -21,6 +21,15 @@ grafana:
   adminPassword: admin
   persistence:
     size: 1Gi
+  # Native OIDC login against Authentik (https://integrations.goauthentik.io/grafana) — must
+  # match services/authentik/helm/values.yaml's grafanaOidcClientSecret.
+  oidcClientSecret: grafanaoidcclientsecret
+  # Grafana's own redirect_uri is always "<rootUrl>/login/generic_oauth" — must be one of the
+  # three registered on the Authentik side (see the blueprint's grafana-provider redirect_uris).
+  # .lan:8080 because this is being driven from a LAN device via the temporary
+  # `kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80 8443:443` — switch to
+  # grafana.localhost (no port) for same-machine access once that's no longer running.
+  rootUrl: http://grafana.lan:8080/
 
 otelCollector:
   image: otel/opentelemetry-collector-contrib:0.116.1

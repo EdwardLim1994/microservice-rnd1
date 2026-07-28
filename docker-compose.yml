@@ -1,4 +1,3 @@
 include:
   - ./mcp/docker-compose.yml
-  - ./services/docker-compose.yml
   - ./apps/docker-compose.yml

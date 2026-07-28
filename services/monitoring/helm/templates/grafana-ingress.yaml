@@ -1,7 +1,6 @@
-# Same Host() as services/monitoring/docker-compose.yml's `traefik.http.routers.grafana.rule`
-# label — not behind Traefik's admin-auth middleware there either, since Grafana already gates
-# itself with its own login; same reasoning applies here (see services/traefik/CLAUDE.md's
-# Kubernetes section for why no equivalent middleware exists in-cluster anyway).
+# No forward-auth middleware here — Grafana gates itself via native OIDC login against Authentik
+# (see services/authentik/helm/templates/proxy-blueprint-configmap.yaml's grafana-provider), same
+# as minio.localhost (see services/minio/helm/templates/ingress.yaml).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -13,6 +12,16 @@ spec:
   ingressClassName: traefik
   rules:
     - host: grafana.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+    - host: grafana.lan
       http:
         paths:
           - path: /

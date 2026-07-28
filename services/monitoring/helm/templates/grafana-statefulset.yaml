@@ -19,6 +19,14 @@ spec:
       enableServiceLinks: false
       # No use of the Kubernetes API from within this pod.
       automountServiceAccountToken: false
+      # Lets the container resolve "authentik.lan" (see grafana-secret.yaml's
+      # GF_AUTH_GENERIC_OAUTH_TOKEN_URL) to Traefik's ClusterIP — see
+      # services/minio/helm/templates/statefulset.yaml's identical hostAliases for why.
+      {{- $traefikSvc := lookup "v1" "Service" "infra" "traefik-web-8080" }}
+      hostAliases:
+        - ip: {{ if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
+          hostnames:
+            - authentik.lan
       containers:
         - name: grafana
           image: "{{ .Values.grafana.image }}"
@@ -33,17 +41,9 @@ spec:
           ports:
             - name: http
               containerPort: 3000
-          env:
-            - name: GF_SECURITY_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-secret
-                  key: GF_SECURITY_ADMIN_USER
-            - name: GF_SECURITY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-secret
-                  key: GF_SECURITY_ADMIN_PASSWORD
+          envFrom:
+            - secretRef:
+                name: grafana-secret
           readinessProbe:
             httpGet:
               path: /api/health

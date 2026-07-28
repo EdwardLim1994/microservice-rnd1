@@ -1,0 +1,62 @@
+# One Debezium Server process captures server1-db only — not a shared Kafka Connect cluster
+# (see root CLAUDE.md's CDC note). Lives in server1's own chart, next to db.yaml, but as its own
+# Deployment so it restarts/redeploys independently of the app container.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server1-debezium-config
+data:
+  application.properties: |
+    debezium.source.connector.class=io.debezium.connector.postgresql.PostgresConnector
+    debezium.source.plugin.name=pgoutput
+    debezium.source.slot.name=server1_debezium
+    debezium.source.publication.name=server1_debezium
+    debezium.source.database.hostname=server1-db
+    debezium.source.database.port=5432
+    debezium.source.database.user=myuser
+    debezium.source.database.password=mypassword
+    debezium.source.database.dbname=server1
+    debezium.source.topic.prefix=server1
+    debezium.source.offset.storage.file.filename=/debezium/data/offsets.dat
+    debezium.source.database.history.file.filename=/debezium/data/history.dat
+    debezium.sink.type=kafka
+    debezium.sink.kafka.producer.bootstrap.servers=kafka.infra.svc.cluster.local:9092
+    debezium.sink.kafka.producer.key.serializer=org.apache.kafka.common.serialization.StringSerializer
+    debezium.sink.kafka.producer.value.serializer=org.apache.kafka.common.serialization.StringSerializer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server1-debezium
+  labels:
+    app: server1-debezium
+spec:
+  # Always 1 — a replication slot is single-consumer; a second replica would just fight the
+  # first one over the same slot.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server1-debezium
+  template:
+    metadata:
+      labels:
+        app: server1-debezium
+    spec:
+      containers:
+        - name: debezium-server
+          image: debezium/server:2.7
+          volumeMounts:
+            - name: config
+              mountPath: /debezium/conf
+            # ponytail: emptyDir offset/history storage — restart replays from the last
+            # committed Kafka offset via the slot, fine for dev. Switch to a PVC if a pod
+            # restart losing in-flight (uncommitted) position ever actually matters.
+            - name: data
+              mountPath: /debezium/data
+      volumes:
+        - name: config
+          configMap:
+            name: server1-debezium-config
+        - name: data
+          emptyDir: {}

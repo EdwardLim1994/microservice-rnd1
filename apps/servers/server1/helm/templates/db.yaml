@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server1-db
+  labels:
+    app: server1-db
+spec:
+  # Always 1 — a second replica would each get its own volume and diverge into two separate
+  # databases, not a real HA setup. Local/testing Postgres, same scope as every other
+  # single-instance infra chart in this repo.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server1-db
+  template:
+    metadata:
+      labels:
+        app: server1-db
+    spec:
+      # Postgres's image runs as a non-root uid (999) — matches every other bundled-Postgres
+      # chart in this repo (see services/authentik/helm/values.yaml's volumePermissions comment)
+      # so the default root-owned volume is actually writable by it.
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:15.3-alpine
+          # wal_level=logical + a replication slot/sender — required for Debezium Server's
+          # pgoutput plugin (see debezium.yaml) to stream this database's WAL at all. Args only
+          # (no `command:` override) so docker-entrypoint.sh's init logic still runs.
+          args:
+            - "-c"
+            - "wal_level=logical"
+            - "-c"
+            - "max_replication_slots=4"
+            - "-c"
+            - "max_wal_senders=4"
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: myuser
+            - name: POSTGRES_PASSWORD
+              value: mypassword
+            - name: POSTGRES_DB
+              value: server1
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "myuser", "-d", "server1"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      # ponytail: emptyDir, not a PersistentVolumeClaim — this is a per-server dev/test database,
+      # losing data on pod restart is fine. Switch to a PVC (see git history's
+      # templates/database/helm/postgres-pvc.yaml for the old shape) if that stops being true.
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: initdb
+          configMap:
+            name: server1-db-initdb
+
+---
+# docker-entrypoint.sh runs *.sql in /docker-entrypoint-initdb.d on first boot (empty data dir
+# only) — creates the publication pgoutput needs; Debezium creates the replication slot itself
+# but won't create this.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server1-db-initdb
+data:
+  publication.sql: |
+    CREATE PUBLICATION server1_debezium FOR ALL TABLES;
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server1-db
+  labels:
+    app: server1-db
+spec:
+  # ClusterIP — only this server's own app pod and the migrate Job need to reach this.
+  type: ClusterIP
+  selector:
+    app: server1-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+
+---
+# Consumed via envFrom by this chart's own deployment.yaml (see wireHelmDeploymentConfigMap) and
+# by the migrate Job below. Static superuser creds, same as every other dev-mode Postgres in this
+# repo (e.g. services/authentik/helm/values.yaml) — no Vault indirection for a test server.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server1-env
+data:
+  DATABASE_URL: postgresql://myuser:mypassword@server1-db:5432/server1
+  DB_HOST: server1-db
+  DB_PORT: "5432"
+  DB_NAME: server1
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job's spec is immutable — re-running `tilt up`/`helm upgrade` after a real schema change
+  # needs this Job deleted first (`kubectl delete job server1-migrate`), or the apply fails
+  # trying to update a field it can't change in place.
+  name: server1-migrate
+  labels:
+    app: server1-migrate
+spec:
+  # Postgres's own readinessProbe gates whether its Service has any endpoints at all — until it
+  # does, connections here just fail outright rather than queueing, so this Job relies on
+  # backoffLimit's retries (with backoff) rather than an initContainer wait-loop.
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: server1-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: server1-migrate
+          env:
+            - name: DATABASE_URL
+              value: postgresql://myuser:mypassword@server1-db:5432/server1

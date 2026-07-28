@@ -1,0 +1,104 @@
+# Vault has no chart-values-level OIDC config the way minio/grafana do — it's set up through
+# Vault's own API/CLI (`vault auth enable oidc` + `vault write auth/oidc/...`), so a post-install/
+# post-upgrade hook Job runs those commands against the already-running Vault dev-mode instance.
+# before-hook-creation deletes the previous run's completed Job first, so this re-applies cleanly
+# on every `helm upgrade`, same idea as re-running `ak apply_blueprint` for Authentik's side.
+#
+# Deliberately grants Vault's built-in "default" policy (near-zero permissions, just enough to
+# read one's own token) rather than mirroring minio/grafana's "everyone gets full access" default
+# — Vault holds secrets, so least-privilege is the safer default here even in a dev repo. Write a
+# real policy and reference it in the `policies=` write below if OIDC users need more.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-oidc-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "vault.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      # No hostAliases needed here — this pod only ever talks to VAULT_ADDR (vault:8200); the
+      # discovery-URL fetch that needs "authentik.lan" happens server-side, inside vault-0 itself
+      # (see statefulset.yaml's hostAliases).
+      containers:
+        - name: vault-oidc-provision
+          image: "{{ .Values.image }}"
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: VAULT_DEV_ROOT_TOKEN_ID
+            - name: VAULT_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: VAULT_OIDC_CLIENT_SECRET
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until vault status >/dev/null 2>&1; do
+                echo "waiting for vault..."
+                sleep 2
+              done
+
+              vault auth enable -path=oidc oidc || true
+
+              # Enabling an auth method doesn't make it appear on the unauthenticated login
+              # screen's Method dropdown by default — that's a separate, easy-to-miss opt-in.
+              vault auth tune -listing-visibility=unauth oidc/
+
+              # `vault write auth/oidc/config` fetches Authentik's discovery URL synchronously
+              # and fails hard if it 404s — which it does until Authentik's own blueprint has
+              # finished creating the "vault" application (services/authentik/helm's
+              # authentik-server/worker Deployments becoming Ready says nothing about that; it's
+              # an async background apply with no shared readiness signal to hook into). No
+              # ordering between the authentik and vault Helm releases (both installed via the
+              # same terraform for_each, see services/terraform/main.tf) closes this — only
+              # actually polling does. Internal Service DNS here, not authentik.lan: this is a
+              # readiness check, not a URL that ends up embedded in anything user-facing.
+              # On a from-scratch cluster (all services installed in parallel, no ordering —
+              # see main.tf's for_each), authentik-postgresql alone can still be
+              # PodInitializing minutes in, before authentik-server/worker even start
+              # migrating — 5m wasn't enough headroom, matching the "cold node 10-15min"
+              # reality already called out in main.tf's own wait=false comment.
+              echo "waiting for authentik's vault application to exist..."
+              i=0
+              until wget -q -O /dev/null "http://authentik-server.infra.svc.cluster.local/application/o/vault/.well-known/openid-configuration"; do
+                i=$((i + 1))
+                if [ "$i" -ge 180 ]; then
+                  echo "authentik's vault application still doesn't exist after 15m — giving up. Check 'kubectl exec -n infra deploy/authentik-worker -- ak apply_blueprint /blueprints/mounted/cm-authentik-proxy-blueprint/proxy-apps.yaml'"
+                  exit 1
+                fi
+                sleep 5
+              done
+
+              vault write auth/oidc/config \
+                oidc_discovery_url="http://authentik.lan:8080/application/o/vault/" \
+                oidc_client_id="vault" \
+                oidc_client_secret="$VAULT_OIDC_CLIENT_SECRET" \
+                default_role="default"
+
+              # oidc_scopes has no default beyond the implicit "openid" — without it Vault never
+              # asks for the "email"/"profile" scopes, so user_claim="email" fails at login with
+              # "claim \"email\" not found in token" even though Authentik's provider grants it.
+              vault write auth/oidc/role/default \
+                user_claim="email" \
+                oidc_scopes="email profile" \
+                allowed_redirect_uris="http://vault.localhost/ui/vault/auth/oidc/oidc/callback,http://vault.lan/ui/vault/auth/oidc/oidc/callback,http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback" \
+                policies="default"

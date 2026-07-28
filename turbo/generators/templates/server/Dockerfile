@@ -41,16 +41,41 @@ COPY --from=pruner /app/out/json/ .
 RUN bun install --ignore-scripts
 
 # ── builder ────────────────────────────────────────────────────────────────────
+# Stops right after workspace deps (packages/server etc.) are built — every downstream stage
+# needs their dist/ output (see packages/server/package.json's exports), but not every downstream
+# stage needs this app's own binary compiled, so that step lives in its own "compiled" stage
+# instead of here.
 FROM installer AS builder
 
 ARG SERVER_NAME
-ARG BUN_TARGET
 
 COPY --from=pruner /app/out/full/ .
 
 RUN bun run build
 
-WORKDIR /app/servers/"${SERVER_NAME}"
+WORKDIR /app/apps/servers/"${SERVER_NAME}"
+
+# ── development ───────────────────────────────────────────────────────────────
+# Runs index.ts directly via bun (no compile step) — for Tilt live_update: source edits land in
+# the already-running container and bun re-executes them on the next request/restart, instead of
+# waiting on a full `bun build --compile` per change like the "compiled"/"runtime" path below.
+FROM builder AS development
+
+ENTRYPOINT ["bun", "run", "index.ts"]
+
+# ── migrate ──────────────────
+# One-off stage: reuses `builder`'s bun + prisma CLI + copied schema/migrations.
+# The `runtime` stage below only ships the compiled binary, so this is the only
+# stage that can actually run `prisma migrate deploy`.
+FROM builder AS migrate
+
+ENTRYPOINT ["./node_modules/.bin/prisma", "migrate", "deploy"]
+
+# ── compiled ───────────────────────────────────────────────────────────────────
+FROM builder AS compiled
+
+ARG SERVER_NAME
+ARG BUN_TARGET
 
 RUN  bun build ./index.ts \
     --compile \
@@ -66,7 +91,7 @@ RUN groupadd --system "${SERVER_NAME}" && useradd --system --gid "${SERVER_NAME}
 
 WORKDIR /app
 
-COPY --from=builder /app/servers/${SERVER_NAME}/${SERVER_NAME} ./${SERVER_NAME}
+COPY --from=compiled /app/apps/servers/${SERVER_NAME}/${SERVER_NAME} ./${SERVER_NAME}
 
 RUN chmod +x ./"${SERVER_NAME}"
 

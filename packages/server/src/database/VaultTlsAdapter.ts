@@ -19,15 +19,15 @@ export interface VaultTlsAdapterConfig {
 }
 
 /**
- * Fetches a short-lived TLS leaf cert from Vault's PKI secrets engine (via AppRole login) — same
- * shape as VaultPgAdapter.fromEnv(), a different secrets engine. Consumed by GrpcDriver/
+ * Fetches a short-lived TLS leaf cert from Vault's PKI secrets engine (via AppRole login).
+ * Consumed by GrpcDriver/
  * ApolloDriver's `tls` config for mTLS. See services/vault/CLAUDE.md for the provisioning story
  * (services/vault/ansible/roles/provision-server-vault) a server's role_id/secret_id/tlsRole come
  * from.
  *
  * Known gap: the returned cert expires at its Vault lease TTL (default 1h, configured in
- * services/vault/ansible's pki_int/roles/<name>-tls-role) — nothing renews it, same accepted
- * "restart to get a fresh one" gap as VaultPgAdapter's Postgres credential.
+ * services/vault/ansible's pki_int/roles/<name>-tls-role) — nothing renews it, a long-running
+ * server must restart to get a fresh one.
  */
 export class VaultTlsAdapter {
   /**

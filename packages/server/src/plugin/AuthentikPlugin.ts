@@ -58,7 +58,7 @@ export interface AuthentikCreatedUser {
 /**
  * Thrown on any non-2xx response, carrying the status + parsed body so a use case can branch on
  * it (e.g. 401 on bad sign-in credentials vs. a genuine 5xx) instead of catching a bare Error and
- * guessing — same rationale as VaultPgAdapter's typed response interfaces, one level further.
+ * guessing.
  */
 export class AuthentikApiError extends Error {
   constructor(
@@ -86,8 +86,8 @@ async function parseBody(response: Response): Promise<unknown> {
 }
 
 /**
- * Plain fetch-based thin client — same convention as VaultPgAdapter's vaultFetch, not a generated
- * SDK. Three integration points: Flow Executor + Authorization Code sign-in, RFC 7009 revoke, and
+ * Plain fetch-based thin client, not a generated SDK. Three integration points: Flow Executor +
+ * Authorization Code sign-in, RFC 7009 revoke, and
  * Admin API user creation (see services/authentik/CLAUDE.md and servers/auth/CLAUDE.md for why
  * these three specifically, and why signIn() isn't a plain OAuth2 "password" grant).
  */

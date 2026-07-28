@@ -44,6 +44,26 @@ function addPrismaClientImport(raw: string): string {
 }
 
 /**
+ * Inserts `const databaseUrl = process.env.DATABASE_URL; if (!databaseUrl) throw ...` right
+ * before the server's `export default async function main` — PgAdapter takes a plain connection
+ * string, not an env lookup, so the required-var guard has to live at the call site instead of
+ * inside an adapter factory. Idempotent: skips if already present.
+ */
+function addDatabaseUrlGuard(raw: string): string {
+	const guard =
+		"const databaseUrl = process.env.DATABASE_URL;\n" +
+		'if (!databaseUrl) throw new Error("DATABASE_URL is required");\n\n';
+	if (raw.includes("const databaseUrl")) return raw;
+
+	const marker = "export default async function main";
+	const markerIndex = raw.indexOf(marker);
+	if (markerIndex === -1) {
+		throw new Error(`Could not find "${marker}" marker`);
+	}
+	return `${raw.slice(0, markerIndex)}${guard}${raw.slice(markerIndex)}`;
+}
+
+/**
  * Inserts a chained builder call (e.g. `.database(PrismaClient, new PgAdapter(...))`) right
  * after `ServerApp.init(...)`'s closing paren, before whatever chained call already follows it
  * (`.containers(`, `.routers(`, `.run(`, ...) — same "find init(), locate its matching close
@@ -60,8 +80,9 @@ function injectServerAppChainCall(
 		return `${relToRoot(absAppPath)} already has .${marker}(...)`;
 	}
 
-	raw = addNamedImport(raw, "server", "VaultPgAdapter");
+	raw = addNamedImport(raw, "server", "PgAdapter");
 	raw = addPrismaClientImport(raw);
+	raw = addDatabaseUrlGuard(raw);
 
 	const initMarker = "ServerApp.init(";
 	const initIndex = raw.indexOf(initMarker);
@@ -123,33 +144,25 @@ function mergePrismaIntoPackageJson(absPackageJsonPath: string): string {
 }
 
 /**
- * VaultPgAdapter.fromEnv() needs the pieces to build a connection string around Vault's returned
- * username/password (DB_HOST/DB_PORT/DB_NAME) plus how to reach/authenticate to Vault itself
- * (VAULT_ADDR/VAULT_DB_ROLE — VAULT_ROLE_ID/VAULT_SECRET_ID are written separately by
- * services/vault/ansible's provisioning role once it's actually been run, not by this generator).
- * DATABASE_URL is still required alongside these — prisma.config.ts (createPrismaConfig()) reads
- * it directly for Prisma CLI operations (generate/migrate), which need a static connection
- * regardless of Vault. It's the same static superuser already scaffolded for <name>-db, and also
- * the value to pass into `new PgAdapter(process.env.DATABASE_URL!)` for the manual "switch to
- * root for testing" override documented in packages/server/CLAUDE.md's Database section.
+ * Static superuser creds — same one scaffolded for <name>-db's own container (see
+ * helm-db.yaml.hbs) — passed straight into `new PgAdapter(databaseUrl)`. No Vault indirection;
+ * DATABASE_URL is also read directly by prisma.config.ts (createPrismaConfig()) for Prisma CLI
+ * operations (generate/migrate).
  */
 function buildDatabaseEnvBlock(name: string, port: number): string {
 	return (
-		`# Database (Vault-backed at runtime — see packages/server/CLAUDE.md's Database section).\n` +
-		`# DATABASE_URL is still required by prisma.config.ts for Prisma CLI operations.\n` +
+		`# Database — static superuser creds, also read by prisma.config.ts for Prisma CLI\n` +
+		`# operations (generate/migrate).\n` +
 		`DATABASE_URL=postgresql://myuser:mypassword@localhost:${port}/${name}\n` +
 		`DB_HOST=localhost\n` +
 		`DB_PORT=${port}\n` +
-		`DB_NAME=${name}\n` +
-		`VAULT_ADDR=http://localhost:8200\n` +
-		`VAULT_DB_ROLE=${name}-role\n`
+		`DB_NAME=${name}\n`
 	);
 }
 
 /**
- * Appends the Vault-backed database env block to .env.sample (creating it if somehow missing)
- * and, only if it already exists, to .env too — .env is gitignored and may not exist in a fresh
- * checkout.
+ * Appends the database env block to .env.sample (creating it if somehow missing) and, only if it
+ * already exists, to .env too — .env is gitignored and may not exist in a fresh checkout.
  */
 function appendDatabaseEnvBlock(
 	absPath: string,
@@ -159,7 +172,7 @@ function appendDatabaseEnvBlock(
 	if (!fs.existsSync(absPath)) {
 		if (!createIfMissing) return null;
 		fs.writeFileSync(absPath, block);
-		return `${relToRoot(absPath)} (created, +DB_HOST/DB_PORT/DB_NAME/VAULT_ADDR/VAULT_DB_ROLE)`;
+		return `${relToRoot(absPath)} (created, +DATABASE_URL/DB_HOST/DB_PORT/DB_NAME)`;
 	}
 	const existing = fs.readFileSync(absPath, "utf-8");
 	if (existing.includes("DB_HOST=")) {
@@ -167,7 +180,7 @@ function appendDatabaseEnvBlock(
 	}
 	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
 	fs.writeFileSync(absPath, `${existing}${separator}\n${block}`);
-	return `${relToRoot(absPath)} (+DB_HOST/DB_PORT/DB_NAME/VAULT_ADDR/VAULT_DB_ROLE)`;
+	return `${relToRoot(absPath)} (+DATABASE_URL/DB_HOST/DB_PORT/DB_NAME)`;
 }
 
 /**
@@ -219,6 +232,33 @@ function writeDatabaseHelmChart(
 }
 
 /**
+ * Adds a `sync()` for this server's own generated/ dir (Prisma client output — see
+ * schema.prisma.hbs's `output` path) to the main docker_build's `live_update` list, right before
+ * `restart_container()` — without it, the "development" stage's live_update never picks up a
+ * freshly regenerated Prisma client. Idempotent: skips if a "generated" sync is already there.
+ */
+function injectGeneratedSync(absTiltfilePath: string, name: string): string {
+	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
+	if (raw.includes("/generated\"")) {
+		return `${relToRoot(absTiltfilePath)} already syncs generated/`;
+	}
+
+	const marker = "restart_container(),";
+	const markerIndex = raw.indexOf(marker);
+	if (markerIndex === -1) {
+		return `${relToRoot(absTiltfilePath)} has no live_update to extend, skipped`;
+	}
+
+	const lineStart = raw.lastIndexOf("\n", markerIndex) + 1;
+	const indent = raw.slice(lineStart, markerIndex).match(/^\s*/)?.[0] ?? "";
+	const entry = `${indent}sync("apps/servers/${name}/generated", "/app/apps/servers/${name}/generated"),\n`;
+	const next = `${raw.slice(0, lineStart)}${entry}${raw.slice(lineStart)}`;
+
+	fs.writeFileSync(absTiltfilePath, next);
+	return `${relToRoot(absTiltfilePath)} (+generated sync)`;
+}
+
+/**
  * Appends the <name>-migrate image build + <name>-db k8s_resource port-forward to this server's
  * own Tiltfile — the docker_build has to target the Dockerfile's "migrate" stage specifically
  * (see dockerfile-migrate-stage.hbs), a second image alongside the server's own runtime image.
@@ -228,6 +268,8 @@ function appendDatabaseTiltfile(
 	name: string,
 	port: number,
 ): string {
+	injectGeneratedSync(absTiltfilePath, name);
+
 	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
 	if (raw.includes(`${name}-db`)) {
 		return `${relToRoot(absTiltfilePath)} already has database resources`;
@@ -299,62 +341,6 @@ export default class DatabaseGenerator {
 			return results.length > 0 ? results.join("; ") : "no .env files updated";
 		});
 
-		// Ansible vars file for services/vault/ansible's provisioning role — must run before
-		// injectDatabaseHelm, since both call findAvailableDbPort and rely on the Tiltfile not
-		// having the port written yet for the two calls to agree.
-		//
-		// ponytail: vault:provision below still runs via `docker compose run` against
-		// services/vault/docker-compose.yml's "ansible" container on the Docker "vault"/"adminer"
-		// networks — that only resolves "vault"/"<name>-db" hostnames if those compose backups are
-		// actually running alongside the k8s ones. Once Vault + this server's DB run purely in
-		// Tilt's cluster (no docker-compose backup up), this script can't reach either by that
-		// hostname. Fix: a k8s Job running ansible-playbook in-cluster (real k8s DNS access), swap
-		// in when the docker-compose backups actually get retired.
-		plop.setActionType("addVaultAnsibleVars", (answers, _config, plopApi) => {
-			const { location } = answers as { location: string };
-			const name = path.basename(location);
-			const port = findAvailableDbPort(process.cwd());
-			const destPath = path.join(
-				process.cwd(),
-				location,
-				"ansible",
-				"vars.yml",
-			);
-
-			const results: string[] = [];
-			if (fs.existsSync(destPath)) {
-				results.push(`${relToRoot(destPath)} already exists`);
-			} else {
-				const template = fs.readFileSync(
-					path.join(TEMPLATES_DIR, "vault-vars.yml.hbs"),
-					"utf-8",
-				);
-				const rendered = plopApi.renderString(template, { name, port });
-				fs.mkdirSync(path.dirname(destPath), { recursive: true });
-				fs.writeFileSync(destPath, rendered);
-				results.push(relToRoot(destPath));
-			}
-
-			const pkgPath = path.join(process.cwd(), location, "package.json");
-			const raw = fs.readFileSync(pkgPath, "utf-8");
-			const indent = detectIndent(raw);
-			const pkg = JSON.parse(raw);
-			pkg.scripts ??= {};
-			if (!pkg.scripts["vault:provision"]) {
-				// `cd ../..` first since `docker compose run` must run from wherever
-				// docker-compose.yml's `include:` resolves from (repo root), not this server's own
-				// directory — the "ansible" runner container (services/vault/docker-compose.yml)
-				// mounts the repo root at /workspace, so paths below are relative to that, not to
-				// this server's directory. No local ansible-core/hvac install needed on the host.
-				pkg.scripts["vault:provision"] =
-					`cd ../.. && docker compose run --rm ansible ansible-playbook services/vault/ansible/provision.yml -e @${location}/ansible/vars.yml`;
-				fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, indent)}\n`);
-				results.push(`${relToRoot(pkgPath)} (+vault:provision script)`);
-			}
-
-			return results.join("; ");
-		});
-
 		plop.setActionType("injectDatabaseHelm", (answers, _config, plopApi) => {
 			const { location } = answers as { location: string };
 			const name = path.basename(location);
@@ -395,7 +381,7 @@ export default class DatabaseGenerator {
 			return injectServerAppChainCall(
 				absAppPath,
 				"database",
-				".database(PrismaClient, () => VaultPgAdapter.fromEnv())",
+				".database(PrismaClient, new PgAdapter(databaseUrl))",
 			);
 		});
 
@@ -416,7 +402,7 @@ export default class DatabaseGenerator {
 
 		plop.setGenerator("database", {
 			description:
-				"Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a <name>-db helm chart (Postgres Deployment/Service/PVC/Secret + <name>-migrate Job) + Tiltfile wiring + Dockerfile migrate stage, wires .database(PrismaClient, VaultPgAdapter.fromEnv()) into app.ts (Vault-issued, short-lived Postgres credentials by default — see packages/server/CLAUDE.md's Database section for the manual root-credential testing override), and an Ansible vars file + vault:provision script for services/vault/ansible's provisioning role",
+				"Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a <name>-db helm chart (Postgres Deployment/Service/ConfigMap + <name>-migrate Job) + Tiltfile wiring + Dockerfile migrate stage, and wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts — static superuser creds read from DATABASE_URL, no Vault indirection (Vault-backed dynamic Postgres credentials were removed pending a redesign; see packages/server/CLAUDE.md's Database section)",
 			prompts: [
 				{
 					type: "list",
@@ -441,7 +427,6 @@ export default class DatabaseGenerator {
 				},
 				{ type: "addPrismaPackageJson" },
 				{ type: "appendDatabaseEnv" },
-				{ type: "addVaultAnsibleVars" },
 				{ type: "injectDatabaseHelm" },
 				{ type: "wireDatabaseHelmDeployment" },
 				{ type: "injectDatabaseDockerfile" },

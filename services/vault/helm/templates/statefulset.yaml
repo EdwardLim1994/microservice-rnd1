@@ -18,6 +18,16 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
+      # Lets the container resolve "authentik.lan" to Traefik's ClusterIP — `vault write
+      # auth/oidc/config` (see oidc-provision-job.yaml) validates the discovery URL by fetching
+      # it from *this* pod, not from the Job that issues the write, so the hostAlias has to live
+      # here too. See services/minio/helm/templates/statefulset.yaml's identical hostAliases for
+      # the full reasoning.
+      {{- $traefikSvc := lookup "v1" "Service" "infra" "traefik-web-8080" }}
+      hostAliases:
+        - ip: {{ if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
+          hostnames:
+            - authentik.lan
       containers:
         - name: vault
           image: "{{ .Values.image }}"

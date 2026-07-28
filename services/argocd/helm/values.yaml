@@ -1,0 +1,42 @@
+argo-cd:
+  configs:
+    params:
+      # Plain HTTP ingress instead of TLS passthrough — matches every other services/* app here.
+      server.insecure: true
+    cm:
+      # ArgoCD's own OIDC redirect_uri is always "<url>/auth/callback" (not configurable
+      # separately) — must be one of the redirect_uris registered on the Authentik side (see
+      # services/authentik/helm's blueprint argocd-provider). .lan:8080 because this is being
+      # driven from a LAN device via the temporary
+      # `kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80 8443:443` — switch
+      # to argocd.localhost (no port) for same-machine access once that's no longer running.
+      url: http://argocd.lan:8080
+      # Native OIDC (https://argo-cd.readthedocs.io/en/stable/operator-manual/user-management/#existing-oidc-provider),
+      # not Dex — matches how minio/grafana/vault integrate with Authentik. clientSecret's
+      # "$oidc.auth.client.secret" shorthand resolves against argocd-secret's own key of that
+      # name, populated below via configs.secret.extra.
+      oidc.config: |
+        name: Authentik
+        issuer: http://authentik.lan:8080/application/o/argocd/
+        clientID: argocd
+        clientSecret: $oidc.auth.client.secret
+        requestedScopes: ["openid", "profile", "email"]
+    rbac:
+      # ponytail: every authenticated user gets org Admin — matches minio-provider's
+      # consoleAdmin-for-everyone and grafana's AUTO_ASSIGN_ORG_ROLE=Admin defaults. Switch to a
+      # policy.csv mapping Authentik groups to narrower roles if per-user access is ever needed.
+      policy.default: "role:admin"
+    secret:
+      extra:
+        # Must match services/authentik/helm/values.yaml's argocdOidcClientSecret — separate
+        # Helm releases, no shared values, so this is duplicated by hand like every other
+        # cross-chart dev secret here (authentiksecretkey, vaultroottoken, ...).
+        oidc.auth.client.secret: argocdoidcclientsecret
+  server:
+    ingress:
+      enabled: true
+      ingressClassName: traefik
+      hostname: argocd.localhost
+      extraHosts:
+        - name: argocd.lan
+          path: /

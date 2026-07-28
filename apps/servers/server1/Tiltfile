@@ -1,0 +1,32 @@
+docker_build(
+    "server1",
+    "apps/servers/server1",
+    target="development",
+    live_update=[
+        sync("apps/servers/server1/src", "/app/apps/servers/server1/src"),
+        sync("apps/servers/server1/generated", "/app/apps/servers/server1/generated"),
+        restart_container(),
+    ],
+)
+
+k8s_yaml(helm("apps/servers/server1/helm", name="server1"))
+
+k8s_resource(
+    "server1",
+    labels=["servers"],
+)
+
+
+docker_build("server1-migrate", "apps/servers/server1", target="migrate")
+
+k8s_resource(
+    "server1-db",
+    port_forwards=["5101:5432"],
+    labels=["servers"],
+)
+
+k8s_resource(
+    "server1-debezium",
+    resource_deps=["server1-db"],
+    labels=["servers"],
+)
