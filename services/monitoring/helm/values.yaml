@@ -25,11 +25,12 @@ grafana:
   # match services/authentik/helm/values.yaml's grafanaOidcClientSecret.
   oidcClientSecret: grafanaoidcclientsecret
   # Grafana's own redirect_uri is always "<rootUrl>/login/generic_oauth" — must be one of the
-  # three registered on the Authentik side (see the blueprint's grafana-provider redirect_uris).
-  # .lan:8080 because this is being driven from a LAN device via the temporary
-  # `kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80 8443:443` — switch to
-  # grafana.localhost (no port) for same-machine access once that's no longer running.
-  rootUrl: http://grafana.lan:8080/
+  # registered entries on the Authentik side (see the blueprint's grafana-provider redirect_uris).
+  # https + :8443 because traefik's default TLS cert (services/traefik/helm/values.yaml's
+  # tlsStore) now covers grafana.lan — switch to grafana.localhost (no port) for same-machine
+  # access once the `kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80
+  # 8443:443` LAN path is no longer running.
+  rootUrl: https://grafana.lan:8443/
 
 otelCollector:
   image: otel/opentelemetry-collector-contrib:0.116.1

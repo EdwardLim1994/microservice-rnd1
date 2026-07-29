@@ -2,5 +2,5 @@ apiVersion: v2
 name: vault
 description: Vault (single instance, dev mode) — shared infra, deployed independently of any app
 type: application
-version: 0.1.0
+version: 0.3.0
 appVersion: "1.18"

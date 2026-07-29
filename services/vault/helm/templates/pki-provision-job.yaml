@@ -1,0 +1,76 @@
+# Sets up Vault's pki_int engine so cert-manager (services/cert-manager/helm's Issuer) can issue
+# traefik's default TLS cert. Same post-install/post-upgrade hook shape as oidc-provision-job.yaml
+# — dev-mode vault has no persisted config across a fresh install, so this must re-run and be
+# idempotent every time (the `|| true` / `2>/dev/null || true` guards below).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-pki-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "vault.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: vault-pki-provision
+          image: "{{ .Values.image }}"
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: VAULT_DEV_ROOT_TOKEN_ID
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until vault status >/dev/null 2>&1; do
+                echo "waiting for vault..."
+                sleep 2
+              done
+
+              vault secrets enable pki 2>/dev/null || true
+              vault secrets tune -max-lease-ttl=87600h pki
+              vault secrets enable -path=pki_int pki 2>/dev/null || true
+              vault secrets tune -max-lease-ttl=43800h pki_int
+
+              # Root/intermediate generation isn't itself idempotent (a second call would mint a
+              # new, different CA) — skip both once pki_int already has a signed CA from a prior
+              # run of this same hook.
+              if ! vault read pki_int/cert/ca >/dev/null 2>&1; then
+                vault write -field=certificate pki/root/generate/internal \
+                  common_name="local dev Root CA" ttl=87600h > /dev/null
+
+                CSR=$(vault write -field=csr pki_int/intermediate/generate/internal \
+                  common_name="local dev Intermediate CA")
+                CERT=$(vault write -field=certificate pki/root/sign-intermediate \
+                  csr="$CSR" format=pem_bundle ttl=43800h)
+                vault write pki_int/intermediate/set-signed certificate="$CERT" > /dev/null
+              fi
+
+              # allow_glob_domains lets "*.localhost"/"*.lan" (cert-manager's Certificate
+              # dnsNames) through as literal SANs — allow_subdomains alone only covers
+              # "sub.localhost", not the wildcard form itself. require_cn=false because
+              # cert-manager's CSR carries no Common Name (SANs only, current best practice) —
+              # the role's default require_cn=true otherwise 400s every sign request.
+              vault write pki_int/roles/traefik-tls-role \
+                allowed_domains="localhost,lan" \
+                allow_subdomains=true \
+                allow_glob_domains=true \
+                allow_wildcard_certificates=true \
+                require_cn=false \
+                max_ttl="720h"

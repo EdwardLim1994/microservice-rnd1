@@ -25,6 +25,7 @@ locals {
   services = toset([
     "apicurio-registry",
     "authentik",
+    "ca-distribution",
     "kafka",
     "meilisearch",
     "minio",
@@ -56,6 +57,36 @@ resource "helm_release" "service" {
   timeout = try(local.service_timeouts[each.key], 300)
 
   depends_on = [helm_release.traefik]
+}
+
+# Not in the for_each above. cert-manager itself, and its Issuer/Certificate config, are two
+# separate helm_releases (not one) deliberately: applying a CRD and a custom resource of that
+# CRD's kind in the *same* release races the API server (it hasn't finished registering the new
+# kind yet), which is exactly the "no matches for kind Certificate/Issuer" error this used to hit
+# as one release. Two terraform-sequenced releases guarantee a real apply boundary in between.
+resource "helm_release" "cert-manager" {
+  name      = "cert-manager"
+  chart     = "${path.module}/../cert-manager/helm"
+  namespace = kubernetes_namespace.infra.metadata[0].name
+  wait      = true
+  timeout   = 600
+
+  depends_on = [helm_release.service]
+}
+
+# services/vault's pki-provision-job.yaml sets up the pki_int role this chart's Issuer signs
+# against — needs vault's release to have already run its hooks, not just exist. wait=true above
+# (not the repo's usual wait=false) is what actually closes the CRD race for this one: it forces
+# terraform to block until cert-manager's CRDs+webhook are ready before this release ever
+# applies.
+resource "helm_release" "cert-manager-config" {
+  name      = "cert-manager-config"
+  chart     = "${path.module}/../cert-manager-config/helm"
+  namespace = kubernetes_namespace.infra.metadata[0].name
+  wait      = false
+  timeout   = 300
+
+  depends_on = [helm_release.cert-manager, helm_release.service]
 }
 
 # Not in the for_each above — services/apollo/helm/values.supergraph.yaml is still the

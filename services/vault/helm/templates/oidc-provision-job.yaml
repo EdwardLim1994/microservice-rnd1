@@ -97,8 +97,11 @@ spec:
               # oidc_scopes has no default beyond the implicit "openid" — without it Vault never
               # asks for the "email"/"profile" scopes, so user_claim="email" fails at login with
               # "claim \"email\" not found in token" even though Authentik's provider grants it.
+              # https:8443 entries added alongside the http:8080 ones (not replacing) — Vault's
+              # UI builds its own callback from window.location, so whichever scheme/port the
+              # browser used to reach vault.lan needs to be in this list.
               vault write auth/oidc/role/default \
                 user_claim="email" \
                 oidc_scopes="email profile" \
-                allowed_redirect_uris="http://vault.localhost/ui/vault/auth/oidc/oidc/callback,http://vault.lan/ui/vault/auth/oidc/oidc/callback,http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback" \
+                allowed_redirect_uris="http://vault.localhost/ui/vault/auth/oidc/oidc/callback,http://vault.lan/ui/vault/auth/oidc/oidc/callback,http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback,https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback,https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback" \
                 policies="default"

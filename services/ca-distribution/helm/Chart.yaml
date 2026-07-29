@@ -1,0 +1,5 @@
+apiVersion: v2
+name: ca-distribution
+description: Serves Vault's self-signed root CA cert over HTTP so LAN devices can import it into their trust store — matches the "hand-rolled chart, no upstream dependency" pattern of the other single-container infra pieces
+type: application
+version: 0.1.0

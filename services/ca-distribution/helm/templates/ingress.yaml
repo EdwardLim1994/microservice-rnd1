@@ -1,0 +1,34 @@
+# No OIDC/forward-auth here — this is the one file every device needs before it can trust
+# anything else HTTPS-related, so it can't itself depend on a trusted cert. First visit still
+# hits traefik's default (self-signed) cert and gets a browser warning — click through once,
+# that's exactly the last such warning once the downloaded CA is imported.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ca-distribution
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: ca-distribution
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: ca.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ca-distribution
+                port:
+                  number: 80
+    - host: ca.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ca-distribution
+                port:
+                  number: 80

@@ -1,0 +1,2 @@
+k8s_yaml(helm("./helm", name="cert-manager-config", namespace="infra"))
+k8s_resource("cert-manager-config", labels=["infra"], resource_deps=["cert-manager"])

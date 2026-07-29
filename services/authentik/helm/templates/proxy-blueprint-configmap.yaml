@@ -66,6 +66,12 @@ data:
             - matching_mode: strict
               url: http://minio.lan:8080/oauth_callback
               redirect_uri_type: authorization
+            # :8443 https — MINIO_IDENTITY_OPENID_REDIRECT_URI now points here (see
+            # secret.yaml); the plain-http entries above are kept for anyone still on the
+            # docker-compose backup / bare-nodePort path, not actually requested by MinIO anymore.
+            - matching_mode: strict
+              url: https://minio.lan:8443/oauth_callback
+              redirect_uri_type: authorization
       - model: authentik_core.application
         id: minio-app
         identifiers:
@@ -105,6 +111,11 @@ data:
               redirect_uri_type: authorization
             - matching_mode: strict
               url: http://grafana.lan:8080/login/generic_oauth
+              redirect_uri_type: authorization
+            # :8443 https — GF_SERVER_ROOT_URL now points here (see grafana values.yaml's
+            # rootUrl).
+            - matching_mode: strict
+              url: https://grafana.lan:8443/login/generic_oauth
               redirect_uri_type: authorization
       - model: authentik_core.application
         id: grafana-app
@@ -148,6 +159,14 @@ data:
             - matching_mode: strict
               url: http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback
               redirect_uri_type: authorization
+            # :8443 https — matches oidc/role/default's allowed_redirect_uris (see
+            # oidc-provision-job.yaml).
+            - matching_mode: strict
+              url: https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
+              redirect_uri_type: authorization
+            - matching_mode: strict
+              url: https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
+              redirect_uri_type: authorization
       - model: authentik_core.application
         id: vault-app
         identifiers:
@@ -186,6 +205,10 @@ data:
               redirect_uri_type: authorization
             - matching_mode: strict
               url: http://argocd.lan:8080/auth/callback
+              redirect_uri_type: authorization
+            # :8443 https — configs.cm.url now points here (see argocd values.yaml).
+            - matching_mode: strict
+              url: https://argocd.lan:8443/auth/callback
               redirect_uri_type: authorization
       - model: authentik_core.application
         id: argocd-app

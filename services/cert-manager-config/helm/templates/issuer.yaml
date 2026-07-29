@@ -1,0 +1,25 @@
+# Namespaced Issuer, not ClusterIssuer — every app here already lives in one shared "infra"
+# namespace (see services/*/helm/values.yaml's `namespace: infra`), so there's no cross-namespace
+# case to support and ClusterIssuer's extra `--cluster-resource-namespace` wiring would be dead
+# weight.
+#
+# Auth reuses vault-secret's existing root token (see services/vault/helm/templates/secret.yaml)
+# rather than provisioning a dedicated AppRole/Kubernetes-auth role — vault runs in dev mode and
+# already hands that same root token to oidc-provision-job.yaml, so this doesn't lower the
+# existing trust bar.
+# ponytail: root-token auth, fine for dev-mode vault; swap to a least-privilege AppRole/
+# Kubernetes-auth role (see pki-provision-job.yaml's role for the policy to bind) once vault
+# stops being dev-mode.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: vault-issuer
+  namespace: {{ .Values.namespace }}
+spec:
+  vault:
+    server: http://vault.{{ .Values.namespace }}.svc:8200
+    path: pki_int/sign/traefik-tls-role
+    auth:
+      tokenSecretRef:
+        name: vault-secret
+        key: VAULT_DEV_ROOT_TOKEN_ID
