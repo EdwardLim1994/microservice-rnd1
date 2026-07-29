@@ -2,7 +2,7 @@ import { ApolloServer } from '@apollo/server';
 import { buildSubgraphSchema } from '@apollo/subgraph';
 import { parse } from 'graphql';
 import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
-import type { TlsConfig } from '../database/VaultTlsAdapter';
+import type { TlsConfig } from '../database/TlsConfig';
 import { startStandaloneServerTls } from './startStandaloneServerTls';
 
 export interface ApolloDriverConfig {

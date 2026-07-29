@@ -35,6 +35,7 @@ spec:
                 sleep 2
               done
               vault read -field=certificate pki/cert/ca > /html/local-dev-root-ca.crt
+              echo '<a href="local-dev-root-ca.crt">local-dev-root-ca.crt</a>' > /html/index.html
           volumeMounts:
             - name: html
               mountPath: /html

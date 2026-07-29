@@ -3,7 +3,7 @@ import https from 'node:https';
 import type { ApolloServer, BaseContext } from '@apollo/server';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import { HeaderMap } from '@apollo/server';
-import type { TlsConfig } from '../database/VaultTlsAdapter';
+import type { TlsConfig } from '../database/TlsConfig';
 
 export interface StandaloneServerTlsListenOptions {
   port?: number;

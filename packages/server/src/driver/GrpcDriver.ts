@@ -1,7 +1,7 @@
 import { Server, ServerCredentials } from '@grpc/grpc-js';
 import { BaseDriver, type DriverStartOptions } from '../abstract/BaseDriver';
 import { isRegistrable } from '../abstract/Registrable';
-import type { TlsConfig } from '../database/VaultTlsAdapter';
+import type { TlsConfig } from '../database/TlsConfig';
 
 export interface GrpcDriverConfig {
   /** When set, binds with mTLS (ServerCredentials.createSsl, requiring a verified client cert) instead of createInsecure(). */

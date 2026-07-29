@@ -3,13 +3,13 @@
 # case to support and ClusterIssuer's extra `--cluster-resource-namespace` wiring would be dead
 # weight.
 #
-# Auth reuses vault-secret's existing root token (see services/vault/helm/templates/secret.yaml)
-# rather than provisioning a dedicated AppRole/Kubernetes-auth role — vault runs in dev mode and
-# already hands that same root token to oidc-provision-job.yaml, so this doesn't lower the
-# existing trust bar.
-# ponytail: root-token auth, fine for dev-mode vault; swap to a least-privilege AppRole/
-# Kubernetes-auth role (see pki-provision-job.yaml's role for the policy to bind) once vault
-# stops being dev-mode.
+# dev mode: auth reuses vault-secret's existing root token (see services/vault/helm/templates/
+# secret.yaml) — vault runs in dev mode and already hands that same root token to
+# oidc-provision-job.yaml, so this doesn't lower the existing trust bar.
+#
+# prod mode (devMode: false): least-privilege Kubernetes-auth role instead — see
+# services/vault/helm/templates/k8s-auth-provision-job.yaml's "cert-manager-issuer" role/policy
+# (sign-only, nothing else) and serviceaccount.yaml's static token Secret this authenticates with.
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -20,6 +20,15 @@ spec:
     server: http://vault.{{ .Values.namespace }}.svc:8200
     path: pki_int/sign/traefik-tls-role
     auth:
+      {{- if .Values.devMode }}
       tokenSecretRef:
         name: vault-secret
         key: VAULT_DEV_ROOT_TOKEN_ID
+      {{- else }}
+      kubernetes:
+        role: cert-manager-issuer
+        mountPath: /v1/auth/kubernetes
+        secretRef:
+          name: cert-manager-issuer-token
+          key: token
+      {{- end }}

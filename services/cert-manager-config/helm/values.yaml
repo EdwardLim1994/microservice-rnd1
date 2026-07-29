@@ -1,5 +1,11 @@
 namespace: infra
 
+# dev mode: Issuer authenticates to vault with the same root token every other dev-mode
+# provisioning job uses (see issuer.yaml). values-prod.yaml sets this false, switching to Vault's
+# Kubernetes auth method against the "cert-manager-issuer" role (see services/vault/helm/
+# templates/k8s-auth-provision-job.yaml) via a static ServiceAccount-token Secret instead.
+devMode: true
+
 # Traefik's default TLS cert (see services/traefik/helm/values.yaml's tlsStore) — one wildcard
 # cert covers every *.localhost/*.lan host instead of a per-app Certificate.
 certificateSecretName: traefik-default-tls

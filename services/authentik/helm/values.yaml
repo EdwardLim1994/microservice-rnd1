@@ -37,6 +37,26 @@ authentik:
     enabled: true
     auth:
       password: authentikpostgrespassword
+      # Fixed, not left to the chart's own randAlphaNum-if-unset default — that default is only
+      # stable across a `helm upgrade` as long as its own `lookup`-the-existing-secret-first logic
+      # actually finds it every time, and in practice here (repeated `terraform apply` retries
+      # during initial setup) it didn't always: the Secret ended up holding a different password
+      # than whatever Postgres was actually initialized with at its own first `initdb` — since a
+      # secret-volume-mounted file updates live but Postgres only ever reads it once, that
+      # silently desyncs the two with no error until something tries to authenticate. A fixed
+      # value here is stable across every apply/retry, same as authentik's own custom-user
+      # password right above.
+      postgresPassword: authentikpostgressuperuserpassword
+      # Confirmed by hand (kubectl exec + psql, both via TCP and the local socket): with the
+      # chart's own default (usePasswordFiles: true), the custom "authentik" user's password —
+      # mounted the same way, via POSTGRES_PASSWORD_FILE — works correctly, but the superuser's
+      # (POSTGRES_POSTGRES_PASSWORD_FILE) does not; postgres rejects every value for "postgres"
+      # even immediately after a from-scratch initdb where the file's content is provably correct.
+      # That's a real asymmetry in this chart/image's own entrypoint script, not a config mistake
+      # on this repo's side. Forcing plain env vars instead routes both users through the exact
+      # same, simpler, apparently-not-buggy code path — also what every other chart in this repo
+      # already uses (none of them use usePasswordFiles).
+      usePasswordFiles: false
     # minikube's default hostpath storage class provisions volumes owned by root; the
     # postgres container runs as non-root and can't write to them without this.
     # This chart's shell-image substitution renders "registry-1.docker.io/debian:13-slim"

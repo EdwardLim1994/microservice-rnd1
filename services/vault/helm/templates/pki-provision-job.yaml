@@ -2,6 +2,19 @@
 # traefik's default TLS cert. Same post-install/post-upgrade hook shape as oidc-provision-job.yaml
 # — dev-mode vault has no persisted config across a fresh install, so this must re-run and be
 # idempotent every time (the `|| true` / `2>/dev/null || true` guards below).
+#
+# In prod mode this job authenticates via Vault's Kubernetes auth method (its own ServiceAccount
+# token, logged in against the "pki-provision" role — see k8s-auth-provision-job.yaml) instead of
+# the dev-mode static root token — that job's hook-weight -5 guarantees the role exists before
+# this one (weight 0) runs.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-pki-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -20,19 +33,23 @@ spec:
       labels:
         {{- include "vault.labels" . | nindent 8 }}
     spec:
-      restartPolicy: OnFailure
-      automountServiceAccountToken: false
+      # See values.yaml's jobRestartPolicy for why this isn't OnFailure.
+      restartPolicy: {{ .Values.jobRestartPolicy }}
+      serviceAccountName: vault-pki-provision
+      automountServiceAccountToken: {{ not .Values.devMode }}
       containers:
         - name: vault-pki-provision
           image: "{{ .Values.image }}"
           env:
             - name: VAULT_ADDR
               value: "http://vault:8200"
+            {{- if .Values.devMode }}
             - name: VAULT_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: vault-secret
                   key: VAULT_DEV_ROOT_TOKEN_ID
+            {{- end }}
           command:
             - sh
             - -c
@@ -42,6 +59,11 @@ spec:
                 echo "waiting for vault..."
                 sleep 2
               done
+              {{- if not .Values.devMode }}
+
+              JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              export VAULT_TOKEN=$(vault write -field=token auth/kubernetes/login role=pki-provision jwt="$JWT")
+              {{- end }}
 
               vault secrets enable pki 2>/dev/null || true
               vault secrets tune -max-lease-ttl=87600h pki

@@ -42,6 +42,54 @@ locals {
   service_timeouts = {
     vault = 900
   }
+
+  # Every one of these is duplicated by hand across two independent Helm releases today (see
+  # each app's own values.yaml — "must match services/authentik/helm/values.yaml's
+  # <app>OidcClientSecret"). Only meaningful in prod (see the set_sensitive blocks below and
+  # argocd.tf's) — dev keeps the hand-typed matched placeholders already in each chart's
+  # values.yaml, unchanged.
+  oidc_secret_overrides = {
+    authentik = {
+      "minioOidcClientSecret"                      = random_password.minio_oidc_client_secret.result
+      "grafanaOidcClientSecret"                    = random_password.grafana_oidc_client_secret.result
+      "vaultOidcClientSecret"                      = random_password.vault_oidc_client_secret.result
+      "argocdOidcClientSecret"                     = random_password.argocd_oidc_client_secret.result
+      "authentik.authentik.secret_key"             = var.authentik_secret_key
+      "authentik.authentik.postgresql.password"    = var.authentik_postgres_password
+      "authentik.postgresql.auth.password"         = var.authentik_postgres_password
+      "authentik.postgresql.auth.postgresPassword" = var.authentik_postgres_password
+      "authentik.global.env[0].value"              = var.authentik_bootstrap_password
+    }
+    minio = {
+      "oidcClientSecret" = random_password.minio_oidc_client_secret.result
+    }
+    monitoring = {
+      "grafana.oidcClientSecret" = random_password.grafana_oidc_client_secret.result
+    }
+    vault = {
+      "oidcClientSecret" = random_password.vault_oidc_client_secret.result
+    }
+  }
+}
+
+# Cheap, side-effect-free — always created regardless of environment (referencing them from a
+# count/for_each = 0 resource in a dev apply would itself be a plan-time error, not just a no-op).
+# Only actually used, via oidc_secret_overrides above, when environment = "prod".
+resource "random_password" "minio_oidc_client_secret" {
+  length  = 32
+  special = false
+}
+resource "random_password" "grafana_oidc_client_secret" {
+  length  = 32
+  special = false
+}
+resource "random_password" "vault_oidc_client_secret" {
+  length  = 32
+  special = false
+}
+resource "random_password" "argocd_oidc_client_secret" {
+  length  = 32
+  special = false
 }
 
 resource "helm_release" "service" {
@@ -55,6 +103,26 @@ resource "helm_release" "service" {
   # blocks all future installs/upgrades until manually cleared. Check `kubectl get pods` instead.
   wait    = false
   timeout = try(local.service_timeouts[each.key], 300)
+
+  # Chart's own values.yaml (dev-mode defaults, safe to commit) always applies first. On a prod
+  # apply, each chart's values-prod.yaml — where one exists — layers on top as a Helm values file,
+  # same mechanism as `helm upgrade -f values.yaml -f values-prod.yaml`. Charts with nothing prod
+  # differs on (kafka, meilisearch, ...) simply have no values-prod.yaml and this is a no-op for
+  # them.
+  values = (
+    var.environment == "prod" && fileexists("${path.module}/../${each.key}/helm/values-prod.yaml")
+    ? [file("${path.module}/../${each.key}/helm/values-prod.yaml")]
+    : []
+  )
+
+  # Real secrets, never committed — only meaningful (and only required) for prod.
+  dynamic "set_sensitive" {
+    for_each = var.environment == "prod" ? lookup(local.oidc_secret_overrides, each.key, {}) : {}
+    content {
+      name  = set_sensitive.key
+      value = set_sensitive.value
+    }
+  }
 
   depends_on = [helm_release.traefik]
 }
@@ -85,6 +153,14 @@ resource "helm_release" "cert-manager-config" {
   namespace = kubernetes_namespace.infra.metadata[0].name
   wait      = false
   timeout   = 300
+
+  # Prod-mode Issuer authenticates to vault via Kubernetes auth instead of the dev root token —
+  # see cert-manager-config/helm/templates/issuer.yaml.
+  values = (
+    var.environment == "prod" && fileexists("${path.module}/../cert-manager-config/helm/values-prod.yaml")
+    ? [file("${path.module}/../cert-manager-config/helm/values-prod.yaml")]
+    : []
+  )
 
   depends_on = [helm_release.cert-manager, helm_release.service]
 }

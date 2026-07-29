@@ -8,6 +8,19 @@
 # read one's own token) rather than mirroring minio/grafana's "everyone gets full access" default
 # — Vault holds secrets, so least-privilege is the safer default here even in a dev repo. Write a
 # real policy and reference it in the `policies=` write below if OIDC users need more.
+#
+# In prod mode this job authenticates via Vault's Kubernetes auth method (its own ServiceAccount
+# token, logged in against the "oidc-provision" role — see k8s-auth-provision-job.yaml) instead
+# of the dev-mode static root token — that job's hook-weight -5 guarantees the role exists before
+# this one (weight 0) runs.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-oidc-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -26,8 +39,10 @@ spec:
       labels:
         {{- include "vault.labels" . | nindent 8 }}
     spec:
-      restartPolicy: OnFailure
-      automountServiceAccountToken: false
+      # See values.yaml's jobRestartPolicy for why this isn't OnFailure.
+      restartPolicy: {{ .Values.jobRestartPolicy }}
+      serviceAccountName: vault-oidc-provision
+      automountServiceAccountToken: {{ not .Values.devMode }}
       # No hostAliases needed here — this pod only ever talks to VAULT_ADDR (vault:8200); the
       # discovery-URL fetch that needs "authentik.lan" happens server-side, inside vault-0 itself
       # (see statefulset.yaml's hostAliases).
@@ -37,11 +52,13 @@ spec:
           env:
             - name: VAULT_ADDR
               value: "http://vault:8200"
+            {{- if .Values.devMode }}
             - name: VAULT_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: vault-secret
                   key: VAULT_DEV_ROOT_TOKEN_ID
+            {{- end }}
             - name: VAULT_OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -56,6 +73,11 @@ spec:
                 echo "waiting for vault..."
                 sleep 2
               done
+              {{- if not .Values.devMode }}
+
+              JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              export VAULT_TOKEN=$(vault write -field=token auth/kubernetes/login role=oidc-provision jwt="$JWT")
+              {{- end }}
 
               vault auth enable -path=oidc oidc || true
 

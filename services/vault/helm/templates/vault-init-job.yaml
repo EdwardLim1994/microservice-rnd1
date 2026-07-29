@@ -1,0 +1,145 @@
+# Prod-only (.Values.devMode: false). Dev mode's "-dev" server is always already initialized and
+# unsealed by the image's own entrypoint — this job exists purely for the real Raft-backed server
+# configmap.yaml/statefulset.yaml switch to prod mode for, which boots sealed and uninitialized
+# every first install, and sealed (not uninitialized) again after any pod restart since no
+# auto-unseal is wired up here.
+#
+# hook-weight -10 — must run before every other provisioning job (auth method setup, PKI, OIDC,
+# DB) once Vault requires a real init/unseal step; those all fail against a sealed Vault.
+#
+# Known gap, by design for a cloud-agnostic repo: this is Shamir key-share unsealing, not cloud
+# auto-unseal (AWS/GCP/Azure KMS) — the unseal keys end up sitting in this cluster's own
+# `vault-init` Secret, which is only as safe as the cluster's RBAC. That's a real weakness: with
+# no cloud provider assumed here, there's no single "right" auto-unseal backend to hardcode. If
+# deploying to a specific cloud, replace this job's storage of unseal keys with that cloud's
+# `seal "awskms" {}` / `seal "gcpckms" {}` / `seal "azurekeyvault" {}` stanza in configmap.yaml
+# instead — Vault then never needs Shamir keys at all after first init. Until then: treat
+# `vault-init`'s unseal-keys key as the single highest-value secret in this cluster, and move it
+# to a real secrets manager by hand right after the first successful apply.
+{{- if not .Values.devMode }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-init
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-init
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["vault-init"]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-init
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-init
+subjects:
+  - kind: ServiceAccount
+    name: vault-init
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "vault.labels" . | nindent 8 }}
+    spec:
+      # See values.yaml's jobRestartPolicy for why this isn't OnFailure.
+      restartPolicy: {{ .Values.jobRestartPolicy }}
+      serviceAccountName: vault-init
+      automountServiceAccountToken: true
+      containers:
+        - name: vault-init
+          image: "{{ .Values.image }}"
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until wget -q -O /dev/null "$VAULT_ADDR/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200"; do
+                echo "waiting for vault to be reachable..."
+                sleep 2
+              done
+
+              # No kubectl (or curl) in this image, and fetching either as a static binary from
+              # the internet at runtime is exactly the fragility that broke db-provision-job.yaml
+              # here — one create-or-get call against the Kubernetes API is easy enough with
+              # plain busybox wget instead. Its cert verification uses the system CA bundle, so
+              # appending the cluster's own CA (already projected into this pod) to that bundle
+              # is enough to trust the API server — no extra flag/tool needed.
+              KUBE_TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
+              KUBE_CA_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              cat "$KUBE_CA_FILE" >> /etc/ssl/certs/ca-certificates.crt
+              AUTH_HEADER="Authorization: Bearer $(cat "$KUBE_TOKEN_FILE")"
+              KUBE_API="https://kubernetes.default.svc/api/v1/namespaces/{{ .Values.namespace }}"
+
+              INITIALIZED=$(vault status -format=json | grep -o '"initialized":[a-z]*' | cut -d: -f2)
+
+              if [ "$INITIALIZED" != "true" ]; then
+                echo "first boot — initializing vault"
+                vault operator init -key-shares=5 -key-threshold=3 -format=json > /tmp/init.json
+
+                if wget -q -O /dev/null --header="$AUTH_HEADER" "$KUBE_API/secrets/vault-init" 2>/dev/null; then
+                  echo "vault-init secret already exists but vault reports uninitialized — refusing to overwrite, needs manual review"
+                  exit 1
+                fi
+
+                B64=$(base64 -w0 /tmp/init.json)
+                printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"vault-init","namespace":"%s"},"data":{"init.json":"%s"}}' \
+                  "{{ .Values.namespace }}" "$B64" > /tmp/secret-body.json
+                wget -q -O - \
+                  --header="$AUTH_HEADER" \
+                  --header="Content-Type: application/json" \
+                  --post-file=/tmp/secret-body.json \
+                  "$KUBE_API/secrets" >/dev/null
+              else
+                echo "already initialized — fetching stored unseal keys"
+                wget -q -O - --header="$AUTH_HEADER" "$KUBE_API/secrets/vault-init" \
+                  | grep -o '"init.json":"[^"]*"' | cut -d'"' -f4 | base64 -d > /tmp/init.json
+              fi
+
+              SEALED=$(vault status -format=json | grep -o '"sealed":[a-z]*' | cut -d: -f2)
+              if [ "$SEALED" = "true" ]; then
+                echo "unsealing"
+                for i in 0 1 2; do
+                  KEY=$(grep -o '"unseal_keys_b64":\[[^]]*\]' /tmp/init.json | sed 's/.*\[//;s/\]//' | tr ',' '\n' | sed -n "$((i + 1))p" | tr -d '"')
+                  vault operator unseal "$KEY" >/dev/null
+                done
+              fi
+
+              rm -f /tmp/init.json /tmp/secret-body.json
+{{- end }}

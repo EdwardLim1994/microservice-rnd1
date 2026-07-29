@@ -1,0 +1,235 @@
+# Vault's database secrets engine, pointed at the authentik-postgresql Bitnami DB that
+# services/authentik's chart deploys, replacing the plaintext password duplicated by hand in
+# services/authentik/helm/values.yaml. Same post-install/post-upgrade hook shape as
+# pki-provision-job.yaml/oidc-provision-job.yaml (dev-mode vault has no persisted config across a
+# fresh install, so this must re-run and be idempotent every time) — but this one also needs to
+# reach the Kubernetes API (patch authentik's Secret, roll its Deployments), which none of the
+# other provision jobs do, hence the ServiceAccount/Role/RoleBinding below and
+# automountServiceAccountToken: true (every other job in this chart sets that to false).
+#
+# What this does, in order, every `helm upgrade`:
+#   1. enables `database` secrets engine (once) and (re-)configures its connection to
+#      authentik-postgresql using the `authentik` superuser's password (the chart's real DB
+#      superuser here — see PGADMIN_PASSWORD below for why it's not `postgres`), read straight
+#      from the authentik-postgresql Secret — no new admin credential introduced. Root rotation is
+#      NOT enabled: Vault mints leaf roles under this connection but never takes over the
+#      superuser's own password. Known gap: if that superuser password ever needs rotating, do it
+#      by hand (`vault write -f database/rotate-root/...` after enabling it) — out of scope here.
+#   2. mints a brand-new dynamic Postgres role (fresh username+password, full privileges on the
+#      `authentik` database) via a `creds` (dynamic role), not a `static-creds` rotation of the
+#      existing `authentik` user — dynamic keeps every deploy's credential fully isolated instead
+#      of mutating one shared user in place.
+#   3. patches those creds into the same Secret authentik's own chart renders
+#      (`authentik.secret.name`, consumed via envFrom), so no authentik chart values change.
+#   4. rolls authentik-server/authentik-worker so the new env vars actually take effect (env vars
+#      are read once at container start, not hot-reloaded).
+#   5. only once the rollout is done — so nothing is left holding a dropped role's credential —
+#      revokes the *previous* run's lease, dropping that role. The lease id is round-tripped
+#      through an annotation on the same Secret. First-ever run has no previous lease to revoke.
+#
+# Known gap: no live rotation between deploys — the minted role's lease is given a long max_ttl
+# so Vault's own background expiration doesn't drop it out from under a running authentik before
+# the next deploy comes around and explicitly revokes it. Add Vault Agent Injector if in-place
+# rotation between deploys is ever needed.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-db-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-db-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["authentik-postgresql", "authentik"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["authentik-server", "authentik-worker"]
+    # watch (not just get/patch): `kubectl rollout status` watches the Deployment for its
+    # rollout to finish, it doesn't poll with plain get.
+    verbs: ["get", "patch", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-db-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-db-provision
+subjects:
+  - kind: ServiceAccount
+    name: vault-db-provision
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-db-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "vault.labels" . | nindent 8 }}
+    spec:
+      # See values.yaml's jobRestartPolicy for why this isn't OnFailure.
+      restartPolicy: {{ .Values.jobRestartPolicy }}
+      serviceAccountName: vault-db-provision
+      automountServiceAccountToken: true
+      # Split across two containers by tool, not by fetching a kubectl binary into the vault
+      # image at runtime (the previous approach here) — that meant a `wget` to dl.k8s.io from
+      # inside the pod on every single run, and any hiccup reaching that URL (restricted egress,
+      # DNS, a slow/blocked minikube network) killed the whole script under `set -e`, failing the
+      # Job outright well before its 15-minute intent could ever matter. Two real, normally-pulled
+      # images (same mechanism that already reliably pulls hashicorp/vault) instead of one image
+      # plus a runtime internet dependency.
+      initContainers:
+        - name: vault-provision
+          image: "{{ .Values.image }}"
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+            {{- if .Values.devMode }}
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-secret
+                  key: VAULT_DEV_ROOT_TOKEN_ID
+            {{- end }}
+            # A secretKeyRef env var whose Secret doesn't exist yet blocks the pod at
+            # CreateContainerConfigError rather than starting the container and letting the
+            # script fail — the kubelet just keeps retrying without ever running this container,
+            # which doesn't count against the Job's backoffLimit. That's the cold-start ordering
+            # this pod needs against authentik-postgresql (no depends_on between the vault and
+            # authentik Helm releases — see oidc-provision-job.yaml's identical gap), so there's
+            # no separate busy-loop for it here on purpose.
+            # authentik's bundled postgresql subchart defaults to the vanilla postgres:*-bookworm
+            # image (not Bitnami's), to dodge Bitnami's 2025 image paywall — see
+            # services/authentik/helm/values.yaml. That image doesn't understand Bitnami's
+            # POSTGRES_POSTGRES_PASSWORD convention, so with POSTGRES_USER=authentik set, no
+            # "postgres" role is ever created. "authentik" (POSTGRES_USER) is the real superuser
+            # here, not "postgres".
+            - name: PGADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: authentik-postgresql
+                  key: password
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until vault status >/dev/null 2>&1; do
+                echo "waiting for vault..."
+                sleep 2
+              done
+              {{- if not .Values.devMode }}
+
+              JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              export VAULT_TOKEN=$(vault write -field=token auth/kubernetes/login role=db-provision jwt="$JWT")
+              {{- end }}
+
+              vault secrets enable database 2>/dev/null || true
+
+              vault write database/config/authentik-postgresql \
+                plugin_name=postgresql-database-plugin \
+                connection_url="postgresql://{{ "{{username}}" }}:{{ "{{password}}" }}@authentik-postgresql:5432/authentik?sslmode={{ .Values.dbSslMode }}" \
+                username="authentik" \
+                password="$PGADMIN_PASSWORD" \
+                allowed_roles="authentik-role"
+
+              # IN ROLE authentik makes the minted role a member of the existing "authentik" role
+              # rather than granting fresh DB-level privileges — the existing role already owns
+              # every table from past migrations, and only membership (inheriting its grants)
+              # actually lets the new login read/write them. A bare "GRANT ALL ON DATABASE" would
+              # cover connect/create but not access to pre-existing tables/sequences.
+              vault write database/roles/authentik-role \
+                db_name=authentik-postgresql \
+                creation_statements="CREATE ROLE \"{{ "{{name}}" }}\" WITH LOGIN PASSWORD '{{ "{{password}}" }}' VALID UNTIL '{{ "{{expiration}}" }}' IN ROLE authentik;" \
+                revocation_statements="REASSIGN OWNED BY \"{{ "{{name}}" }}\" TO authentik; DROP OWNED BY \"{{ "{{name}}" }}\"; DROP ROLE IF EXISTS \"{{ "{{name}}" }}\";" \
+                default_ttl="720h" \
+                max_ttl="2160h"
+
+              # One read only — database/creds/authentik-role is a dynamic-secret endpoint that
+              # mints a brand-new role on every single read. Three separate `vault read` calls
+              # (as this used to do, one per -field) mint three different roles and hand back
+              # username/password/lease_id from three different credentials, none of which match
+              # each other.
+              vault read database/creds/authentik-role > /tmp/creds
+              awk '$1 == "username" { print $2 }' /tmp/creds > /shared/new_user
+              awk '$1 == "password" { print $2 }' /tmp/creds > /shared/new_pass
+              awk '$1 == "lease_id" { print $2 }' /tmp/creds > /shared/new_lease
+              printf '%s' "$VAULT_TOKEN" > /shared/vault_token
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      containers:
+        # A real, normally-pulled kubectl image — no runtime binary download. Only talks to the
+        # Kubernetes API and (via plain curl against Vault's HTTP API, no vault CLI needed here)
+        # revokes the previous lease once the rollout's confirmed done.
+        #
+        # Pinned by digest, not a version tag: Bitnami stopped publishing semantic-version tags
+        # for this image in their 2025 "Secure Images" migration — only "latest" (floating) and
+        # content-addressed sha256 tags remain on Docker Hub. A digest is the actual reproducible
+        # pin (more precise than a version tag ever was); "latest" would silently drift kubectl's
+        # version underneath this Job over time. Verified this exact digest has sh/curl/base64/
+        # kubectl all present before using it.
+        - name: kubectl-apply
+          image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              NEW_USER=$(cat /shared/new_user)
+              NEW_PASS=$(cat /shared/new_pass)
+              NEW_LEASE=$(cat /shared/new_lease)
+              VAULT_TOKEN=$(cat /shared/vault_token)
+
+              PREV_LEASE=$(kubectl get secret authentik -n {{ .Values.namespace }} -o jsonpath='{.metadata.annotations.vault\.lease-id}' 2>/dev/null || true)
+
+              B64_USER=$(printf '%s' "$NEW_USER" | base64 | tr -d '\n')
+              B64_PASS=$(printf '%s' "$NEW_PASS" | base64 | tr -d '\n')
+              kubectl patch secret authentik -n {{ .Values.namespace }} --type merge \
+                -p "{\"data\":{\"AUTHENTIK_POSTGRESQL__USER\":\"$B64_USER\",\"AUTHENTIK_POSTGRESQL__PASSWORD\":\"$B64_PASS\"}}"
+              kubectl annotate secret authentik -n {{ .Values.namespace }} "vault.lease-id=$NEW_LEASE" --overwrite
+
+              kubectl rollout restart deployment/authentik-server deployment/authentik-worker -n {{ .Values.namespace }}
+              kubectl rollout status deployment/authentik-server -n {{ .Values.namespace }} --timeout=5m
+              kubectl rollout status deployment/authentik-worker -n {{ .Values.namespace }} --timeout=5m
+
+              if [ -n "$PREV_LEASE" ]; then
+                echo "revoking previous lease $PREV_LEASE"
+                curl -sf -X PUT -H "X-Vault-Token: $VAULT_TOKEN" \
+                  -d "{\"lease_id\":\"$PREV_LEASE\"}" \
+                  "$VAULT_ADDR/v1/sys/leases/revoke" || true
+              fi
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      volumes:
+        - name: shared
+          emptyDir: {}

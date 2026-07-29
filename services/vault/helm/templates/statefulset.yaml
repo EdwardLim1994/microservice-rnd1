@@ -42,6 +42,7 @@ spec:
           ports:
             - name: vault
               containerPort: 8200
+          {{- if .Values.devMode }}
           env:
             - name: VAULT_DEV_ROOT_TOKEN_ID
               valueFrom:
@@ -65,6 +66,39 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /vault/data
+          {{- else }}
+          command: ["vault", "server", "-config=/vault/config/vault.hcl"]
+          # "vault status" exits 0 unsealed/active, 1 on a real error, 2 sealed — sealed is the
+          # expected state until vault-init-job.yaml's unseal step runs (or after any pod
+          # restart, since Vault always reseals on restart and this repo doesn't wire auto-unseal
+          # — see that job's own comment), so readiness (not liveness) is what should key off it:
+          # this pod is genuinely alive while sealed, just not able to serve requests yet.
+          readinessProbe:
+            exec:
+              command: ["vault", "status"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # Deliberately NOT an exec/httpGet probe on sys/health: a sealed Vault answers that
+          # with a non-2xx/non-zero-exit response too, which would make Kubernetes restart-loop a
+          # perfectly healthy-but-sealed process forever. TCP-only liveness just confirms the
+          # vault binary is still up and listening.
+          livenessProbe:
+            tcpSocket:
+              port: vault
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /vault/data
+            - name: config
+              mountPath: /vault/config
+      {{- end }}
+  {{- if not .Values.devMode }}
+      volumes:
+        - name: config
+          configMap:
+            name: vault-config
+  {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data

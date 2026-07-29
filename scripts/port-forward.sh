@@ -4,4 +4,4 @@
 # one forward covers all of them instead of one per service.
 set -euo pipefail
 
-kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8443:443
+kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80 8443:443

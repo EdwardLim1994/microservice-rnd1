@@ -1,0 +1,43 @@
+# Only rendered in prod mode (.Values.devMode: false) — dev mode never reads a config file, the
+# image's own entrypoint runs "vault server -dev" straight off the VAULT_DEV_* env vars in
+# statefulset.yaml.
+#
+# tls_disable on the client listener: TLS for browser/API traffic already terminates at Traefik
+# (see services/cert-manager-config's Certificate — every other in-cluster service here is
+# reached over plain HTTP behind that same edge, not just Vault), so this isn't a step down from
+# how the rest of this cluster is set up. Raft's own inter-node transport is independently
+# encrypted by Vault itself regardless of this setting — that part doesn't need a listener cert.
+# Known gap: this means anyone already inside the cluster network can read Vault traffic
+# in-flight; add a real listener cert (and mTLS between Vault and its callers) if that's ever an
+# insufficient trust boundary — see VaultTlsAdapter's old removal note in CLAUDE.md for why that
+# isn't wired up automatically here (the CA that would sign it is Vault's own pki_int, and Vault
+# can't be trusted to sign its own bootstrap listener cert before it's even up).
+{{- if not .Values.devMode }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+data:
+  vault.hcl: |
+    storage "raft" {
+      path    = "/vault/data"
+      node_id = "vault-0"
+    }
+
+    listener "tcp" {
+      address     = "0.0.0.0:8200"
+      tls_disable = 1
+    }
+
+    api_addr     = "http://vault.{{ .Values.namespace }}.svc:8200"
+    cluster_addr = "http://vault-0.vault.{{ .Values.namespace }}.svc:8201"
+    ui           = true
+
+    # Disables the pre-1.11 mlock requirement — the alternative is CAP_IPC_LOCK on the container,
+    # which most managed Kubernetes runtimes (EKS/GKE/AKS default node pools) don't grant without
+    # extra node config. Standard trade documented in Vault's own k8s deployment guidance.
+    disable_mlock = true
+{{- end }}

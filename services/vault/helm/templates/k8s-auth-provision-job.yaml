@@ -1,0 +1,183 @@
+# Prod-only (.Values.devMode: false). Replaces the static root token every provisioning job (and
+# cert-manager-config's Issuer) authenticates with in dev mode — see pki-provision-job.yaml/
+# oidc-provision-job.yaml/db-provision-job.yaml's VAULT_TOKEN env and cert-manager-config/helm/
+# templates/issuer.yaml's tokenSecretRef, all of which branch on devMode to use Kubernetes auth
+# instead once this job has run.
+#
+# hook-weight -5: after vault-init-job (-10, vault must be unsealed first) but before every
+# consumer of these roles/policies (pki/oidc/db-provision at weight 0/1).
+#
+# ClusterRoleBinding below is the one genuinely cluster-scoped RBAC object in this whole chart —
+# Vault's Kubernetes auth method validates a caller's token via the TokenReview API, which is a
+# cluster-scoped API with no namespaced equivalent; HashiCorp's own docs call out binding
+# "system:auth-delegator" to whatever SA supplies token_reviewer_jwt as the standard way to grant
+# just that, nothing broader.
+{{- if not .Values.devMode }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-k8s-auth-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-k8s-auth-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["vault-init"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-k8s-auth-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-k8s-auth-provision
+subjects:
+  - kind: ServiceAccount
+    name: vault-k8s-auth-provision
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-k8s-auth-token-review-{{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: vault-k8s-auth-provision
+    namespace: {{ .Values.namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-k8s-auth-provision
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "vault.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "vault.labels" . | nindent 8 }}
+    spec:
+      # See values.yaml's jobRestartPolicy for why this isn't OnFailure.
+      restartPolicy: {{ .Values.jobRestartPolicy }}
+      serviceAccountName: vault-k8s-auth-provision
+      automountServiceAccountToken: true
+      containers:
+        - name: vault-k8s-auth-provision
+          image: "{{ .Values.image }}"
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault:8200"
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until vault status >/dev/null 2>&1; do
+                echo "waiting for vault..."
+                sleep 2
+              done
+
+              # No kubectl (or curl) in this image, and fetching either as a static binary from
+              # the internet at runtime is exactly the fragility that broke db-provision-job.yaml
+              # here — a single read of the vault-init Secret is easy enough with plain busybox
+              # wget instead (see vault-init-job.yaml's identical fix for the same reasoning).
+              KUBE_TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
+              KUBE_CA_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              cat "$KUBE_CA_FILE" >> /etc/ssl/certs/ca-certificates.crt
+              AUTH_HEADER="Authorization: Bearer $(cat "$KUBE_TOKEN_FILE")"
+              KUBE_API="https://kubernetes.default.svc/api/v1/namespaces/{{ .Values.namespace }}"
+
+              # This job's own root token, minted once by vault-init-job — used only to bootstrap
+              # the auth method + policies + roles below, then revoked at the very end so it
+              # can't be reused afterward.
+              export VAULT_TOKEN=$(wget -q -O - --header="$AUTH_HEADER" "$KUBE_API/secrets/vault-init" \
+                | grep -o '"init.json":"[^"]*"' | cut -d'"' -f4 | base64 -d \
+                | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4)
+
+              vault auth enable kubernetes 2>/dev/null || true
+              vault write auth/kubernetes/config \
+                kubernetes_host="https://kubernetes.default.svc" \
+                token_reviewer_jwt="@$KUBE_TOKEN_FILE" \
+                kubernetes_ca_cert="@$KUBE_CA_FILE"
+
+              # One policy + role per provisioning job's ServiceAccount, scoped to exactly the
+              # paths that job's own script touches — see pki-provision-job.yaml/
+              # oidc-provision-job.yaml/db-provision-job.yaml for what each actually calls.
+              printf '%s\n' \
+                'path "sys/mounts/pki*" { capabilities = ["create", "read", "update"] }' \
+                'path "pki/*"           { capabilities = ["create", "read", "update", "list"] }' \
+                'path "pki_int/*"       { capabilities = ["create", "read", "update", "list"] }' \
+                > /tmp/pki-provision-policy.hcl
+              vault policy write pki-provision-policy /tmp/pki-provision-policy.hcl
+              vault write auth/kubernetes/role/pki-provision \
+                bound_service_account_names="vault-pki-provision" \
+                bound_service_account_namespaces="{{ .Values.namespace }}" \
+                policies="pki-provision-policy" \
+                ttl="15m"
+
+              printf '%s\n' \
+                'path "sys/auth/oidc*" { capabilities = ["create", "read", "update", "sudo"] }' \
+                'path "auth/oidc/*"    { capabilities = ["create", "read", "update"] }' \
+                > /tmp/oidc-provision-policy.hcl
+              vault policy write oidc-provision-policy /tmp/oidc-provision-policy.hcl
+              vault write auth/kubernetes/role/oidc-provision \
+                bound_service_account_names="vault-oidc-provision" \
+                bound_service_account_namespaces="{{ .Values.namespace }}" \
+                policies="oidc-provision-policy" \
+                ttl="15m"
+
+              printf '%s\n' \
+                'path "sys/mounts/database" { capabilities = ["create", "read", "update"] }' \
+                'path "database/config/*"   { capabilities = ["create", "read", "update"] }' \
+                'path "database/roles/*"    { capabilities = ["create", "read", "update"] }' \
+                'path "database/creds/*"    { capabilities = ["read"] }' \
+                'path "sys/leases/revoke"   { capabilities = ["update"] }' \
+                > /tmp/db-provision-policy.hcl
+              vault policy write db-provision-policy /tmp/db-provision-policy.hcl
+              vault write auth/kubernetes/role/db-provision \
+                bound_service_account_names="vault-db-provision" \
+                bound_service_account_namespaces="{{ .Values.namespace }}" \
+                policies="db-provision-policy" \
+                ttl="15m"
+
+              # cert-manager-config's Issuer signs leaf certs only — never gets pki-provision's
+              # broader mount/role-management capabilities.
+              printf '%s\n' \
+                'path "pki_int/sign/traefik-tls-role" { capabilities = ["create", "update"] }' \
+                > /tmp/cert-manager-issuer-policy.hcl
+              vault policy write cert-manager-issuer-policy /tmp/cert-manager-issuer-policy.hcl
+              vault write auth/kubernetes/role/cert-manager-issuer \
+                bound_service_account_names="cert-manager-issuer" \
+                bound_service_account_namespaces="{{ .Values.namespace }}" \
+                policies="cert-manager-issuer-policy" \
+                ttl="1h"
+
+              echo "revoking bootstrap root token"
+              vault token revoke -self
+{{- end }}

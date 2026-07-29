@@ -46,4 +46,18 @@ resource "helm_release" "argocd" {
     name  = "argo-cd.global.hostAliases[0].hostnames[0]"
     value = "authentik.lan"
   }
+
+  # Real secret, never committed — only meaningful (and only required) for prod; dev keeps the
+  # hand-typed matched placeholder already in services/argocd/helm/values.yaml. Must match
+  # authentik's own copy — see main.tf's oidc_secret_overrides.authentik entry for the same
+  # random_password.argocd_oidc_client_secret value.
+  dynamic "set_sensitive" {
+    for_each = var.environment == "prod" ? {
+      "argo-cd.configs.secret.extra.oidc\\.auth\\.client\\.secret" = random_password.argocd_oidc_client_secret.result
+    } : {}
+    content {
+      name  = set_sensitive.key
+      value = set_sensitive.value
+    }
+  }
 }
