@@ -1,1 +1,12 @@
+# Declared once, centrally — every apps/servers/* chart targets namespace="servers" in its own
+# helm(...) call (see turbo/generators/templates/server/Tiltfile), but none of their own
+# helm/templates/ create the Namespace object itself. Same pattern as services/Tiltfile's own
+# "infra" Namespace declaration.
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: servers
+"""))
+
 include("./server1/Tiltfile")

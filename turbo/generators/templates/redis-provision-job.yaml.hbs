@@ -1,0 +1,173 @@
+# Vault's database secrets engine (yes, "database" — Vault's redis-database-plugin mounts under
+# the same database/ path as Postgres's) pointed at this server's own {{ name }}-redis (see
+# redis.yaml) — same shape as helm-db-provision-job.yaml.hbs's Postgres provisioning, own
+# ServiceAccount/Role (vault-redis-provision, not vault-db-provision) so this composes cleanly
+# whether or not the database extension is also present on this server.
+#
+# Split across two containers by tool, same reasoning as helm-db-provision-job.yaml.hbs: an
+# initContainer (hashicorp/vault image) runs every `vault` CLI command and writes its results to
+# a shared emptyDir volume; the main container (bitnami/kubectl image) only ever runs
+# `kubectl`/`curl` against those files — neither image has both toolsets. The one Vault-API call
+# the main container still needs (revoking the previous lease) uses plain `curl` against Vault's
+# HTTP API instead of the `vault` CLI.
+#
+# Scripts live in files/redis-provision-init.sh and files/redis-provision-main.sh, loaded via
+# `.Files.Get` (bypasses Helm's own Go-templating for that file's content) — same convention as
+# the Postgres provisioning Job.
+#
+# Runs on two triggers, both loading the same two scripts — see helm-db-provision-job.yaml.hbs's
+# header comment for the full "why a CronJob too" reasoning (dev-mode Vault losing lease state on
+# every restart, long-running pods outliving a lease's default_ttl, etc.) — identical here.
+#
+# Always authenticates via Vault's Kubernetes auth method, reusing the same "db-provision" role
+# services/vault/helm/templates/k8s-auth-provision-job.yaml sets up for the Postgres provisioning
+# Job (bound_service_account_names lists both "vault-db-provision" and "vault-redis-provision") —
+# its policy already grants database/config/*, database/roles/*, database/creds/*,
+# sys/leases/revoke, which covers the redis-database-plugin mount just as well as postgres's.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-redis-provision
+  namespace: \{{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vault-redis-provision
+  namespace: \{{ .Values.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["{{ name }}-redis-secret"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["{{ name }}"]
+    verbs: ["get", "patch", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vault-redis-provision
+  namespace: \{{ .Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vault-redis-provision
+subjects:
+  - kind: ServiceAccount
+    name: vault-redis-provision
+    namespace: \{{ .Values.namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ name }}-redis-provision
+  namespace: \{{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: vault-redis-provision
+      automountServiceAccountToken: true
+      initContainers:
+        - name: redis-provision-init
+          image: hashicorp/vault:1.18
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault.infra.svc.cluster.local:8200"
+            - name: REDIS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ name }}-redis-admin-secret
+                  key: password
+            - name: DB_DEFAULT_TTL
+              value: \{{ .Values.redisProvision.defaultTtl | quote }}
+            - name: DB_MAX_TTL
+              value: \{{ .Values.redisProvision.maxTtl | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              \{{ .Files.Get "files/redis-provision-init.sh" | nindent 14 }}
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      containers:
+        - name: redis-provision-main
+          image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault.infra.svc.cluster.local:8200"
+          command:
+            - sh
+            - -c
+            - |
+              \{{ .Files.Get "files/redis-provision-main.sh" | nindent 14 }}
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      volumes:
+        - name: shared
+          emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ name }}-redis-provision
+  namespace: \{{ .Values.namespace }}
+spec:
+  schedule: \{{ .Values.redisProvision.schedule | quote }}
+  jobTemplate:
+    spec:
+      backoffLimit: 5
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: vault-redis-provision
+          automountServiceAccountToken: true
+          initContainers:
+            - name: redis-provision-init
+              image: hashicorp/vault:1.18
+              env:
+                - name: VAULT_ADDR
+                  value: "http://vault.infra.svc.cluster.local:8200"
+                - name: REDIS_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ name }}-redis-admin-secret
+                      key: password
+                - name: DB_DEFAULT_TTL
+                  value: \{{ .Values.redisProvision.defaultTtl | quote }}
+                - name: DB_MAX_TTL
+                  value: \{{ .Values.redisProvision.maxTtl | quote }}
+              command:
+                - sh
+                - -c
+                - |
+                  \{{ .Files.Get "files/redis-provision-init.sh" | nindent 18 }}
+              volumeMounts:
+                - name: shared
+                  mountPath: /shared
+          containers:
+            - name: redis-provision-main
+              image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+              env:
+                - name: VAULT_ADDR
+                  value: "http://vault.infra.svc.cluster.local:8200"
+              command:
+                - sh
+                - -c
+                - |
+                  \{{ .Files.Get "files/redis-provision-main.sh" | nindent 18 }}
+              volumeMounts:
+                - name: shared
+                  mountPath: /shared
+          volumes:
+            - name: shared
+              emptyDir: {}

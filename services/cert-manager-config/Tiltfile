@@ -1,2 +1,20 @@
 k8s_yaml(helm("./helm", name="cert-manager-config", namespace="infra"))
-k8s_resource("cert-manager-config", labels=["infra"], resource_deps=["cert-manager"])
+
+# This chart is CRDs-only (Issuer/Certificate, see helm/templates/) — no Deployment/Job/
+# StatefulSet for Tilt to auto-assemble a "cert-manager-config" resource around, so a plain
+# k8s_resource("cert-manager-config", ...) has nothing to attach to ("unknown resource"). Group
+# the actual rendered objects into one explicitly instead.
+#
+# serviceaccount.yaml's ServiceAccount/Secret are prod-only ({{- if not .Values.devMode }}) — Tilt
+# always renders dev-mode values, so they never exist here; listing them in objects= below would
+# hard-fail with "No object identified by the fragment ... could be found" (unlike a k8s_resource
+# workload lookup, objects= selectors have no lenient/optional mode).
+k8s_resource(
+    objects=[
+        "vault-issuer:issuer",
+        "traefik-default:certificate",
+    ],
+    new_name="cert-manager-config",
+    labels=["infra"],
+    resource_deps=["cert-manager"],
+)

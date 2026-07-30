@@ -1,7 +1,22 @@
+\{{- $dbSecret := lookup "v1" "Secret" .Release.Namespace "{{ name }}-db-secret" }}
+\{{- $dbPassword := randAlphaNum 32 }}
+\{{- if $dbSecret }}
+\{{- $dbPassword = index $dbSecret.data "password" | b64dec }}
+\{{- else if .Values.dbPassword }}
+# Tilt override (see Tiltfile's set=["dbPassword=..."]) — `lookup` above always returns nothing
+# under Tilt's own "offline-only" helm() (no live cluster access at all), so without this, every
+# single Tiltfile reconcile would mint a *new* random password here while server1-db's own pod
+# (fixed at its last boot) and server1-migrate's Job (a literal env value, immutable once
+# created) each keep whatever stale value they already had — three different passwords, auth
+# failures. A real `helm install`/Terraform never sets this, so it still gets a real random
+# password there, correctly reused via `lookup` on every later `helm upgrade`.
+\{{- $dbPassword = .Values.dbPassword }}
+\{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ name }}-db
+  namespace: \{{ .Values.namespace }}
   labels:
     app: {{ name }}-db
 spec:
@@ -32,7 +47,10 @@ spec:
             - name: POSTGRES_USER
               value: myuser
             - name: POSTGRES_PASSWORD
-              value: mypassword
+              valueFrom:
+                secretKeyRef:
+                  name: {{ name }}-db-secret
+                  key: password
             - name: POSTGRES_DB
               value: {{ name }}
           volumeMounts:
@@ -60,6 +78,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ name }}-db
+  namespace: \{{ .Values.namespace }}
   labels:
     app: {{ name }}-db
 spec:
@@ -73,18 +92,51 @@ spec:
       targetPort: postgres
 
 ---
+# The Postgres superuser's own password — read by the postgres container above and by
+# db-provision-job.yaml's vault write database/config/... (admin creds Vault uses to mint leaf
+# roles). Randomly generated on first `helm install` (see the `lookup`/`randAlphaNum` block at
+# the top of this file) and kept stable across every later `helm upgrade` — `lookup` reads this
+# same Secret's already-set password back instead of minting a fresh one on every render, which
+# would otherwise silently break Postgres/Vault's already-established credential each upgrade.
+# Only works against a real cluster: `helm template`/`--dry-run` always see `lookup` return
+# nothing, so those always take the "generate new" branch instead — expected, not a bug.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ name }}-db-secret
+  namespace: \{{ .Values.namespace }}
+type: Opaque
+data:
+  password: \{{ $dbPassword | b64enc }}
+
+---
 # Consumed via envFrom by this chart's own deployment.yaml (see wireHelmDeploymentConfigMap) and
-# by the migrate Job below. Static superuser creds, same as every other dev-mode Postgres in this
-# repo (e.g. services/authentik/helm/values.yaml) — no Vault indirection for a test server.
+# by the migrate Job below. DB_HOST/DB_PORT/DB_NAME only — DATABASE_URL itself lives in
+# {{ name }}-secret (below), not here, since it holds Vault-minted credentials rather than a
+# static value safe for a ConfigMap.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ name }}-env
+  namespace: \{{ .Values.namespace }}
 data:
-  DATABASE_URL: postgresql://myuser:mypassword@{{ name }}-db:5432/{{ name }}
   DB_HOST: {{ name }}-db
   DB_PORT: "5432"
   DB_NAME: {{ name }}
+
+---
+# DATABASE_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the
+# static superuser creds so the app can still boot before db-provision-job.yaml's post-install
+# hook has run once; that hook immediately overwrites this key with Vault-minted leaf creds and
+# rolls the Deployment. See db-provision-job.yaml for the whole rotation story.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ name }}-secret
+  namespace: \{{ .Values.namespace }}
+type: Opaque
+stringData:
+  DATABASE_URL: postgresql://myuser:\{{ $dbPassword }}@{{ name }}-db:5432/{{ name }}
 
 ---
 apiVersion: batch/v1
@@ -94,6 +146,7 @@ metadata:
   # needs this Job deleted first (`kubectl delete job {{ name }}-migrate`), or the apply fails
   # trying to update a field it can't change in place.
   name: {{ name }}-migrate
+  namespace: \{{ .Values.namespace }}
   labels:
     app: {{ name }}-migrate
 spec:
@@ -112,4 +165,4 @@ spec:
           image: {{ name }}-migrate
           env:
             - name: DATABASE_URL
-              value: postgresql://myuser:mypassword@{{ name }}-db:5432/{{ name }}
+              value: postgresql://myuser:\{{ $dbPassword }}@{{ name }}-db:5432/{{ name }}

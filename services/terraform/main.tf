@@ -22,26 +22,15 @@ resource "helm_release" "traefik" {
 # Deploys each services/<name>/helm chart as-is — same chart Tilt renders locally,
 # so there's exactly one copy of each service's manifests to maintain.
 locals {
+  # vault and ca-distribution are NOT here — see their own dedicated helm_release blocks below.
   services = toset([
     "apicurio-registry",
     "authentik",
-    "ca-distribution",
     "kafka",
     "meilisearch",
     "minio",
     "monitoring",
-    "vault",
   ])
-
-  # wait=false (below) only skips waiting on pod readiness — Helm still always blocks on
-  # pre/post-install hook Jobs regardless, and the default 300s timeout isn't enough for
-  # vault's oidc-provision-job.yaml on a from-scratch cluster: it polls authentik's discovery
-  # endpoint until the blueprint's "vault" application exists, and on a cold node
-  # authentik-postgresql alone can still be PodInitializing minutes in (see the "cold node
-  # 10-15min" reasoning below). Same class of fix as argocd.tf's own timeout override.
-  service_timeouts = {
-    vault = 900
-  }
 
   # Every one of these is duplicated by hand across two independent Helm releases today (see
   # each app's own values.yaml — "must match services/authentik/helm/values.yaml's
@@ -102,7 +91,7 @@ resource "helm_release" "service" {
   # cancelled/killed wait leaves the release's Helm secret stuck in pending-install, which then
   # blocks all future installs/upgrades until manually cleared. Check `kubectl get pods` instead.
   wait    = false
-  timeout = try(local.service_timeouts[each.key], 300)
+  timeout = 300
 
   # Chart's own values.yaml (dev-mode defaults, safe to commit) always applies first. On a prod
   # apply, each chart's values-prod.yaml — where one exists — layers on top as a Helm values file,
@@ -125,6 +114,57 @@ resource "helm_release" "service" {
   }
 
   depends_on = [helm_release.traefik]
+}
+
+# Not in the for_each above, unlike before — pulled out so it can depends_on
+# helm_release.service["authentik"] specifically. vault's own db-provision-job.yaml/
+# oidc-provision-job.yaml post-install hooks (which a real `helm_release` always blocks on,
+# wait=false or not — see the for_each block's own comment) roll/poll authentik-server +
+# authentik-worker, which have to exist first. Being co-members of the same for_each (as
+# before) gave Terraform no ordering between them at all, just parallel apply — vault's hooks
+# could then run before authentik's release had even started, hanging on oidc-provision's own
+# 15min discovery-endpoint poll or failing outright via db-provision's `kubectl rollout status`
+# (no retry loop of its own — see that Job's own header comment). Same race, same fix, as
+# services/vault/Tiltfile's own resource_deps=["vault", "authentik-server", "authentik-worker"].
+resource "helm_release" "vault" {
+  name      = "vault"
+  chart     = "${path.module}/../vault/helm"
+  namespace = kubernetes_namespace.infra.metadata[0].name
+  wait      = false
+  # Default 300s isn't enough for oidc-provision-job.yaml on a from-scratch cluster — see above.
+  timeout = 900
+
+  values = (
+    var.environment == "prod" && fileexists("${path.module}/../vault/helm/values-prod.yaml")
+    ? [file("${path.module}/../vault/helm/values-prod.yaml")]
+    : []
+  )
+
+  dynamic "set_sensitive" {
+    for_each = var.environment == "prod" ? local.oidc_secret_overrides.vault : {}
+    content {
+      name  = set_sensitive.key
+      value = set_sensitive.value
+    }
+  }
+
+  depends_on = [helm_release.traefik, helm_release.service["authentik"]]
+}
+
+# Not in the for_each above, same reason as vault: pulled out so it can depends_on
+# helm_release.vault specifically. fetch-ca's own initContainer
+# (services/ca-distribution/helm/templates/deployment.yaml) reads `vault read pki/cert/ca`,
+# which 400s ("no default issuer currently configured") until vault's own pki-provision-job.yaml
+# hook has run — which only happens once helm_release.vault above has actually applied. Same
+# race, same fix, as services/ca-distribution/Tiltfile's own
+# resource_deps=["vault-pki-provision"].
+resource "helm_release" "ca-distribution" {
+  name      = "ca-distribution"
+  chart     = "${path.module}/../ca-distribution/helm"
+  namespace = kubernetes_namespace.infra.metadata[0].name
+  wait      = false
+
+  depends_on = [helm_release.vault]
 }
 
 # Not in the for_each above. cert-manager itself, and its Issuer/Certificate config, are two
@@ -162,7 +202,11 @@ resource "helm_release" "cert-manager-config" {
     : []
   )
 
-  depends_on = [helm_release.cert-manager, helm_release.service]
+  # helm_release.vault explicitly, not just implied via helm_release.service — vault is no
+  # longer a member of that for_each (see its own dedicated helm_release block above), so this
+  # chart's own Issuer needing the pki_int role from vault's pki-provision-job.yaml hook (see
+  # this resource's header comment) would otherwise have no ordering against vault at all.
+  depends_on = [helm_release.cert-manager, helm_release.service, helm_release.vault]
 }
 
 # Not in the for_each above — services/apollo/helm/values.supergraph.yaml is still the

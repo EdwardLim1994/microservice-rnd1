@@ -51,9 +51,23 @@ ARG SERVER_NAME
 
 COPY --from=pruner /app/out/full/ .
 
+# Only consumed by servers with the "database" extension (their own postinstall script runs
+# `prisma generate`, which needs *a* DATABASE_URL to satisfy prisma.config.ts's env() check even
+# though it never actually connects) — harmless no-op for servers without it. The real runtime
+# value comes from the k8s Secret via envFrom, which overrides this (Pod env always wins over an
+# image's own ENV).
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
 RUN bun run build
 
 WORKDIR /app/apps/servers/"${SERVER_NAME}"
+
+# Explicit, not relying on the postinstall hook `bun install`/`bun run build` may or may not have
+# actually triggered above — that path failed silently once already (DATABASE_URL missing,
+# non-fatal to the overall build) and left an image with no generated/prisma/ at all, crashing at
+# runtime instead of at build time. A dedicated RUN here fails the build loudly if this ever
+# breaks again, instead of shipping a broken image.
+RUN bunx prisma generate
 
 # ── development ───────────────────────────────────────────────────────────────
 # Runs index.ts directly via bun (no compile step) — for Tilt live_update: source edits land in

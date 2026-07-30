@@ -25,7 +25,7 @@ spec:
       # the full reasoning.
       {{- $traefikSvc := lookup "v1" "Service" "infra" "traefik-web-8080" }}
       hostAliases:
-        - ip: {{ if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
+        - ip: {{ if .Values.traefikClusterIp }}{{ .Values.traefikClusterIp }}{{ else if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
           hostnames:
             - authentik.lan
       containers:

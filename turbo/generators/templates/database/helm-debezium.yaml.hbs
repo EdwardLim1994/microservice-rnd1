@@ -5,6 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ name }}-debezium-config
+  namespace: \{{ .Values.namespace }}
 data:
   application.properties: |
     debezium.source.connector.class=io.debezium.connector.postgresql.PostgresConnector
@@ -14,7 +15,14 @@ data:
     debezium.source.database.hostname={{ name }}-db
     debezium.source.database.port=5432
     debezium.source.database.user=myuser
-    debezium.source.database.password=mypassword
+    # ${DB_PASSWORD} — Quarkus/MicroProfile Config's own env var substitution (Debezium Server is
+    # built on Quarkus), not Handlebars/Helm templating. Reads the Deployment's DB_PASSWORD env
+    # var (below) at container start, rather than this file re-deriving {{ name }}-db-secret's
+    # password itself — that Secret's value is only decided once, in db.yaml.hbs's own
+    # lookup/randAlphaNum block; a second independent lookup here (a different template file,
+    # rendered in the same Helm pass) could return empty and mint a *different* random password
+    # than db.yaml.hbs already assigned to the running Postgres.
+    debezium.source.database.password=${DB_PASSWORD}
     debezium.source.database.dbname={{ name }}
 {{#if tableIncludeList}}
     debezium.source.table.include.list={{ tableIncludeList }}
@@ -32,6 +40,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ name }}-debezium
+  namespace: \{{ .Values.namespace }}
   labels:
     app: {{ name }}-debezium
 spec:
@@ -46,9 +55,44 @@ spec:
       labels:
         app: {{ name }}-debezium
     spec:
+      # Creates the publication pgoutput needs (Debezium creates the replication slot itself but
+      # not this) — deliberately NOT a docker-entrypoint-initdb.d script on {{ name }}-db's own
+      # Postgres container: initdb scripts run once, at Postgres's very first boot, before the
+      # {{ name }}-migrate Job (a separate k8s Job) has any chance to create the table(s) below,
+      # so `CREATE PUBLICATION ... FOR TABLE ...` there fails every time against a table that
+      # doesn't exist yet. This runs here instead, after {{ name }}-migrate is guaranteed done
+      # (see the Tiltfile's own resource_deps=["{{ name }}-migrate"] on this Deployment) — guarded
+      # idempotent (checks pg_publication first) since Debezium's own Deployment restarts.
+      initContainers:
+        - name: create-publication
+          image: postgres:15.3-alpine
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ name }}-db-secret
+                  key: password
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until pg_isready -h {{ name }}-db -p 5432 -U myuser; do sleep 2; done
+              EXISTS=$(psql -h {{ name }}-db -U myuser -d {{ name }} -tAc \
+                "SELECT 1 FROM pg_publication WHERE pubname = '{{ name }}_debezium'")
+              if [ "$EXISTS" != "1" ]; then
+                psql -h {{ name }}-db -U myuser -d {{ name }} -c \
+                  "CREATE PUBLICATION {{ name }}_debezium FOR TABLE {{ publicationTargets }};"
+              fi
       containers:
         - name: debezium-server
-          image: debezium/server:2.7
+          image: debezium/server:2.7.3.Final
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ name }}-db-secret
+                  key: password
           volumeMounts:
             - name: config
               mountPath: /debezium/conf

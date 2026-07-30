@@ -1,5 +1,43 @@
+# Declared once, centrally — every services/* chart below targets namespace="infra" in its own
+# helm(...) call, but none of their own helm/templates/ actually create the Namespace object
+# itself. Used to be duplicated (byte-for-byte) in both kafka/Tiltfile and traefik/Tiltfile,
+# which Tilt rejects outright ("Duplicate YAML: Namespace infra") — a real, pre-existing bug that
+# broke `tilt up` before it ever got as far as the traefik-lookup race below.
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infra
+"""))
+
 include("./kafka/Tiltfile")
 include("./traefik/Tiltfile")
+
+# minio/monitoring's charts `lookup()` traefik-web-8080's ClusterIP at *render* time (see their
+# statefulset.yaml hostAliases comments, and services/terraform/main.tf's identical
+# depends_on = [helm_release.traefik] for the same reason) — resource_deps can't fix this the way
+# it does for plain apply ordering: k8s_yaml(helm(...)) is just local('helm template ...') under
+# the hood (see Tilt's own "Re-implementing helm()" doc), which runs synchronously *during*
+# Tiltfile evaluation, before Tilt's own apply/reconcile loop ever starts — on a from-scratch
+# cluster, nothing Tilt-managed exists yet at that point, so the lookup silently falls back to
+# 127.0.0.1 (no error) and stays wrong for the pod's whole lifetime until a manual restart.
+#
+# Deliberately NOT `helm upgrade --install` — Tilt's own helm() is "offline-only" templating
+# (see Tilt's own helm.md docs): it never creates or tracks an actual Helm release, it just
+# applies the rendered YAML directly under its own field manager. A real `helm upgrade --install`
+# here would create a second, separately-tracked release owning the same object fields, which
+# then permanently conflicts with Tilt's own apply on every single reconcile after this one
+# ("conflict with Go-http-client" server-side-apply errors) — not just a one-time race. Plain
+# `kubectl apply` (client-side, no field-manager tracking of its own) bootstraps the same objects
+# without competing for ownership, so Tilt's own subsequent apply takes over cleanly. No --wait
+# needed either: only the Service object (and its ClusterIP, assigned synchronously on creation)
+# has to exist before the lookup() below runs — Traefik's pod being ready is irrelevant to that.
+local(
+    "kubectl create namespace infra --dry-run=client -o yaml | kubectl apply -f - && "
+    + "helm template traefik ./traefik/helm -n infra --include-crds | kubectl apply -n infra -f -",
+    quiet=False,
+)
+
 include("./vault/Tiltfile")
 include("./cert-manager/Tiltfile")
 include("./cert-manager-config/Tiltfile")
@@ -10,3 +48,46 @@ include("./apicurio-registry/Tiltfile")
 include("./monitoring/Tiltfile")
 include("./authentik/Tiltfile")
 include("./minio/Tiltfile")
+
+# A single gate every apps/servers/* resource depends on (see
+# turbo/generators/templates/server/Tiltfile's own resource_deps=["services-ready"]), so nothing
+# under apps/ starts building/applying until every services/* resource here is up — Tilt resolves
+# resource_deps against the full dependency graph after all Tiltfiles finish evaluating, so this
+# forward-reference works fine even though root Tiltfile includes apps/Tiltfile before this file.
+# Named explicitly rather than relying on any "depend on a whole label" mechanism — Tilt has none;
+# resource_deps only takes concrete resource names, so this list has to be kept in sync by hand
+# whenever a services/* Tiltfile adds or renames a k8s_resource(). "true" is a no-op command —
+# this resource's only job is to exist as a dependency target, not to do anything itself.
+#
+# apollo-router deliberately excluded — services/apollo/helm/values.supergraph.yaml is still the
+# checked-in placeholder (no subgraphs registered in rover.yaml yet, see that file's own
+# comment), so the router crash-loops until someone runs `bun run supergraph` for real; the same
+# reason services/terraform/main.tf's own apollo-router release uses wait=false instead of
+# blocking on it. Gating every server on it would mean nothing under apps/ ever starts.
+local_resource(
+    "services-ready",
+    "true",
+    resource_deps=[
+        "kafka",
+        "traefik",
+        "vault",
+        "vault-k8s-auth-provision",
+        "vault-db-provision",
+        "vault-oidc-provision",
+        "vault-pki-provision",
+        "cert-manager",
+        "cert-manager-config",
+        "ca-distribution",
+        "meilisearch",
+        "apicurio-registry",
+        "prometheus",
+        "loki",
+        "tempo",
+        "otel-collector",
+        "grafana",
+        "authentik-server",
+        "authentik-worker",
+        "minio",
+    ],
+    labels=["infra"],
+)

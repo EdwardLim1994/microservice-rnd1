@@ -18,17 +18,44 @@ export function makeTestPki() {
     openssl(['genrsa', '-out', `${name}.key`, '2048']);
     if (!ca) {
       openssl([
-        'req', '-x509', '-new', '-key', `${name}.key`, '-out', `${name}.crt`,
-        '-days', '1', '-subj', `/CN=${cn}`,
+        'req',
+        '-x509',
+        '-new',
+        '-key',
+        `${name}.key`,
+        '-out',
+        `${name}.crt`,
+        '-days',
+        '1',
+        '-subj',
+        `/CN=${cn}`,
       ]);
       return { key: `${name}.key`, cert: `${name}.crt` };
     }
     openssl([
-      'req', '-new', '-key', `${name}.key`, '-out', `${name}.csr`, '-subj', `/CN=${cn}`,
+      'req',
+      '-new',
+      '-key',
+      `${name}.key`,
+      '-out',
+      `${name}.csr`,
+      '-subj',
+      `/CN=${cn}`,
     ]);
     openssl([
-      'x509', '-req', '-in', `${name}.csr`, '-CA', ca.cert, '-CAkey', ca.key,
-      '-CAcreateserial', '-out', `${name}.crt`, '-days', '1',
+      'x509',
+      '-req',
+      '-in',
+      `${name}.csr`,
+      '-CA',
+      ca.cert,
+      '-CAkey',
+      ca.key,
+      '-CAcreateserial',
+      '-out',
+      `${name}.crt`,
+      '-days',
+      '1',
     ]);
     return { key: `${name}.key`, cert: `${name}.crt` };
   }

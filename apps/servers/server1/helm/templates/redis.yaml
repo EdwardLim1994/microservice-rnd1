@@ -1,7 +1,19 @@
+{{- $redisSecret := lookup "v1" "Secret" .Release.Namespace "server1-redis-admin-secret" }}
+{{- $redisPassword := randAlphaNum 32 }}
+{{- if $redisSecret }}
+{{- $redisPassword = index $redisSecret.data "password" | b64dec }}
+{{- else if .Values.redisPassword }}
+# Tilt override (see Tiltfile's set=["redisPassword=..."]) — same reasoning as db.yaml's own
+# dbPassword override: `lookup` above always returns nothing under Tilt, so without this every
+# reconcile would mint a new random password while the running Redis pod (fixed at its last
+# boot) keeps whatever it already has. A real `helm install`/Terraform never sets this.
+{{- $redisPassword = .Values.redisPassword }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: server1-redis
+  namespace: {{ .Values.namespace }}
   labels:
     app: server1-redis
 spec:
@@ -18,12 +30,24 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          # No REDIS_PASSWORD substitution in `args:` (redis-server doesn't expand env vars in
+          # its own argv) — wrapped in sh -c so the shell expands it instead.
+          command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\""]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: server1-redis-admin-secret
+                  key: password
           ports:
             - name: redis
               containerPort: 6379
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              # Same sh -c wrapping as `command` above — a bare exec array can't expand
+              # $REDIS_PASSWORD, and an unauthenticated `redis-cli ping` against a
+              # requirepass-protected server fails with NOAUTH.
+              command: ["sh", "-c", "redis-cli -a \"$REDIS_PASSWORD\" ping"]
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
@@ -37,6 +61,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: server1-redis
+  namespace: {{ .Values.namespace }}
   labels:
     app: server1-redis
 spec:
@@ -49,11 +74,32 @@ spec:
       targetPort: redis
 
 ---
-# Consumed via envFrom by this chart's own deployment.yaml. Bun's RedisClient() reads REDIS_URL
-# when constructed with no args (see RedisPlugin.createBunRedisClient).
+# The Redis "default" superuser's own password — read by the redis container above (requirepass)
+# and by redis-provision-job.yaml's vault write database/config/... (admin creds Vault uses to
+# mint leaf ACL users). Randomly generated on first `helm install` and kept stable across every
+# later `helm upgrade` via the `lookup`/`randAlphaNum` block at the top of this file — same
+# reasoning as helm-db.yaml.hbs's server1-db-secret. Only works against a real cluster:
+# `helm template`/`--dry-run` always see `lookup` return nothing, so those always take the
+# "generate new" branch instead — expected, not a bug.
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: server1-redis-env
+  name: server1-redis-admin-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
 data:
-  REDIS_URL: redis://server1-redis:6379
+  password: {{ $redisPassword | b64enc }}
+
+---
+# REDIS_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the admin
+# creds so the app can still boot before redis-provision-job.yaml's post-install hook has run
+# once; that hook immediately overwrites this key with a Vault-minted leaf ACL user's creds and
+# rolls the Deployment. See redis-provision-job.yaml for the whole rotation story.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: server1-redis-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  REDIS_URL: redis://default:{{ $redisPassword }}@server1-redis:6379

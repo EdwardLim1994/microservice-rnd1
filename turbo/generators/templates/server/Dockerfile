@@ -51,6 +51,13 @@ ARG SERVER_NAME
 
 COPY --from=pruner /app/out/full/ .
 
+# Only consumed by servers with the "database" extension (their own postinstall script runs
+# `prisma generate`, which needs *a* DATABASE_URL to satisfy prisma.config.ts's env() check even
+# though it never actually connects) — harmless no-op for servers without it. The real runtime
+# value comes from the k8s Secret via envFrom, which overrides this (Pod env always wins over an
+# image's own ENV).
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
 RUN bun run build
 
 WORKDIR /app/apps/servers/"${SERVER_NAME}"

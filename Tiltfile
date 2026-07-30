@@ -1,2 +1,2 @@
-# include("./apps/Tiltfile")
+include("./apps/Tiltfile")
 include("./services/Tiltfile")

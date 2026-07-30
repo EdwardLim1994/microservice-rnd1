@@ -1,14 +1,20 @@
 import { type AwilixContainer, asValue } from 'awilix';
-import { Client } from 'minio';
+import type { Client } from 'minio';
 import { BasePlugin } from '../abstract/BasePlugin';
 
 /**
- * 'minio' is a regular isomorphic (fetch/http-based) npm package, same as meilisearch's client —
- * no dynamic import needed, loads fine under both Bun and rstest's Node runner, bundles normally
- * through rslib.
+ * 'minio' pulls in block-stream2 -> readable-stream, whose legacy `util.inherits(..., Readable)`
+ * pattern crashes at module-load time under Bun on some platforms (confirmed on Bun 1.3.14/
+ * arm64: "The superCtor.prototype property must be of type object") — not lazy before, which
+ * meant any server importing anything from this package's barrel export (`export * from
+ * './plugin'` etc.) ate that crash on startup even if it never registers MinioPlugin. Dynamic
+ * import, same pattern as RedisPlugin's `await import('bun')`/OtelPlugin's `@opentelemetry/*`:
+ * only a type-only import at module scope (erased at compile time), the real import lives inside
+ * this factory, only reached if MinioPlugin is actually instantiated and started.
  */
-function createDefaultMinioClient(): Client {
-  return new Client({
+async function createDefaultMinioClient(): Promise<Client> {
+  const { Client: MinioClient } = await import('minio');
+  return new MinioClient({
     endPoint: process.env.MINIO_ENDPOINT ?? 'localhost',
     port: Number(process.env.MINIO_PORT ?? 9000),
     useSSL: process.env.MINIO_USE_SSL === 'true',
@@ -23,7 +29,7 @@ export class MinioPlugin extends BasePlugin {
   /** factory param allows injection in tests without touching the real client, same pattern as MeilisearchPlugin/RedisPlugin */
   constructor(
     private readonly container: AwilixContainer,
-    private readonly createClient: () => Client = createDefaultMinioClient,
+    private readonly createClient: () => Promise<Client> = createDefaultMinioClient,
   ) {
     super();
   }
@@ -33,7 +39,7 @@ export class MinioPlugin extends BasePlugin {
    * surfacing later on first bucket operation — then registers `minio` into the container.
    */
   async onStart(): Promise<void> {
-    this.client = this.createClient();
+    this.client = await this.createClient();
     await this.client.listBuckets();
     this.container.register({ minio: asValue(this.client) });
   }

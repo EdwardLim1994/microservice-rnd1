@@ -14,7 +14,7 @@ function makeMockMinio(healthy = true) {
       return [];
     },
   };
-  const createClient = () => client as unknown as Client;
+  const createClient = async () => client as unknown as Client;
   return { client, state, createClient };
 }
 

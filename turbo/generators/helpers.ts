@@ -604,6 +604,7 @@ function findIndentedBodyEnd(
 export function wireHelmDeploymentConfigMap(
 	absDeploymentPath: string,
 	configMapName: string,
+	refKind: "configMapRef" | "secretRef" = "configMapRef",
 ): string {
 	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
 	if (raw.includes(`name: ${configMapName}`)) {
@@ -615,7 +616,7 @@ export function wireHelmDeploymentConfigMap(
 		const indent = envFromLineMatch[1];
 		const listStart = envFromLineMatch.index + envFromLineMatch[0].length;
 		const insertAt = findIndentedBodyEnd(raw, listStart, indent.length + 1);
-		const entry = `${indent}  - configMapRef:\n${indent}      name: ${configMapName}\n`;
+		const entry = `${indent}  - ${refKind}:\n${indent}      name: ${configMapName}\n`;
 		fs.writeFileSync(
 			absDeploymentPath,
 			`${raw.slice(0, insertAt)}${entry}${raw.slice(insertAt)}`,
@@ -629,10 +630,57 @@ export function wireHelmDeploymentConfigMap(
 	}
 	const indent = imageLineMatch[1];
 	const insertAt = imageLineMatch.index + imageLineMatch[0].length;
-	const envFromBlock = `${indent}envFrom:\n${indent}  - configMapRef:\n${indent}      name: ${configMapName}\n`;
+	const envFromBlock = `${indent}envFrom:\n${indent}  - ${refKind}:\n${indent}      name: ${configMapName}\n`;
 	fs.writeFileSync(
 		absDeploymentPath,
 		`${raw.slice(0, insertAt)}${envFromBlock}${raw.slice(insertAt)}`,
 	);
 	return `${relToRoot(absDeploymentPath)} (+envFrom ${configMapName})`;
+}
+
+/**
+ * Adds a wait-loop initContainer to a server's helm/templates/deployment.yaml so the app
+ * container never starts before a dependency (its own db/redis Deployment) is actually
+ * accepting connections — k8s has no native `depends_on`, and envFrom alone only wires the
+ * connection string, not readiness. Reuses the dependency's own image (already pulled for that
+ * Deployment) rather than adding busybox as a new dependency. Idempotent per initContainer name.
+ */
+export function wireHelmInitContainerWait(
+	absDeploymentPath: string,
+	name: string,
+	image: string,
+	waitCommand: string,
+): string {
+	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
+	if (raw.includes(`name: ${name}`)) {
+		return `${relToRoot(absDeploymentPath)} already has initContainer ${name}`;
+	}
+
+	const containersLineMatch = /^(\s+)containers:[ \t]*\n/m.exec(raw);
+	if (!containersLineMatch) {
+		throw new Error(`Could not find a "containers:" line in ${absDeploymentPath}`);
+	}
+	const indent = containersLineMatch[1];
+	const entry = `${indent}  - name: ${name}\n${indent}    image: ${image}\n${indent}    command: ["sh", "-c", ${JSON.stringify(waitCommand)}]\n`;
+
+	const initContainersLineMatch = /^(\s+)initContainers:[ \t]*\n/m.exec(raw);
+	if (initContainersLineMatch) {
+		const initIndent = initContainersLineMatch[1];
+		const listStart =
+			initContainersLineMatch.index + initContainersLineMatch[0].length;
+		const insertAt = findIndentedBodyEnd(raw, listStart, initIndent.length + 1);
+		fs.writeFileSync(
+			absDeploymentPath,
+			`${raw.slice(0, insertAt)}${entry}${raw.slice(insertAt)}`,
+		);
+		return `${relToRoot(absDeploymentPath)} (+initContainer ${name})`;
+	}
+
+	const insertAt = containersLineMatch.index;
+	const block = `${indent}initContainers:\n${entry}`;
+	fs.writeFileSync(
+		absDeploymentPath,
+		`${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`,
+	);
+	return `${relToRoot(absDeploymentPath)} (+initContainer ${name})`;
 }

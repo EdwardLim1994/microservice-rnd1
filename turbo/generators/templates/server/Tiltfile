@@ -1,16 +1,44 @@
-docker_build(
+# Every path below is relative to *this* Tiltfile's own directory (apps/servers/{{name}}/) — Tilt
+# resolves relative paths that way for every function, not repo-root-relative. Dockerfile's own
+# header says "Build context must be repo root", hence "../../.." here, not ".".
+load('ext://restart_process', 'docker_build_with_restart')
+
+# restart_container() is deprecated for k8s resources (Tilt now recommends this extension
+# instead) — docker_build_with_restart wraps the "development" stage's own entrypoint (see
+# Dockerfile's `ENTRYPOINT ["bun", "run", "index.ts"]`) so a live_update re-executes bun directly
+# rather than restarting the whole container.
+docker_build_with_restart(
     "{{name}}",
-    "apps/servers/{{name}}",
+    "../../..",
+    dockerfile="./Dockerfile",
     target="development",
+    entrypoint=["bun", "run", "index.ts"],
     live_update=[
-        sync("apps/servers/{{name}}/src", "/app/apps/servers/{{name}}/src"),
-        restart_container(),
+        sync("./src", "/app/apps/servers/{{name}}/src"),
+        run("date > /.restart-proc"),
     ],
 )
 
-k8s_yaml(helm("apps/servers/{{name}}/helm", name="{{name}}"))
+# dbPassword/redisPassword only matter if the database/redis extensions are ever added to this
+# server (see their own values.yaml dbPassword/redisPassword comments for the full reasoning:
+# Tilt's own helm() has no live cluster access, so the `lookup`-based password generation those
+# charts use would otherwise mint a new random password on every single Tiltfile reconcile) —
+# harmless to always pass here even before/without either extension, since an unrecognized
+# --set key with no matching values.yaml entry and no template referencing it is simply unused.
+k8s_yaml(helm(
+    "./helm",
+    name="{{name}}",
+    namespace="servers",
+    set=[
+        "dbPassword={{name}}-tilt-local-dev-db-password",
+        "redisPassword={{name}}-tilt-local-dev-redis-password",
+    ],
+))
 
+# "services-ready" (services/Tiltfile) gates this on every services/* resource actually being up
+# first — see apps/servers/server1/Tiltfile's identical gate for the full reasoning.
 k8s_resource(
     "{{name}}",
+    resource_deps=["services-ready"],
     labels=["servers"],
 )

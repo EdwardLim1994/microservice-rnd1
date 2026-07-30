@@ -7,6 +7,7 @@ import {
 	detectIndent,
 	findMatchingBracket,
 	wireHelmDeploymentConfigMap,
+	wireHelmInitContainerWait,
 	workspaceChoices,
 } from "../helpers";
 
@@ -128,6 +129,12 @@ function mergePrismaIntoPackageJson(absPackageJsonPath: string): string {
 	pkg.devDependencies.prisma = PRISMA_VERSION;
 	pkg.dependencies["@prisma/client"] = PRISMA_VERSION;
 	pkg.dependencies["@prisma/client-runtime-utils"] = PRISMA_VERSION;
+	// prisma.config.ts (below) imports createPrismaConfig from here — without this declared,
+	// `turbo prune --docker` (Dockerfile's pruner stage) never includes packages/script in the
+	// pruned build context at all, since it computes the subset from declared dependencies only.
+	// Works locally anyway (a root `bun install` links every workspace regardless of what's
+	// declared), which is exactly why this was missing until a real Docker build caught it.
+	pkg.dependencies.script = "workspace:*";
 
 	const existingPostinstall = pkg.scripts.postinstall as string | undefined;
 	if (!existingPostinstall) {
@@ -140,7 +147,7 @@ function mergePrismaIntoPackageJson(absPackageJsonPath: string): string {
 		absPackageJsonPath,
 		`${JSON.stringify(pkg, null, indent)}\n`,
 	);
-	return `${relToRoot(absPackageJsonPath)} (+prisma, @prisma/client, @prisma/client-runtime-utils, postinstall)`;
+	return `${relToRoot(absPackageJsonPath)} (+prisma, @prisma/client, @prisma/client-runtime-utils, script, postinstall)`;
 }
 
 /**
@@ -275,8 +282,21 @@ function appendDatabaseTiltfile(
 		return `${relToRoot(absTiltfilePath)} already has database resources`;
 	}
 	const snippet =
-		`\ndocker_build("${name}-migrate", "apps/servers/${name}", target="migrate")\n\n` +
-		`k8s_resource(\n    "${name}-db",\n    port_forwards=["${port}:5432"],\n    labels=["servers"],\n)\n`;
+		`\ndocker_build("${name}-migrate", "../../..", dockerfile="./Dockerfile", target="migrate")\n\n` +
+		// "services-ready" (services/Tiltfile) gates this on every services/* resource actually
+		// being up first — same reasoning as the "{name}" resource's own gate.
+		`k8s_resource(\n    "${name}-db",\n    resource_deps=["services-ready"],\n    port_forwards=["${port}:5432"],\n    labels=["servers"],\n)\n\n` +
+		// "${name}-migrate" (the Job) has no explicit k8s_resource() call otherwise, so it falls
+		// into Tilt's default "unlabeled" UI bucket instead of grouping with everything else here.
+		`k8s_resource(\n    "${name}-migrate",\n    resource_deps=["${name}-db"],\n    labels=["servers"],\n)\n\n` +
+		// Tilt disambiguates same-named Job+CronJob pairs as "<name>:job"/"<name>:cronjob" — a
+		// plain "${name}-db-provision" isn't a valid resource name here. Also depends on "${name}"
+		// itself, not just "${name}-db": db-provision-main.sh ends with `kubectl rollout restart/
+		// status deployment/${name}` with no retry loop of its own, so without this the Job can hit
+		// "deployment ${name} not found" if it runs before ${name}'s own Deployment even exists yet
+		// and burn through backoffLimit needing a manual re-trigger.
+		`k8s_resource(\n    "${name}-db-provision:job",\n    resource_deps=["services-ready", "${name}-db", "${name}"],\n    labels=["servers"],\n)\n\n` +
+		`k8s_resource(\n    "${name}-db-provision:cronjob",\n    resource_deps=["services-ready", "${name}-db", "${name}"],\n    labels=["servers"],\n)\n`;
 	fs.writeFileSync(
 		absTiltfilePath,
 		`${collapseTrailingNewlines(raw)}\n${snippet}`,
@@ -310,6 +330,43 @@ function injectDockerfileMigrateStage(
 
 	fs.writeFileSync(absDockerfilePath, next);
 	return `${relToRoot(absDockerfilePath)} (+migrate stage)`;
+}
+
+/**
+ * Adds an explicit `RUN bunx prisma generate` right after the builder stage's own WORKDIR line
+ * (shared by every stage that branches off "builder" — development/migrate/compiled all need
+ * generated/prisma/ to exist). Not left to the postinstall hook (`prisma generate` in
+ * package.json, from mergePrismaIntoPackageJson) alone — that ran silently non-fatally on a
+ * missing DATABASE_URL once already, producing an image with no generated client that only
+ * failed later, at runtime ("Cannot find module '../generated/prisma'"), not at build time. A
+ * dedicated RUN here fails the build loudly instead.
+ */
+function injectDockerfilePrismaGenerate(absDockerfilePath: string): string {
+	const raw = fs.readFileSync(absDockerfilePath, "utf-8");
+	if (raw.includes("RUN bunx prisma generate")) {
+		return `${relToRoot(absDockerfilePath)} already has an explicit prisma generate`;
+	}
+
+	const marker = /^WORKDIR \/app\/apps\/servers\/.*\n/m;
+	const match = marker.exec(raw);
+	if (!match) {
+		throw new Error(
+			`Could not find the builder stage's WORKDIR line in ${absDockerfilePath}`,
+		);
+	}
+	const insertAt = match.index + match[0].length;
+	const snippet =
+		"\n# Explicit, not relying on the postinstall hook `bun install`/`bun run build` may or may\n" +
+		"# not have actually triggered above — that path failed silently once already (DATABASE_URL\n" +
+		"# missing, non-fatal to the overall build) and left an image with no generated/prisma/ at\n" +
+		"# all, crashing at runtime instead of at build time. A dedicated RUN here fails the build\n" +
+		"# loudly if this ever breaks again, instead of shipping a broken image.\n" +
+		"RUN bunx prisma generate\n";
+	fs.writeFileSync(
+		absDockerfilePath,
+		`${raw.slice(0, insertAt)}${snippet}${raw.slice(insertAt)}`,
+	);
+	return `${relToRoot(absDockerfilePath)} (+explicit prisma generate)`;
 }
 
 export default class DatabaseGenerator {
@@ -363,16 +420,76 @@ export default class DatabaseGenerator {
 			return `${chartResult}; ${tiltResult}`;
 		});
 
+		// Vault-backed dynamic Postgres creds for the app's own Deployment (see
+		// helm-db-provision-job.yaml.hbs) — a post-install/post-upgrade hook Job plus a
+		// recurring CronJob that mint a fresh leased role, patch it into <name>-secret, and roll
+		// the Deployment. Written alongside <name>-db (db.yaml, from injectDatabaseHelm) rather
+		// than folded into it, since it's a distinct concern (Vault provisioning vs. the DB
+		// itself) with its own RBAC (a dedicated vault-db-provision ServiceAccount).
+		plop.setActionType(
+			"injectDatabaseProvisionJob",
+			(answers, _config, plopApi) => {
+				const { location } = answers as { location: string };
+				const name = path.basename(location);
+				const helmDir = path.join(process.cwd(), location, "helm");
+
+				const jobTemplate = fs.readFileSync(
+					path.join(TEMPLATES_DIR, "helm-db-provision-job.yaml.hbs"),
+					"utf-8",
+				);
+				const jobSnippet = plopApi.renderString(jobTemplate, { name });
+				const jobDestPath = path.join(
+					helmDir,
+					"templates",
+					"db-provision-job.yaml",
+				);
+
+				// The scripts live under helm/files/, not helm/templates/ — see
+				// helm-db-provision-job.yaml.hbs's header comment for why: Helm's `.Files.Get`
+				// skips Go-templating this file's content entirely, letting Vault's own
+				// `{{username}}`-style template placeholders reach the shell script literally.
+				// Two scripts, not one — the Job/CronJob split into a vault-CLI initContainer and
+				// a kubectl-only main container (neither image has both toolsets).
+				const initDestPath = path.join(helmDir, "files", "db-provision-init.sh");
+				const mainDestPath = path.join(helmDir, "files", "db-provision-main.sh");
+
+				if (
+					fs.existsSync(jobDestPath) ||
+					fs.existsSync(initDestPath) ||
+					fs.existsSync(mainDestPath)
+				) {
+					return `${relToRoot(jobDestPath)} already exists`;
+				}
+				fs.writeFileSync(jobDestPath, jobSnippet);
+				fs.mkdirSync(path.dirname(initDestPath), { recursive: true });
+				for (const [templateName, destPath] of [
+					["db-provision-init.sh.hbs", initDestPath],
+					["db-provision-main.sh.hbs", mainDestPath],
+				] as const) {
+					const template = fs.readFileSync(
+						path.join(TEMPLATES_DIR, templateName),
+						"utf-8",
+					);
+					fs.writeFileSync(destPath, plopApi.renderString(template, { name }));
+				}
+				return `${relToRoot(jobDestPath)}, ${relToRoot(initDestPath)}, ${relToRoot(mainDestPath)} (+${name}-db-provision Job/CronJob)`;
+			},
+		);
+
 		plop.setActionType("injectDatabaseDockerfile", (answers) => {
 			const { location } = answers as { location: string };
 			const snippet = fs.readFileSync(
 				path.join(TEMPLATES_DIR, "dockerfile-migrate-stage.hbs"),
 				"utf-8",
 			);
-			return injectDockerfileMigrateStage(
+			const migrateResult = injectDockerfileMigrateStage(
 				path.join(process.cwd(), location, "Dockerfile"),
 				snippet,
 			);
+			const generateResult = injectDockerfilePrismaGenerate(
+				path.join(process.cwd(), location, "Dockerfile"),
+			);
+			return `${migrateResult}; ${generateResult}`;
 		});
 
 		plop.setActionType("injectDatabaseIntoServerApp", (answers) => {
@@ -388,21 +505,41 @@ export default class DatabaseGenerator {
 		plop.setActionType("wireDatabaseHelmDeployment", (answers) => {
 			const { location } = answers as { location: string };
 			const name = path.basename(location);
-			return wireHelmDeploymentConfigMap(
-				path.join(
-					process.cwd(),
-					location,
-					"helm",
-					"templates",
-					"deployment.yaml",
-				),
+			const deploymentPath = path.join(
+				process.cwd(),
+				location,
+				"helm",
+				"templates",
+				"deployment.yaml",
+			);
+			const configMapResult = wireHelmDeploymentConfigMap(
+				deploymentPath,
 				`${name}-env`,
 			);
+			// DATABASE_URL lives in <name>-secret, not the <name>-env ConfigMap above — it holds
+			// Vault-minted credentials (see helm-db-provision-job.yaml.hbs), rotated in place by
+			// that Job/CronJob without this Deployment's envFrom ever changing.
+			const secretResult = wireHelmDeploymentConfigMap(
+				deploymentPath,
+				`${name}-secret`,
+				"secretRef",
+			);
+			// server1-db has no dependents that don't already retry/self-heal (see server1's own
+			// deployment.yaml comment) except this app container itself — a Service has no
+			// endpoints until its pod passes readinessProbe, so without this wait the app can boot
+			// against a DB that isn't accepting connections yet.
+			const waitResult = wireHelmInitContainerWait(
+				deploymentPath,
+				`wait-for-${name}-db`,
+				"postgres:15.3-alpine",
+				`until pg_isready -h ${name}-db -p 5432 -U myuser; do sleep 2; done`,
+			);
+			return `${configMapResult}; ${secretResult}; ${waitResult}`;
 		});
 
 		plop.setGenerator("database", {
 			description:
-				"Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a <name>-db helm chart (Postgres Deployment/Service/ConfigMap + <name>-migrate Job) + Tiltfile wiring + Dockerfile migrate stage, and wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts — static superuser creds read from DATABASE_URL, no Vault indirection (Vault-backed dynamic Postgres credentials were removed pending a redesign; see packages/server/CLAUDE.md's Database section)",
+				"Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a <name>-db helm chart (Postgres Deployment/Service/ConfigMap + <name>-migrate Job) + Tiltfile wiring + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts, and a <name>-db-provision Job/CronJob (helm-db-provision-job.yaml.hbs) that mints Vault-backed dynamic Postgres creds into <name>-secret by default — app.ts itself only ever reads DATABASE_URL, so no app-side Vault client code is needed (the old VaultPgAdapter approach); see services/vault/CLAUDE.md for the provisioning story",
 			prompts: [
 				{
 					type: "list",
@@ -425,9 +562,16 @@ export default class DatabaseGenerator {
 					path: "{{ turbo.paths.root }}/{{ location }}/src/schemas/prisma/schema.prisma",
 					templateFile: "templates/database/schema.prisma.hbs",
 				},
+				{
+					type: "add",
+					path: "{{ turbo.paths.root }}/{{ location }}/helm/values.yaml",
+					templateFile: "templates/database/values.yaml.hbs",
+					skipIfExists: true,
+				},
 				{ type: "addPrismaPackageJson" },
 				{ type: "appendDatabaseEnv" },
 				{ type: "injectDatabaseHelm" },
+				{ type: "injectDatabaseProvisionJob" },
 				{ type: "wireDatabaseHelmDeployment" },
 				{ type: "injectDatabaseDockerfile" },
 				{ type: "injectDatabaseIntoServerApp" },

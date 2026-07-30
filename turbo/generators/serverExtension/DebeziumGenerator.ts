@@ -66,8 +66,15 @@ function findServersEligibleForDebezium(root: string, prismaServerWorkspaces: st
 export function patchDbForDebezium(
 	absDbYamlPath: string,
 	name: string,
-	tables: string[] = [],
+	tables: string[],
 ): string {
+	if (tables.length === 0) {
+		throw new Error(
+			"patchDbForDebezium requires at least one table — Debezium no longer defaults to " +
+				"FOR ALL TABLES; pass the specific table(s) to capture (e.g. [\"public.item\"])",
+		);
+	}
+
 	let raw = fs.readFileSync(absDbYamlPath, "utf-8");
 	const results: string[] = [];
 
@@ -93,40 +100,13 @@ export function patchDbForDebezium(
 		}
 	}
 
-	if (!raw.includes("docker-entrypoint-initdb.d")) {
-		const mountMarker =
-			"            - name: data\n              mountPath: /var/lib/postgresql/data\n";
-		const mountIndex = raw.indexOf(mountMarker);
-		const volumeMarker = "        - name: data\n          emptyDir: {}\n";
-		if (mountIndex === -1 || !raw.includes(volumeMarker)) {
-			results.push("no matching volumeMounts/volumes anchor for initdb, skipped");
-		} else {
-			raw = `${raw.slice(0, mountIndex + mountMarker.length)}            - name: initdb\n              mountPath: /docker-entrypoint-initdb.d\n${raw.slice(mountIndex + mountMarker.length)}`;
-			// volumes block sits after volumeMounts, so its index has shifted by the mount
-			// edit above — re-find it post-edit instead of trusting a pre-edit offset.
-			const volumeIndex = raw.indexOf(volumeMarker);
-			const initdbVolume =
-				"        - name: initdb\n          configMap:\n            name: " +
-				`${name}-db-initdb\n`;
-			raw = `${raw.slice(0, volumeIndex + volumeMarker.length)}${initdbVolume}${raw.slice(volumeIndex + volumeMarker.length)}`;
-			const publicationTarget =
-				tables.length > 0 ? `FOR TABLE ${tables.join(", ")}` : "FOR ALL TABLES";
-			raw =
-				`${raw.trimEnd()}\n\n` +
-				`---\n` +
-				`# docker-entrypoint.sh runs *.sql in /docker-entrypoint-initdb.d on first boot (empty data\n` +
-				`# dir only) — creates the publication pgoutput needs; Debezium creates the replication\n` +
-				`# slot itself but won't create this.\n` +
-				`apiVersion: v1\n` +
-				`kind: ConfigMap\n` +
-				`metadata:\n` +
-				`  name: ${name}-db-initdb\n` +
-				`data:\n` +
-				`  publication.sql: |\n` +
-				`    CREATE PUBLICATION ${name}_debezium ${publicationTarget};\n`;
-			results.push("+initdb publication.sql");
-		}
-	}
+	// The publication itself is NOT created here via docker-entrypoint-initdb.d — those scripts
+	// run exactly once, at Postgres's very first boot, on an empty data dir, before the migrate
+	// Job (an external k8s Job, applied and run separately) has any chance to create the
+	// table(s) being published. `CREATE PUBLICATION ... FOR TABLE <table>` against a table that
+	// doesn't exist yet fails outright every time — not a Tilt/ordering problem, initdb is
+	// structurally the wrong place for this. See helm-debezium.yaml.hbs's own initContainer,
+	// which creates the publication after the table is guaranteed to exist.
 
 	fs.writeFileSync(absDbYamlPath, raw);
 	return results.length > 0
@@ -134,15 +114,18 @@ export function patchDbForDebezium(
 		: `${relToRoot(absDbYamlPath)} already wired for Debezium`;
 }
 
-function appendDebeziumTiltResource(absTiltfilePath: string, name: string): string {
+export function appendDebeziumTiltResource(absTiltfilePath: string, name: string): string {
 	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
 	if (raw.includes(`${name}-debezium`)) {
 		return `${relToRoot(absTiltfilePath)} already has ${name}-debezium resource`;
 	}
+	// Also depends on "${name}-migrate", not just "${name}-db": this Deployment's own
+	// create-publication initContainer (see helm-debezium.yaml.hbs) needs the table(s) it
+	// publishes to already exist, which only ${name}-migrate guarantees.
 	const snippet =
 		`\nk8s_resource(\n` +
 		`    "${name}-debezium",\n` +
-		`    resource_deps=["${name}-db"],\n` +
+		`    resource_deps=["${name}-db", "${name}-migrate"],\n` +
 		`    labels=["servers"],\n` +
 		`)\n`;
 	fs.writeFileSync(absTiltfilePath, `${raw.trimEnd()}\n${snippet}`);
@@ -190,10 +173,21 @@ export default class DebeziumGenerator {
 				destPath,
 				plop.renderString(template, {
 					name,
-					tableIncludeList: tables.length > 0 ? tables.join(",") : undefined,
+					tableIncludeList: tables.join(","),
+					// Debezium's table.include.list matches unquoted (case-sensitive JDBC metadata
+					// comparison), but `CREATE PUBLICATION ... FOR TABLE` needs each table
+					// double-quoted — Postgres folds an unquoted identifier to lowercase, which
+					// silently stops matching a table whose real name has any uppercase (e.g. a
+					// Prisma model with no @@map, which keeps the model's own casing).
+					publicationTargets: tables
+						.map((table) => {
+							const [schema, tableName] = table.split(".");
+							return `${schema}."${tableName}"`;
+						})
+						.join(", "),
 				}),
 			);
-			return `${relToRoot(destPath)} (+${name}-debezium${tables.length > 0 ? `, scoped to ${tables.join(", ")}` : ""})`;
+			return `${relToRoot(destPath)} (+${name}-debezium, scoped to ${tables.join(", ")})`;
 		});
 
 		plop.setActionType("patchDbForDebezium", (answers) => {
@@ -220,7 +214,7 @@ export default class DebeziumGenerator {
 
 		plop.setGenerator("debezium", {
 			description:
-				"Optionally add a Debezium Server instance (services/debezium's replacement — one process per server, not a shared Kafka Connect cluster) capturing an existing server's own Postgres via pgoutput: adds a debezium.yaml Deployment+ConfigMap, patches its db.yaml for wal_level=logical + a scoped (or FOR ALL TABLES) publication init script, and wires the Tiltfile resource",
+				"Optionally add a Debezium Server instance (services/debezium's replacement — one process per server, not a shared Kafka Connect cluster) capturing an existing server's own Postgres via pgoutput: adds a debezium.yaml Deployment+ConfigMap, patches its db.yaml for wal_level=logical + a publication init script scoped to the table(s) you pick, and wires the Tiltfile resource — at least one table is required, no more capturing every table by default",
 			prompts: [
 				{
 					type: "list",
@@ -240,7 +234,7 @@ export default class DebeziumGenerator {
 				{
 					type: "checkbox",
 					name: "tables",
-					message: "Tables to capture (select none to capture every table):",
+					message: "Tables to capture (select at least one — no more capturing every table by default):",
 					when: (answers: { location: string }) =>
 						parsePrismaModels(schemaPathFor(answers.location)).length > 0,
 					choices: (answers: { location: string }) =>
@@ -250,14 +244,20 @@ export default class DebeziumGenerator {
 								value: `public.${table}`,
 							}),
 						),
+					validate: (selected: string[]) =>
+						selected.length > 0 ||
+						"Pick at least one table — Debezium no longer defaults to capturing every table",
 				},
 				{
 					type: "input",
 					name: "tablesFreeText",
 					message:
-						"schema.prisma has no models yet — tables to capture, comma-separated (leave blank to capture every table):",
+						"schema.prisma has no models yet — table(s) to capture, comma-separated (required, e.g. \"public.item\"):",
 					when: (answers: { location: string }) =>
 						parsePrismaModels(schemaPathFor(answers.location)).length === 0,
+					validate: (value: string) =>
+						value.split(",").some((table) => table.trim().length > 0) ||
+						"At least one table is required — Debezium no longer defaults to capturing every table",
 				},
 			],
 			actions: [

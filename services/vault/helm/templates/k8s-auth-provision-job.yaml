@@ -1,8 +1,11 @@
-# Prod-only (.Values.devMode: false). Replaces the static root token every provisioning job (and
-# cert-manager-config's Issuer) authenticates with in dev mode — see pki-provision-job.yaml/
-# oidc-provision-job.yaml/db-provision-job.yaml's VAULT_TOKEN env and cert-manager-config/helm/
-# templates/issuer.yaml's tokenSecretRef, all of which branch on devMode to use Kubernetes auth
-# instead once this job has run.
+# Runs in BOTH dev and prod (used to be prod-only) — a per-server db-provision Job (see any
+# apps/servers/<name>/helm/templates/db-provision-job.yaml) lives in that server's own chart, in
+# its own namespace, and needs to authenticate to Vault too; only Kubernetes auth works
+# cross-namespace/cross-chart, a shared dev-mode static root token can't be handed out to every
+# generated server's chart. pki-provision-job.yaml/oidc-provision-job.yaml/db-provision-job.yaml
+# (this chart's own, for authentik) still branch on devMode for which token to use, since a
+# same-namespace static token is simplest for them — only db-provision's Kubernetes-auth role
+# (below) needs to work from outside this chart's own namespace.
 #
 # hook-weight -5: after vault-init-job (-10, vault must be unsealed first) but before every
 # consumer of these roles/policies (pki/oidc/db-provision at weight 0/1).
@@ -12,7 +15,6 @@
 # cluster-scoped API with no namespaced equivalent; HashiCorp's own docs call out binding
 # "system:auth-delegator" to whatever SA supplies token_reviewer_jwt as the standard way to grant
 # just that, nothing broader.
-{{- if not .Values.devMode }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -103,13 +105,22 @@ spec:
                 sleep 2
               done
 
+              # Kubernetes auth config (below) always needs this pod's own SA token/CA — needed
+              # in both dev and prod, unlike the bootstrap VAULT_TOKEN branch right after.
+              KUBE_TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
+              KUBE_CA_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              cat "$KUBE_CA_FILE" >> /etc/ssl/certs/ca-certificates.crt
+
+              {{- if .Values.devMode }}
+              # Dev mode: no vault-init Secret exists (nothing ever seals/initializes a dev-mode
+              # Vault), so bootstrap with the same static dev root token every other dev-mode job
+              # in this chart already reads — see values.yaml's rootToken / secret.yaml.
+              export VAULT_TOKEN="{{ .Values.rootToken }}"
+              {{- else }}
               # No kubectl (or curl) in this image, and fetching either as a static binary from
               # the internet at runtime is exactly the fragility that broke db-provision-job.yaml
               # here — a single read of the vault-init Secret is easy enough with plain busybox
               # wget instead (see vault-init-job.yaml's identical fix for the same reasoning).
-              KUBE_TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
-              KUBE_CA_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-              cat "$KUBE_CA_FILE" >> /etc/ssl/certs/ca-certificates.crt
               AUTH_HEADER="Authorization: Bearer $(cat "$KUBE_TOKEN_FILE")"
               KUBE_API="https://kubernetes.default.svc/api/v1/namespaces/{{ .Values.namespace }}"
 
@@ -119,6 +130,7 @@ spec:
               export VAULT_TOKEN=$(wget -q -O - --header="$AUTH_HEADER" "$KUBE_API/secrets/vault-init" \
                 | grep -o '"init.json":"[^"]*"' | cut -d'"' -f4 | base64 -d \
                 | grep -o '"root_token":"[^"]*"' | cut -d'"' -f4)
+              {{- end }}
 
               vault auth enable kubernetes 2>/dev/null || true
               vault write auth/kubernetes/config \
@@ -160,9 +172,18 @@ spec:
                 'path "sys/leases/revoke"   { capabilities = ["update"] }' \
                 > /tmp/db-provision-policy.hcl
               vault policy write db-provision-policy /tmp/db-provision-policy.hcl
+              # bound_service_account_namespaces="*" (not "{{ .Values.namespace }}" like every
+              # other role here) — every generated server's own db-provision/redis-provision
+              # Job/CronJob (see apps/servers/<name>/helm/templates/db-provision-job.yaml,
+              # redis-provision-job.yaml) runs in that server's own namespace, not vault's. Both
+              # ServiceAccount names stay fixed by convention ("vault-db-provision" for Postgres,
+              # "vault-redis-provision" for Redis — Vault's redis-database-plugin mounts under
+              # this same database/ path, so one shared policy/role covers both); their in-cluster
+              # RBAC (Role/RoleBinding, scoped to only that one server's own Secret/Deployment) is
+              # what actually limits blast radius, not this Vault-side binding.
               vault write auth/kubernetes/role/db-provision \
-                bound_service_account_names="vault-db-provision" \
-                bound_service_account_namespaces="{{ .Values.namespace }}" \
+                bound_service_account_names="vault-db-provision,vault-redis-provision" \
+                bound_service_account_namespaces="*" \
                 policies="db-provision-policy" \
                 ttl="15m"
 
@@ -178,6 +199,7 @@ spec:
                 policies="cert-manager-issuer-policy" \
                 ttl="1h"
 
+              {{- if not .Values.devMode }}
               echo "revoking bootstrap root token"
               vault token revoke -self
-{{- end }}
+              {{- end }}

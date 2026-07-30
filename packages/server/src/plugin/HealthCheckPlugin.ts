@@ -4,7 +4,9 @@ import { BasePlugin } from '../abstract/BasePlugin';
 export class HealthCheckPlugin extends BasePlugin {
   private server?: ReturnType<typeof Bun.serve>;
 
-  constructor(private readonly port = Number(process.env.HEALTHCHECK_PORT ?? 9000)) {
+  constructor(
+    private readonly port = Number(process.env.HEALTHCHECK_PORT ?? 9000),
+  ) {
     super();
   }
 

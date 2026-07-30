@@ -1,1 +1,2 @@
-include("./docs/TiltFile")
+include("./docs/Tiltfile")
+include("./servers/Tiltfile")

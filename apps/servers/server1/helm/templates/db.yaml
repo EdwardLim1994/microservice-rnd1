@@ -1,7 +1,22 @@
+{{- $dbSecret := lookup "v1" "Secret" .Release.Namespace "server1-db-secret" }}
+{{- $dbPassword := randAlphaNum 32 }}
+{{- if $dbSecret }}
+{{- $dbPassword = index $dbSecret.data "password" | b64dec }}
+{{- else if .Values.dbPassword }}
+# Tilt override (see Tiltfile's set=["dbPassword=..."]) — `lookup` above always returns nothing
+# under Tilt's own "offline-only" helm() (no live cluster access at all), so without this, every
+# single Tiltfile reconcile would mint a *new* random password here while server1-db's own pod
+# (fixed at its last boot) and server1-migrate's Job (a literal env value, immutable once
+# created) each keep whatever stale value they already had — three different passwords, auth
+# failures. A real `helm install`/Terraform never sets this, so it still gets a real random
+# password there, correctly reused via `lookup` on every later `helm upgrade`.
+{{- $dbPassword = .Values.dbPassword }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: server1-db
+  namespace: {{ .Values.namespace }}
   labels:
     app: server1-db
 spec:
@@ -26,8 +41,8 @@ spec:
         - name: postgres
           image: postgres:15.3-alpine
           # wal_level=logical + a replication slot/sender — required for Debezium Server's
-          # pgoutput plugin (see debezium.yaml) to stream this database's WAL at all. Args only
-          # (no `command:` override) so docker-entrypoint.sh's init logic still runs.
+          # pgoutput plugin to stream this database's WAL at all. Args only (no `command:`
+          # override) so docker-entrypoint.sh's init logic still runs.
           args:
             - "-c"
             - "wal_level=logical"
@@ -42,14 +57,15 @@ spec:
             - name: POSTGRES_USER
               value: myuser
             - name: POSTGRES_PASSWORD
-              value: mypassword
+              valueFrom:
+                secretKeyRef:
+                  name: server1-db-secret
+                  key: password
             - name: POSTGRES_DB
               value: server1
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-            - name: initdb
-              mountPath: /docker-entrypoint-initdb.d
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "myuser", "-d", "server1"]
@@ -66,27 +82,13 @@ spec:
       volumes:
         - name: data
           emptyDir: {}
-        - name: initdb
-          configMap:
-            name: server1-db-initdb
-
----
-# docker-entrypoint.sh runs *.sql in /docker-entrypoint-initdb.d on first boot (empty data dir
-# only) — creates the publication pgoutput needs; Debezium creates the replication slot itself
-# but won't create this.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: server1-db-initdb
-data:
-  publication.sql: |
-    CREATE PUBLICATION server1_debezium FOR ALL TABLES;
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: server1-db
+  namespace: {{ .Values.namespace }}
   labels:
     app: server1-db
 spec:
@@ -100,18 +102,51 @@ spec:
       targetPort: postgres
 
 ---
+# The Postgres superuser's own password — read by the postgres container above and by
+# db-provision-job.yaml's vault write database/config/... (admin creds Vault uses to mint leaf
+# roles). Randomly generated on first `helm install` (see the `lookup`/`randAlphaNum` block at
+# the top of this file) and kept stable across every later `helm upgrade` — `lookup` reads this
+# same Secret's already-set password back instead of minting a fresh one on every render, which
+# would otherwise silently break Postgres/Vault's already-established credential each upgrade.
+# Only works against a real cluster: `helm template`/`--dry-run` always see `lookup` return
+# nothing, so those always take the "generate new" branch instead — expected, not a bug.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: server1-db-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+data:
+  password: {{ $dbPassword | b64enc }}
+
+---
 # Consumed via envFrom by this chart's own deployment.yaml (see wireHelmDeploymentConfigMap) and
-# by the migrate Job below. Static superuser creds, same as every other dev-mode Postgres in this
-# repo (e.g. services/authentik/helm/values.yaml) — no Vault indirection for a test server.
+# by the migrate Job below. DB_HOST/DB_PORT/DB_NAME only — DATABASE_URL itself lives in
+# server1-secret (below), not here, since it holds Vault-minted credentials rather than a
+# static value safe for a ConfigMap.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: server1-env
+  namespace: {{ .Values.namespace }}
 data:
-  DATABASE_URL: postgresql://myuser:mypassword@server1-db:5432/server1
   DB_HOST: server1-db
   DB_PORT: "5432"
   DB_NAME: server1
+
+---
+# DATABASE_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the
+# static superuser creds so the app can still boot before db-provision-job.yaml's post-install
+# hook has run once; that hook immediately overwrites this key with Vault-minted leaf creds and
+# rolls the Deployment. See db-provision-job.yaml for the whole rotation story.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: server1-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  DATABASE_URL: postgresql://myuser:{{ $dbPassword }}@server1-db:5432/server1
 
 ---
 apiVersion: batch/v1
@@ -121,6 +156,7 @@ metadata:
   # needs this Job deleted first (`kubectl delete job server1-migrate`), or the apply fails
   # trying to update a field it can't change in place.
   name: server1-migrate
+  namespace: {{ .Values.namespace }}
   labels:
     app: server1-migrate
 spec:
@@ -139,4 +175,4 @@ spec:
           image: server1-migrate
           env:
             - name: DATABASE_URL
-              value: postgresql://myuser:mypassword@server1-db:5432/server1
+              value: postgresql://myuser:{{ $dbPassword }}@server1-db:5432/server1
