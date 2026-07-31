@@ -60,7 +60,7 @@ test('generate() logs the default apiLocation/path before generating', async () 
         (c) =>
           c.method === 'log' &&
           String(c.args[0]).includes(
-            'API will be generated in ../../packages/api/src/generated',
+            'API will be generated in ../../../packages/api/src/generated',
           ),
       ),
     ).toBe(true);

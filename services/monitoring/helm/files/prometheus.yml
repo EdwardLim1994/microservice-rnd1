@@ -6,3 +6,14 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
+
+  # No Kubernetes service discovery configured in this repo yet (see root CLAUDE.md) — each
+  # per-server exporter gets a manually-added static target here, cross-namespace via its own
+  # chart's Service FQDN (<service>.<namespace>.svc.cluster.local:<port>).
+  - job_name: server1-grpc-postgres
+    static_configs:
+      - targets: ["server1-grpc-db.servers.svc.cluster.local:9187"]
+
+  - job_name: server1-grpc-redis
+    static_configs:
+      - targets: ["server1-grpc-redis.servers.svc.cluster.local:9121"]

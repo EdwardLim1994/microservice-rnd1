@@ -1,0 +1,215 @@
+{{- $dbSecret := lookup "v1" "Secret" .Release.Namespace "server1-grpc-db-secret" }}
+{{- $dbPassword := randAlphaNum 32 }}
+{{- if $dbSecret }}
+{{- $dbPassword = index $dbSecret.data "password" | b64dec }}
+{{- else if .Values.dbPassword }}
+# Tilt override (see Tiltfile's set=["dbPassword=..."]) — `lookup` above always returns nothing
+# under Tilt's own "offline-only" helm() (no live cluster access at all), so without this, every
+# single Tiltfile reconcile would mint a *new* random password here while server1-grpc-db's own pod
+# (fixed at its last boot) and server1-grpc-migrate's Job (a literal env value, immutable once
+# created) each keep whatever stale value they already had — three different passwords, auth
+# failures. A real `helm install`/Terraform never sets this, so it still gets a real random
+# password there, correctly reused via `lookup` on every later `helm upgrade`.
+{{- $dbPassword = .Values.dbPassword }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server1-grpc-db
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: server1-grpc-db
+spec:
+  # Always 1 — a second replica would each get its own volume and diverge into two separate
+  # databases, not a real HA setup. Local/testing Postgres, same scope as every other
+  # single-instance infra chart in this repo.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server1-grpc-db
+  template:
+    metadata:
+      labels:
+        app: server1-grpc-db
+    spec:
+      # Postgres's image runs as a non-root uid (999) — matches every other bundled-Postgres
+      # chart in this repo (see services/authentik/helm/values.yaml's volumePermissions comment)
+      # so the default root-owned volume is actually writable by it.
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:15.3-alpine
+          # wal_level=logical + a replication slot/sender — required for Debezium Server's
+          # pgoutput plugin to stream this database's WAL at all. Args only (no `command:`
+          # override) so docker-entrypoint.sh's init logic still runs.
+          args:
+            - "-c"
+            - "wal_level=logical"
+            - "-c"
+            - "max_replication_slots=4"
+            - "-c"
+            - "max_wal_senders=4"
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: myuser
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: server1-grpc-db-secret
+                  key: password
+            - name: POSTGRES_DB
+              value: server1-grpc
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "myuser", "-d", "server1-grpc"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 20
+        # Sidecar, not a separate Deployment — connects over localhost inside the same pod's
+        # network namespace, so it needs no Service of its own and can't outlive the Postgres
+        # it's scraping. Scraped by Prometheus's own static_configs (see
+        # services/monitoring/config/prometheus.yml) via this Deployment's Service on the
+        # "metrics" port below.
+        - name: postgres-exporter
+          image: prometheuscommunity/postgres-exporter:v0.15.0
+          env:
+            # POSTGRES_PASSWORD must come first — k8s only expands $(VAR) references against
+            # env vars already defined earlier in this same list.
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: server1-grpc-db-secret
+                  key: password
+            - name: DATA_SOURCE_NAME
+              value: postgresql://myuser:$(POSTGRES_PASSWORD)@localhost:5432/server1-grpc?sslmode=disable
+          ports:
+            - name: metrics
+              containerPort: 9187
+      # ponytail: emptyDir, not a PersistentVolumeClaim — this is a per-server dev/test database,
+      # losing data on pod restart is fine. Switch to a PVC (see git history's
+      # templates/database/helm/postgres-pvc.yaml for the old shape) if that stops being true.
+      volumes:
+        - name: data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server1-grpc-db
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: server1-grpc-db
+spec:
+  # ClusterIP — only this server's own app pod, the migrate Job, and Prometheus (a different
+  # namespace, scraping "metrics" below) need to reach this.
+  type: ClusterIP
+  selector:
+    app: server1-grpc-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+    - name: metrics
+      port: 9187
+      targetPort: metrics
+
+---
+# The Postgres superuser's own password — read by the postgres container above and by
+# db-provision-job.yaml's vault write database/config/... (admin creds Vault uses to mint leaf
+# roles). Randomly generated on first `helm install` (see the `lookup`/`randAlphaNum` block at
+# the top of this file) and kept stable across every later `helm upgrade` — `lookup` reads this
+# same Secret's already-set password back instead of minting a fresh one on every render, which
+# would otherwise silently break Postgres/Vault's already-established credential each upgrade.
+# Only works against a real cluster: `helm template`/`--dry-run` always see `lookup` return
+# nothing, so those always take the "generate new" branch instead — expected, not a bug.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: server1-grpc-db-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+data:
+  password: {{ $dbPassword | b64enc }}
+
+---
+# Consumed via envFrom by this chart's own deployment.yaml (see wireHelmDeploymentConfigMap) and
+# by the migrate Job below. DB_HOST/DB_PORT/DB_NAME only — DATABASE_URL itself lives in
+# server1-grpc-secret (below), not here, since it holds Vault-minted credentials rather than a
+# static value safe for a ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server1-grpc-env
+  namespace: {{ .Values.namespace }}
+data:
+  DB_HOST: server1-grpc-db
+  DB_PORT: "5432"
+  DB_NAME: server1-grpc
+  GRPC_PORT: "5001"
+  OTEL_SERVICE_NAME: server1-grpc
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.infra.svc.cluster.local:4317
+
+---
+# DATABASE_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the
+# static superuser creds so the app can still boot before db-provision-job.yaml's post-install
+# hook has run once; that hook immediately overwrites this key with Vault-minted leaf creds and
+# rolls the Deployment. See db-provision-job.yaml for the whole rotation story.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: server1-grpc-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  DATABASE_URL: postgresql://myuser:{{ $dbPassword }}@server1-grpc-db:5432/server1-grpc
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # A Job's spec is immutable, and ttlSecondsAfterFinished (below) only deletes it *after* it
+  # finishes — a re-trigger issued while a still-in-flight Job from a previous run is retrying
+  # (backoffLimit) still needs it deleted first (`kubectl delete job server1-grpc-migrate`), or
+  # the apply fails trying to update a field it can't change in place. Doesn't come up in the
+  # normal case (Job already finished and TTL-cleaned itself up by the time you re-trigger).
+  name: server1-grpc-migrate
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: server1-grpc-migrate
+spec:
+  # Postgres's own readinessProbe gates whether its Service has any endpoints at all — until it
+  # does, connections here just fail outright rather than queueing, so this Job relies on
+  # backoffLimit's retries (with backoff) rather than an initContainer wait-loop.
+  backoffLimit: 6
+  # Runs once — Prisma's own migration-history table already makes re-runs a no-op, but the
+  # point here is Job hygiene: without this, a completed Job sits around forever (immutable spec,
+  # blocks any future `kubectl apply`/Tilt reconcile of the same name until manually deleted —
+  # confirmed the hard way after server1-grpc-db's emptyDir volume lost its data on a pod
+  # restart and this Job needed a fresh run). 60s is enough to `kubectl logs`/`get pods` it right
+  # after triggering; the k8s TTL controller (always-on since 1.23, no feature gate needed)
+  # deletes the Job *and* its Pod once that elapses.
+  ttlSecondsAfterFinished: 60
+  template:
+    metadata:
+      labels:
+        app: server1-grpc-migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: server1-grpc-migrate
+          env:
+            - name: DATABASE_URL
+              value: postgresql://myuser:{{ $dbPassword }}@server1-grpc-db:5432/server1-grpc

@@ -9,6 +9,17 @@ grafanaOidcClientSecret: grafanaoidcclientsecret
 vaultOidcClientSecret: vaultoidcclientsecret
 argocdOidcClientSecret: argocdoidcclientsecret
 
+# Every host grafana-provider must accept an OAuth callback from — Grafana's own redirect_uri is
+# always "<rootUrl>/login/generic_oauth" (not user configurable), one entry per host
+# services/monitoring/helm/values.yaml's grafana.rootUrl might be pointed at. See
+# values-tailscale.yaml for the extra entry needed when that rootUrl is overridden to a tailscale
+# hostname (Helm list values replace rather than merge, so that overlay repeats these four too).
+grafanaRedirectUris:
+  - http://grafana.localhost/login/generic_oauth
+  - http://grafana.lan/login/generic_oauth
+  - http://grafana.lan:8080/login/generic_oauth
+  - https://grafana.lan:8443/login/generic_oauth
+
 authentik:
   # akadmin's login — only takes effect on the very first bootstrap (an already-provisioned
   # install, like this one originally was, needs its password set by hand once via
@@ -67,3 +78,22 @@ authentik:
       image:
         repository: library/debian
         tag: 13-slim
+  # Without this, server/worker hit "PostgreSQL connection failed, retrying..." in a loop for as
+  # long as authentik-postgresql takes to become reachable (worse right after a real crash —
+  # confirmed the hard way after an unclean minikube shutdown left it doing WAL replay on next
+  # boot, "database system was interrupted" / "redo in progress" — several minutes of retries and
+  # readiness-probe failures on server/worker while postgres was still recovering, not actually
+  # broken, just not there yet). pg_isready blocks the app container from starting at all until
+  # the DB genuinely accepts connections — same pattern as apps/servers/server1-grpc's own
+  # wait-for-server1-grpc-db initContainer. 17-alpine to match this chart's own bundled Postgres
+  # major version (image tag above resolves to postgres:17.x-bookworm).
+  server:
+    initContainers:
+      - name: wait-for-authentik-postgresql
+        image: postgres:17-alpine
+        command: ["sh", "-c", "until pg_isready -h authentik-postgresql -p 5432 -U authentik; do sleep 2; done"]
+  worker:
+    initContainers:
+      - name: wait-for-authentik-postgresql
+        image: postgres:17-alpine
+        command: ["sh", "-c", "until pg_isready -h authentik-postgresql -p 5432 -U authentik; do sleep 2; done"]

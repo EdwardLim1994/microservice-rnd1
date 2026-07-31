@@ -9,4 +9,5 @@ metadata:
   name: servers
 """))
 
-include("./server1/Tiltfile")
+include("./server1-grpc/Tiltfile")
+include("./server1-graphql/Tiltfile")

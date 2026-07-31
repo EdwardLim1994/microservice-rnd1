@@ -1,7 +1,7 @@
-# Placeholder — no subgraph servers exist yet under apps/servers/. Add an entry per subgraph as
-# each one is scaffolded (`turbo gen server`), pointing `schema.file` at that server's checked-in
-# SDL and `routing_url` at its in-cluster Service FQDN (matches this chart's own namespace/port
-# conventions — see servers/demo1/helm/values.yaml's kafka/redis comments for the same in-cluster
-# FQDN reasoning once a real server exists to copy from).
 federation_version: 2
-subgraphs: {}
+subgraphs:
+  server1-graphql:
+    # startStandaloneServer (packages/server/src/driver/startStandaloneServerTls.ts) serves at "/", not "/graphql".
+    routing_url: http://server1-graphql.servers.svc.cluster.local:4001/
+    schema:
+      file: ../../apps/servers/server1-graphql/src/schemas/graphql/server1-graphql.graphql

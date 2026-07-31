@@ -13,7 +13,25 @@ router:
     limits:
       memory: 256Mi
 
+  # The upstream chart's supergraph-cm.yaml only creates the ConfigMap from router.supergraphFile
+  # below — it never mounts it or points the router at it (no volumeMount/--supergraph flag
+  # wired anywhere in its deployment.yaml). Doing that ourselves here; configMap name below must
+  # match "<router.fullname>-supergraph", i.e. this file's own fullnameOverride + "-supergraph".
+  extraVolumes:
+    - name: supergraph
+      configMap:
+        name: apollo-router-supergraph
+  extraVolumeMounts:
+    - name: supergraph
+      mountPath: /etc/router/supergraph
+      readOnly: true
+
   router:
+    args:
+      - --hot-reload
+      - --supergraph
+      - /etc/router/supergraph/supergraph-schema.graphql
+
     configuration:
       supergraph:
         listen: 0.0.0.0:4000

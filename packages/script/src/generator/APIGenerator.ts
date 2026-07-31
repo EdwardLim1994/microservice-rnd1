@@ -1,14 +1,13 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import capitalize from 'lodash/capitalize';
-import { collectSubDirExports, writeSubDirBarrels } from '../helper/barrel';
+import { collectSubDirExports, pascalCase, writeSubDirBarrels } from '../helper/barrel';
 import { checkDependency, log } from '../helper/common';
 
 export default class APIGenerator {
   private _barrelRoot: string;
   private _path: string = 'src/generated';
-  private _apiPath: string = '../../packages/api';
+  private _apiPath: string = '../../../packages/api';
 
   private constructor(private readonly _projectName: string) {
     this._barrelRoot = `${this._apiPath}/${this._path}`;
@@ -107,7 +106,7 @@ export default class APIGenerator {
     const addedSubNs = new Set<string>();
 
     for (const server of servers) {
-      const ns = capitalize(server);
+      const ns = pascalCase(server);
 
       if (existsSync(join(generatedRoot, server, 'graphql', 'index.ts'))) {
         lines.push(`export * as ${ns}Graphql from "./${server}/graphql"`);
@@ -122,7 +121,7 @@ export default class APIGenerator {
         )) {
           const file = f.name.replace(/\.ts$/, '');
           lines.push(
-            `export * as ${ns}${capitalize(file)}Proto from "./${server}/proto/${file}"`,
+            `export * as ${ns}${pascalCase(file)}Proto from "./${server}/proto/${file}"`,
           );
         }
 

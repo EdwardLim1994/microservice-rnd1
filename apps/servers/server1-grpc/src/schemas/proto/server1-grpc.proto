@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package server1_grpc;
+
+message Item {
+  string id = 1;
+  string name = 2;
+  string createdAt = 3;
+}
+
+message GetItemRequest {
+  string id = 1;
+}
+
+message CreateItemRequest {
+  string name = 1;
+}
+
+message UpdateItemRequest {
+  string id = 1;
+  string name = 2;
+}
+
+message DeleteItemRequest {
+  string id = 1;
+}
+
+message DeleteItemResponse {
+  bool success = 1;
+}
+
+message ListItemsRequest {
+}
+
+message ListItemsResponse {
+  repeated Item items = 1;
+}
+
+service ItemService {
+  rpc GetItem (GetItemRequest) returns (Item);
+  rpc CreateItem (CreateItemRequest) returns (Item);
+  rpc UpdateItem (UpdateItemRequest) returns (Item);
+  rpc DeleteItem (DeleteItemRequest) returns (DeleteItemResponse);
+  rpc ListItems (ListItemsRequest) returns (ListItemsResponse);
+}

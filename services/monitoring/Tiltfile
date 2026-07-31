@@ -1,4 +1,12 @@
-k8s_yaml(helm("./helm", name="monitoring", namespace="infra"))
+k8s_yaml(helm(
+    "./helm",
+    name="monitoring",
+    namespace="infra",
+    # Points Grafana's OAuth login redirect at the tailscale tunnel scripts/port-forward.sh opens
+    # instead of the LAN-only "authentik.lan" — see values-tailscale.yaml's own comment for the
+    # full tradeoff. Remove this `values=` line to go back to LAN-only login.
+    values=["./helm/values-tailscale.yaml"],
+))
 k8s_resource("prometheus", labels=["infra"])
 k8s_resource("loki", labels=["infra"])
 k8s_resource("tempo", labels=["infra"])

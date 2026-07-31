@@ -1,4 +1,11 @@
-k8s_yaml(helm("./helm", name="authentik", namespace="infra"))
+k8s_yaml(helm(
+    "./helm",
+    name="authentik",
+    namespace="infra",
+    # Registers the tailscale-tunnel redirect_uri Grafana's own values-tailscale.yaml override
+    # needs (see services/monitoring/Tiltfile) — remove alongside that one to go back to LAN-only.
+    values=["./helm/values-tailscale.yaml"],
+))
 
 # The upstream authentik chart renders two Deployments — authentik-server and authentik-worker —
 # not a single "authentik" workload, so k8s_resource("authentik", ...) has nothing to attach to

@@ -31,6 +31,13 @@ grafana:
   # access once the `kubectl port-forward -n infra svc/traefik --address 0.0.0.0 8080:80
   # 8443:443` LAN path is no longer running.
   rootUrl: https://grafana.lan:8443/
+  # Where Grafana redirects the *browser* to log in — must stay reachable from wherever the
+  # browser actually is, which is why this (unlike TOKEN_URL/API_URL in grafana-secret.yaml,
+  # backend-to-backend calls that go straight to authentik-server's in-cluster Service DNS name,
+  # unaffected by how the browser got here) is its own values field: see values-tailscale.yaml
+  # for the override used when accessing Grafana through scripts/port-forward.sh from another
+  # device instead of the LAN.
+  authUrl: https://authentik.lan:8443/application/o/authorize/
 
 otelCollector:
   image: otel/opentelemetry-collector-contrib:0.116.1

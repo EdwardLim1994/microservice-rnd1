@@ -100,23 +100,15 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-profile"]]
           # Grafana's redirect_uri is fixed as "<root_url>/login/generic_oauth" (not user
-          # configurable) — one entry per host GF_SERVER_ROOT_URL might be pointed at, same as
-          # minio's three-entry pattern.
+          # configurable) — one entry per host GF_SERVER_ROOT_URL might be pointed at, values-driven
+          # (see this chart's own values.yaml's grafanaRedirectUris) so an overlay like
+          # values-tailscale.yaml can add another host without editing this template.
           redirect_uris:
+            {{- range .Values.grafanaRedirectUris }}
             - matching_mode: strict
-              url: http://grafana.localhost/login/generic_oauth
+              url: {{ . }}
               redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://grafana.lan/login/generic_oauth
-              redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://grafana.lan:8080/login/generic_oauth
-              redirect_uri_type: authorization
-            # :8443 https — GF_SERVER_ROOT_URL now points here (see grafana values.yaml's
-            # rootUrl).
-            - matching_mode: strict
-              url: https://grafana.lan:8443/login/generic_oauth
-              redirect_uri_type: authorization
+            {{- end }}
       - model: authentik_core.application
         id: grafana-app
         identifiers:

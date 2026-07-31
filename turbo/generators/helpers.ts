@@ -200,8 +200,10 @@ export function mergePackageJsonDeps(
  * overwriting it. One shared script for every server means no per-server wrapper file to
  * generate at all.
  */
-export function ensureGenScript(pkg: PackageJson): string {
-	const genScript = "bun ../../packages/script/src/bin/generate-api.ts";
+export function ensureGenScript(pkg: PackageJson, absPackageJsonPath: string): string {
+	const scriptBinPath = path.join(process.cwd(), "packages", "script", "src", "bin", "generate-api.ts");
+	const relScriptBinPath = path.relative(path.dirname(absPackageJsonPath), scriptBinPath);
+	const genScript = `bun ${relScriptBinPath}`;
 	const existingGen = pkg.scripts.gen;
 	if (!existingGen) {
 		pkg.scripts.gen = genScript;
@@ -590,6 +592,49 @@ function findIndentedBodyEnd(
 		offset += line.length + 1;
 	}
 	return raw.length;
+}
+
+/**
+ * Adds `- containerPort: <port>` to the app container's `ports:` list in a server's
+ * helm/templates/deployment.yaml — same idempotent-splice shape as wireHelmDeploymentConfigMap
+ * below (inserts right after the container's own `image:` line on first use, so a driver calling
+ * both ends up with `ports:` above `envFrom:`), just scoped to `ports:` instead of `envFrom:`.
+ * Without this, a driver's own port env var (e.g. GRPC_PORT) resolves fine inside the container
+ * but nothing outside the pod — not even another pod on the same node — can reach it: confirmed
+ * the hard way once already (see wireHelmDeploymentConfigMap's own `<name>-grpc-env`/
+ * `<name>-graphql-env` callers). Idempotent per port number.
+ */
+export function wireHelmContainerPort(absDeploymentPath: string, port: number): string {
+	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
+	if (new RegExp(`containerPort: ${port}\\b`).test(raw)) {
+		return `${relToRoot(absDeploymentPath)} already exposes port ${port}`;
+	}
+
+	const portsLineMatch = /^(\s+)ports:[ \t]*\n/m.exec(raw);
+	if (portsLineMatch) {
+		const indent = portsLineMatch[1];
+		const listStart = portsLineMatch.index + portsLineMatch[0].length;
+		const insertAt = findIndentedBodyEnd(raw, listStart, indent.length + 1);
+		const entry = `${indent}  - containerPort: ${port}\n`;
+		fs.writeFileSync(
+			absDeploymentPath,
+			`${raw.slice(0, insertAt)}${entry}${raw.slice(insertAt)}`,
+		);
+		return `${relToRoot(absDeploymentPath)} (+containerPort ${port})`;
+	}
+
+	const imageLineMatch = /^(\s+)image: .*\n/m.exec(raw);
+	if (!imageLineMatch) {
+		throw new Error(`Could not find an "image:" line in ${absDeploymentPath}`);
+	}
+	const indent = imageLineMatch[1];
+	const insertAt = imageLineMatch.index + imageLineMatch[0].length;
+	const portsBlock = `${indent}ports:\n${indent}  - containerPort: ${port}\n`;
+	fs.writeFileSync(
+		absDeploymentPath,
+		`${raw.slice(0, insertAt)}${portsBlock}${raw.slice(insertAt)}`,
+	);
+	return `${relToRoot(absDeploymentPath)} (+containerPort ${port})`;
 }
 
 /**

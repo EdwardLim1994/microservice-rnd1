@@ -6,6 +6,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./otel": {
+      "types": "./dist/otel-bootstrap.d.ts",
+      "import": "./dist/otel-bootstrap.js"
     }
   },
   "types": "./dist/index.d.ts",

@@ -12,5 +12,10 @@ data:
   # fine as-is in-cluster, same namespace, no FQDN rewrite needed.
   datasources.yaml: |
 {{ .Files.Get "files/grafana-datasources.yaml" | indent 4 }}
+  # Real copy of apps/servers/server1-grpc/grafana-datasources.yaml — lives there since it's that
+  # server's own Postgres/Redis query access, not generic monitoring-stack config. Same
+  # .Files.Get restriction and "re-copy manually" caveat as the key above.
+  server1-grpc-datasources.yaml: |
+{{ .Files.Get "files/grafana-datasource-server1-grpc.yaml" | indent 4 }}
   dashboards.yaml: |
 {{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}

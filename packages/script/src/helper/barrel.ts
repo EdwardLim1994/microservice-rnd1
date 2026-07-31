@@ -1,6 +1,15 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import capitalize from 'lodash/capitalize';
+
+/** kebab/snake-case-safe PascalCase — plain lodash `capitalize` only uppercases the first
+ * character and leaves the rest untouched, so a hyphenated server name (e.g. "server1-grpc")
+ * would produce an invalid `export * as Server1-grpcProto` identifier. */
+export function pascalCase(input: string): string {
+  return input
+    .split(/[-_]/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+}
 
 export const writeSubDirBarrels = async (dir: string): Promise<void> => {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -59,7 +68,7 @@ export const collectSubDirExports = async (
 
   const ns = nsKey
     .split('/')
-    .map((item) => capitalize(item))
+    .map((item) => pascalCase(item))
     .join('');
   lines.push(`export * as ${ns} from "./${relPath}"`);
 };

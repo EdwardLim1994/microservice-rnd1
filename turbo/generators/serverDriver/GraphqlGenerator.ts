@@ -7,6 +7,8 @@ import {
 	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
+	wireHelmContainerPort,
+	wireHelmDeploymentConfigMap,
 	writePackageJson,
 } from "../helpers";
 import type { ServerDriverExtension } from "./types";
@@ -58,7 +60,7 @@ function mergeGraphqlIntoPackageJson(absPackageJsonPath: string): string {
 		},
 		{ graphql: "^16.14.2", api: "workspace:*", script: "workspace:*" },
 	);
-	const genNote = ensureGenScript(pkg);
+	const genNote = ensureGenScript(pkg, absPackageJsonPath);
 	writePackageJson(absPackageJsonPath, pkg, indent);
 	return `${relToRoot(absPackageJsonPath)} (+graphql, api, script, @graphql-codegen/*)${genNote}`;
 }
@@ -112,6 +114,21 @@ function graphqlSchemaDir(location: string): string {
 		return "schema";
 	}
 	return "schemas";
+}
+
+/**
+ * Reads GRAPHQL_PORT back out of a server's own .env.sample — used by actions that run after
+ * appendGraphqlPortEnv has already written it, instead of recomputing findAvailableGraphqlPort
+ * (which would now see that port as taken by this same server and pick the next one instead).
+ */
+function readGraphqlPort(location: string): number {
+	const envSamplePath = path.join(process.cwd(), location, ".env.sample");
+	const envSample = fs.readFileSync(envSamplePath, "utf-8");
+	const match = /^GRAPHQL_PORT=(\d+)/m.exec(envSample);
+	if (!match) {
+		throw new Error(`Could not find GRAPHQL_PORT in ${relToRoot(envSamplePath)}`);
+	}
+	return Number(match[1]);
 }
 
 /**
@@ -210,18 +227,41 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 	});
 
 	plop.setActionType("appendSupergraphSubgraph", (answers) => {
-		// Runs after appendGraphqlPortEnv, which already wrote GRAPHQL_PORT to .env.sample —
-		// read it back rather than recomputing findAvailableGraphqlPort, which would now see
-		// that port as taken (by this same server) and pick the next one instead.
 		const { location } = answers as { location: string };
 		const name = path.basename(location);
-		const envSamplePath = path.join(process.cwd(), location, ".env.sample");
-		const envSample = fs.readFileSync(envSamplePath, "utf-8");
-		const match = /^GRAPHQL_PORT=(\d+)/m.exec(envSample);
-		if (!match) {
-			throw new Error(`Could not find GRAPHQL_PORT in ${relToRoot(envSamplePath)}`);
+		return appendSupergraphSubgraph(location, name, readGraphqlPort(location));
+	});
+
+	// Writes the <name>-graphql-env ConfigMap + a Service for this Deployment into this server's
+	// own helm chart, wires containerPort + envFrom into deployment.yaml — without this,
+	// GRAPHQL_PORT resolves fine inside the container (from .env.sample/.env in local `bun run
+	// dev`) but the pod exposes nothing and has no in-cluster DNS name, so nothing else — not
+	// even Apollo Router's own supergraph routing_url — can ever reach it.
+	plop.setActionType("wireGraphqlHelm", (answers, _config, plopApi) => {
+		const { location } = answers as { location: string };
+		const name = path.basename(location);
+		const port = readGraphqlPort(location);
+
+		const template = fs.readFileSync(
+			path.join(TEMPLATES_DIR, "helm-graphql-env.yaml.hbs"),
+			"utf-8",
+		);
+		const rendered = plopApi.renderString(template, { name, port });
+		const helmTemplatesDir = path.join(process.cwd(), location, "helm", "templates");
+		const destPath = path.join(helmTemplatesDir, "graphql-env.yaml");
+		let chartResult: string;
+		if (fs.existsSync(destPath)) {
+			chartResult = `${relToRoot(destPath)} already exists`;
+		} else {
+			fs.mkdirSync(helmTemplatesDir, { recursive: true });
+			fs.writeFileSync(destPath, rendered);
+			chartResult = relToRoot(destPath);
 		}
-		return appendSupergraphSubgraph(location, name, Number(match[1]));
+
+		const deploymentPath = path.join(helmTemplatesDir, "deployment.yaml");
+		const portResult = wireHelmContainerPort(deploymentPath, port);
+		const envResult = wireHelmDeploymentConfigMap(deploymentPath, `${name}-graphql-env`);
+		return `${chartResult}; ${portResult}; ${envResult}`;
 	});
 }
 
@@ -237,6 +277,7 @@ const GraphqlGenerator: ServerDriverExtension = {
 		{ type: "appendGraphqlPortEnv" },
 		{ type: "injectGraphqlDriver" },
 		{ type: "appendSupergraphSubgraph" },
+		{ type: "wireGraphqlHelm" },
 	],
 };
 

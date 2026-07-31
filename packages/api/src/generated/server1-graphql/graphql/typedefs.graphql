@@ -1,0 +1,20 @@
+schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"]) {
+  query: Query
+  mutation: Mutation
+}
+
+type Item @key(fields: "id") {
+  createdAt: String!
+  id: ID!
+  name: String!
+}
+
+type Mutation {
+  createItem(name: String!): Item!
+  deleteItem(id: ID!): Boolean!
+  updateItem(id: ID!, name: String!): Item!
+}
+
+type Query {
+  item(id: ID!): Item
+}

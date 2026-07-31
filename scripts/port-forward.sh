@@ -19,6 +19,9 @@ declare -A APPS=(
   [8090]="infra svc/vault 8200 18083"
   [8095]="infra svc/minio 9001 18084"
   [8100]="argocd svc/argocd-server 80 18085"
+  # Router serves both the GraphQL API and its interactive Sandbox playground at the same
+  # path (/graphql) — content-negotiated on the request's Accept header, browser gets the UI.
+  [8105]="infra svc/apollo-router 80 18086"
 )
 
 PF_PIDS=()
@@ -30,6 +33,18 @@ cleanup() {
   done
 }
 trap cleanup EXIT INT TERM
+
+# Self DNSName only — `tailscale status --self --json` still lists every peer despite the flag,
+# so take the first entry (this machine's own). Trailing dot stripped (FQDN root dot, not part
+# of the actual hostname).
+tailnet_host=$(tailscale status --self --json | grep -m1 '"DNSName"' | cut -d'"' -f4 | sed 's/\.$//')
+
+echo "Forwarding:"
+for tailscale_port in "${!APPS[@]}"; do
+  read -r namespace svc remote_port local_port <<<"${APPS[$tailscale_port]}"
+  printf '  https://%s:%s  ->  %s/%s\n' "$tailnet_host" "$tailscale_port" "$namespace" "${svc#svc/}"
+done
+echo
 
 for tailscale_port in "${!APPS[@]}"; do
   read -r namespace svc remote_port local_port <<<"${APPS[$tailscale_port]}"

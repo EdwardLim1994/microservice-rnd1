@@ -1,0 +1,6 @@
+apiVersion: v2
+name: server1-grpc
+description: server1-grpc server
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

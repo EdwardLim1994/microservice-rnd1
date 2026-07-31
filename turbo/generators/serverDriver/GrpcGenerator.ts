@@ -6,6 +6,8 @@ import {
 	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
+	wireHelmContainerPort,
+	wireHelmDeploymentConfigMap,
 	writePackageJson,
 } from "../helpers";
 import type { ServerDriverExtension } from "./types";
@@ -42,7 +44,7 @@ function mergeGrpcIntoPackageJson(absPackageJsonPath: string): string {
 		{ "@bufbuild/buf": "^1.70.0", protoc: "^35.1.0" },
 		{ "@grpc/grpc-js": "^1.14.4", "ts-proto": "^2.11.8", api: "workspace:*" },
 	);
-	const genNote = ensureGenScript(pkg);
+	const genNote = ensureGenScript(pkg, absPackageJsonPath);
 	writePackageJson(absPackageJsonPath, pkg, indent);
 	return `${relToRoot(absPackageJsonPath)} (+@grpc/grpc-js, ts-proto, api, buf/protoc)${genNote}`;
 }
@@ -133,6 +135,45 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 		fs.writeFileSync(destPath, plopApi.renderString(template, { name }));
 		return relToRoot(destPath);
 	});
+
+	// Writes the <name>-grpc-env ConfigMap + a Service for this Deployment into this server's own
+	// helm chart, wires containerPort + envFrom into deployment.yaml — without this, GRPC_PORT
+	// resolves fine inside the container (from .env.sample/.env in local `bun run dev`) but the
+	// pod exposes nothing and has no in-cluster DNS name, so nothing else can ever reach it.
+	plop.setActionType("wireGrpcHelm", (answers, _config, plopApi) => {
+		const { location } = answers as { location: string };
+		const name = path.basename(location);
+
+		// Runs after appendGrpcPortEnv, which already wrote GRPC_PORT to .env.sample — read it
+		// back rather than recomputing findAvailableGrpcPort, which would now see that port as
+		// taken (by this same server) and pick the next one instead (see GraphqlGenerator's
+		// appendSupergraphSubgraph action for the identical guard).
+		const envSamplePath = path.join(process.cwd(), location, ".env.sample");
+		const envSample = fs.readFileSync(envSamplePath, "utf-8");
+		const match = /^GRPC_PORT=(\d+)/m.exec(envSample);
+		if (!match) {
+			throw new Error(`Could not find GRPC_PORT in ${relToRoot(envSamplePath)}`);
+		}
+		const port = Number(match[1]);
+
+		const template = fs.readFileSync(path.join(TEMPLATES_DIR, "helm-grpc-env.yaml.hbs"), "utf-8");
+		const rendered = plopApi.renderString(template, { name, port });
+		const helmTemplatesDir = path.join(process.cwd(), location, "helm", "templates");
+		const destPath = path.join(helmTemplatesDir, "grpc-env.yaml");
+		let chartResult: string;
+		if (fs.existsSync(destPath)) {
+			chartResult = `${relToRoot(destPath)} already exists`;
+		} else {
+			fs.mkdirSync(helmTemplatesDir, { recursive: true });
+			fs.writeFileSync(destPath, rendered);
+			chartResult = relToRoot(destPath);
+		}
+
+		const deploymentPath = path.join(helmTemplatesDir, "deployment.yaml");
+		const portResult = wireHelmContainerPort(deploymentPath, port);
+		const envResult = wireHelmDeploymentConfigMap(deploymentPath, `${name}-grpc-env`);
+		return `${chartResult}; ${portResult}; ${envResult}`;
+	});
 }
 
 const GrpcGenerator: ServerDriverExtension = {
@@ -146,6 +187,7 @@ const GrpcGenerator: ServerDriverExtension = {
 		{ type: "addGrpcPackageJson" },
 		{ type: "appendGrpcPortEnv" },
 		{ type: "injectGrpcDriver" },
+		{ type: "wireGrpcHelm" },
 	],
 };
 
