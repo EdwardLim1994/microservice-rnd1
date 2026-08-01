@@ -98,7 +98,16 @@ resource "helm_release" "service" {
   # same mechanism as `helm upgrade -f values.yaml -f values-prod.yaml`. Charts with nothing prod
   # differs on (kafka, meilisearch, ...) simply have no values-prod.yaml and this is a no-op for
   # them.
-  values = (
+  #
+  # values-tailscale.yaml (authentik, monitoring only) layers on top unconditionally in dev —
+  # same as their old Tiltfiles always did, no LAN/tailscale toggle. Points Grafana's OAuth
+  # authUrl/rootUrl at the tailscale tunnel scripts/port-forward.sh opens instead of
+  # "authentik.lan"/"grafana.lan", which only resolve on-LAN — off-LAN clients (e.g. a phone or
+  # tablet on the tailnet but not the LAN) hit an unreachable host without this.
+  values = concat(
+    var.environment == "dev" && fileexists("${path.module}/../${each.key}/helm/values-tailscale.yaml")
+    ? [file("${path.module}/../${each.key}/helm/values-tailscale.yaml")]
+    : [],
     var.environment == "prod" && fileexists("${path.module}/../${each.key}/helm/values-prod.yaml")
     ? [file("${path.module}/../${each.key}/helm/values-prod.yaml")]
     : []
@@ -134,11 +143,28 @@ resource "helm_release" "vault" {
   # Default 300s isn't enough for oidc-provision-job.yaml on a from-scratch cluster — see above.
   timeout = 900
 
-  values = (
+  # values-tailscale.yaml layering same as the for_each "service" block's own comment — needed
+  # here too since vault's own oidc/role/default allowed_redirect_uris (values.yaml's
+  # oidcRedirectUris) needs the tailnet host added for off-LAN devices.
+  values = concat(
+    var.environment == "dev" && fileexists("${path.module}/../vault/helm/values-tailscale.yaml")
+    ? [file("${path.module}/../vault/helm/values-tailscale.yaml")]
+    : [],
     var.environment == "prod" && fileexists("${path.module}/../vault/helm/values-prod.yaml")
     ? [file("${path.module}/../vault/helm/values-prod.yaml")]
     : []
   )
+
+  # k8s-auth-provision-job.yaml's dev-mode branch bootstraps with the literal `.Values.rootToken`
+  # (not a live read of the Secret) — matches vault-secret's own value only if rootToken is
+  # something other than its "vaultroottoken" default, which is what makes secret.yaml skip
+  # randomizing it (see that file's own comment). Only matters in dev — prod's values-prod.yaml
+  # sets devMode: false, and that job's prod branch never reads rootToken at all. Ignored (and
+  # harmless) in prod for the same reason.
+  set {
+    name  = "rootToken"
+    value = "terraform-local-dev-vault-token"
+  }
 
   dynamic "set_sensitive" {
     for_each = var.environment == "prod" ? local.oidc_secret_overrides.vault : {}

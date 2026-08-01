@@ -1,6 +1,6 @@
 # One Debezium Server process captures server1-grpc-db only — not a shared Kafka Connect cluster
-# (see root CLAUDE.md's CDC note). Lives in server1-grpc's own chart, next to db.yaml, but as its own
-# Deployment so it restarts/redeploys independently of the app container.
+# (see root CLAUDE.md's CDC note). Lives in server1-grpc's own infra chart, next to db.yaml, as
+# its own Deployment so it restarts/redeploys independently.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -23,10 +23,10 @@ data:
     # ${DB_PASSWORD} — Quarkus/MicroProfile Config's own env var substitution (Debezium Server is
     # built on Quarkus), not Handlebars/Helm templating. Reads the Deployment's DB_PASSWORD env
     # var (below) at container start, rather than this file re-deriving server1-grpc-db-secret's
-    # password itself — that Secret's value is only decided once, in db.yaml.hbs's own
+    # password itself — that Secret's value is only decided once, in db.yaml's own
     # lookup/randAlphaNum block; a second independent lookup here (a different template file,
     # rendered in the same Helm pass) could return empty and mint a *different* random password
-    # than db.yaml.hbs already assigned to the running Postgres.
+    # than db.yaml already assigned to the running Postgres.
     debezium.source.database.password=${DB_PASSWORD}
     debezium.source.database.dbname=server1-grpc
     debezium.source.table.include.list=public.Item
@@ -60,12 +60,13 @@ spec:
     spec:
       # Creates the publication pgoutput needs (Debezium creates the replication slot itself but
       # not this) — deliberately NOT a docker-entrypoint-initdb.d script on server1-grpc-db's own
-      # Postgres container: initdb scripts run once, at Postgres's very first boot, before
-      # server1-grpc-migrate (a separate k8s Job) has any chance to create the Item table, so
-      # `CREATE PUBLICATION ... FOR TABLE` there fails every time against a table that doesn't
-      # exist yet. Runs here instead, after server1-grpc-migrate is guaranteed done (see the
-      # Tiltfile's own resource_deps=["server1-grpc-db", "server1-grpc-migrate"] on this Deployment) —
-      # guarded idempotent (checks pg_publication first) since this Deployment restarts.
+      # Postgres container: initdb scripts run once, at Postgres's very first boot, before the
+      # app chart's server1-grpc-migrate Job (a different chart/namespace now, Tilt-owned) has
+      # any chance to create the Item table, so `CREATE PUBLICATION ... FOR TABLE` there fails
+      # every time against a table that doesn't exist yet. Runs here instead, guarded idempotent
+      # (checks pg_publication first) since this Deployment restarts — if this chart (Terraform)
+      # applies before the app chart's migrate Job (Tilt) has ever run, this initContainer just
+      # crash-loops until the table shows up, no explicit cross-chart ordering needed.
       # Double-quoted "Item" below, not bare item: the Prisma model has no @@map, so Prisma keeps
       # its exact model-name casing ("Item") as the real Postgres table name — an unquoted
       # identifier folds to lowercase and silently stops matching it.

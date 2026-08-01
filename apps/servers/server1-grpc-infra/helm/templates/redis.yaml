@@ -97,7 +97,7 @@ spec:
 # and by redis-provision-job.yaml's vault write database/config/... (admin creds Vault uses to
 # mint leaf ACL users). Randomly generated on first `helm install` and kept stable across every
 # later `helm upgrade` via the `lookup`/`randAlphaNum` block at the top of this file — same
-# reasoning as helm-db.yaml.hbs's server1-grpc-db-secret. Only works against a real cluster:
+# reasoning as db.yaml's server1-grpc-db-secret. Only works against a real cluster:
 # `helm template`/`--dry-run` always see `lookup` return nothing, so those always take the
 # "generate new" branch instead — expected, not a bug.
 apiVersion: v1
@@ -108,17 +108,3 @@ metadata:
 type: Opaque
 data:
   password: {{ $redisPassword | b64enc }}
-
----
-# REDIS_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the admin
-# creds so the app can still boot before redis-provision-job.yaml's post-install hook has run
-# once; that hook immediately overwrites this key with a Vault-minted leaf ACL user's creds and
-# rolls the Deployment. See redis-provision-job.yaml for the whole rotation story.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: server1-grpc-redis-secret
-  namespace: {{ .Values.namespace }}
-type: Opaque
-stringData:
-  REDIS_URL: redis://default:{{ $redisPassword }}@server1-grpc-redis:6379

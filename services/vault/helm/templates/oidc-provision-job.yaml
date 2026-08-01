@@ -110,8 +110,15 @@ spec:
                 sleep 5
               done
 
+              # oidc_discovery_url is fetched by Vault itself, server-side — but its response's
+              # "authorization_endpoint" field is what Vault then redirects the *browser* to, so
+              # this must resolve to the same browser-reachable authority as allowed_redirect_uris
+              # above (Authentik echoes back whatever Host header the discovery fetch itself
+              # arrived on — see services/minio/helm/templates/statefulset.yaml's identical
+              # comment). Values-driven (see values.yaml's oidcDiscoveryUrl) so an overlay like
+              # values-tailscale.yaml can point this at the tailnet tunnel too.
               vault write auth/oidc/config \
-                oidc_discovery_url="http://authentik.lan:8080/application/o/vault/" \
+                oidc_discovery_url={{ .Values.oidcDiscoveryUrl | quote }} \
                 oidc_client_id="vault" \
                 oidc_client_secret="$VAULT_OIDC_CLIENT_SECRET" \
                 default_role="default"
@@ -119,11 +126,10 @@ spec:
               # oidc_scopes has no default beyond the implicit "openid" — without it Vault never
               # asks for the "email"/"profile" scopes, so user_claim="email" fails at login with
               # "claim \"email\" not found in token" even though Authentik's provider grants it.
-              # https:8443 entries added alongside the http:8080 ones (not replacing) — Vault's
-              # UI builds its own callback from window.location, so whichever scheme/port the
-              # browser used to reach vault.lan needs to be in this list.
+              # allowed_redirect_uris values-driven (see values.yaml's oidcRedirectUris) so an
+              # overlay like values-tailscale.yaml can add another host without editing this Job.
               vault write auth/oidc/role/default \
                 user_claim="email" \
                 oidc_scopes="email profile" \
-                allowed_redirect_uris="http://vault.localhost/ui/vault/auth/oidc/oidc/callback,http://vault.lan/ui/vault/auth/oidc/oidc/callback,http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback,https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback,https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback" \
+                allowed_redirect_uris="{{ .Values.oidcRedirectUris | join "," }}" \
                 policies="default"

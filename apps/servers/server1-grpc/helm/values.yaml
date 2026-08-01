@@ -1,36 +1,22 @@
-# Every apps/servers/* chart shares this namespace (see apps/servers/Tiltfile's Namespace
-# declaration) — matches how every services/* chart shares "infra".
-namespace: servers
+# Own namespace, separate from server1-grpc-infra (postgres/redis/debezium/Vault provisioning,
+# Terraform-applied once) — this chart is just the app Deployment/Service (+ its migrate Job),
+# Tilt-iterated on every `tilt up`. See apps/terraform/main.tf for why both namespaces
+# are created there, not by either chart.
+namespace: server1-grpc-app
 
-# Empty by default — db.yaml's Postgres superuser password falls back to a `lookup` of the
-# already-set value (real `helm install`/Terraform) or a fresh `randAlphaNum` on first install.
-# Tilt's own helm() has no live cluster access at all, so `lookup` always returns nothing there —
-# set this via Tiltfile's set=["dbPassword=..."] to get a value that stays stable across every
-# Tilt reconcile instead of drifting on every single one.
+# Where server1-grpc-infra's Postgres/Redis actually live — every hostname this chart's own
+# templates reference for them has to be the fully-qualified cross-namespace form
+# (server1-grpc-db.{{ .Values.infraNamespace }}.svc.cluster.local), not the bare in-namespace
+# name that worked back when everything shared one chart/namespace.
+infraNamespace: server1-grpc-infra
+
+# Bootstrap-only password overrides, empty by default — env.yaml's server1-grpc-secret/
+# server1-grpc-redis-secret (DATABASE_URL/REDIS_URL) fall back to a `lookup` of
+# server1-grpc-infra's real password Secrets (cross-namespace — Helm's `lookup` takes an explicit
+# namespace argument, not just the release's own). Tilt's own helm() has no live cluster access
+# at all, so `lookup` always returns nothing there — set these via Tiltfile's
+# set=["dbPassword=...", "redisPassword=..."] to the exact same literals server1-grpc-infra's own
+# db.yaml/redis.yaml use, or every Tilt-triggered re-render of this chart resets
+# DATABASE_URL/REDIS_URL to a guessed value that doesn't match the real Postgres/Redis password.
 dbPassword: ""
-
-# See helm/templates/db-provision-job.yaml + helm/files/db-provision.sh — the Vault dynamic
-# Postgres role minted for this server's own Deployment.
-dbProvision:
-  # How often the CronJob re-mints creds. Keep this comfortably inside defaultTtl (a 6h poll
-  # against a 24h TTL means several missed runs in a row before a lease is ever actually at risk
-  # of expiring) — this is what keeps a long-running pod's DB credential from expiring out from
-  # under it in both dev and prod (dev-mode Vault also loses all lease state on every restart).
-  schedule: "0 */6 * * *"
-  defaultTtl: "24h"
-  maxTtl: "720h"
-
-# Empty by default — redis.yaml's admin password falls back to a `lookup` of the already-set
-# value (real `helm install`/Terraform) or a fresh `randAlphaNum` on first install. Tilt's own
-# helm() has no live cluster access at all, so `lookup` always returns nothing there — set this
-# via Tiltfile's set=["redisPassword=..."] to get a value that stays stable across every Tilt
-# reconcile instead of drifting on every single one.
 redisPassword: ""
-
-# See helm/templates/redis-provision-job.yaml + helm/files/redis-provision.sh — the Vault
-# dynamic Redis ACL user minted for this server's own Deployment. Same shape as dbProvision
-# (if present) — kept as its own block since either extension can be added independently.
-redisProvision:
-  schedule: "0 */6 * * *"
-  defaultTtl: "24h"
-  maxTtl: "720h"

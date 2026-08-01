@@ -38,6 +38,14 @@ resource "helm_release" "argocd" {
   # argocd-server validates Authentik's OIDC discovery document server-side (same reasoning as
   # the other three apps' hostAliases) — needs "authentik.lan" to resolve to Traefik's
   # dynamically-assigned ClusterIP, not the in-cluster Service DNS name.
+  #
+  # raspberrypi94.tail60240b.ts.net aliased to the same ClusterIP for the values-tailscale.yaml
+  # overlay's benefit — same reasoning as services/minio/helm/templates/statefulset.yaml's own
+  # hostAliases comment: Authentik echoes back whatever Host header a discovery fetch arrived on,
+  # so argocd-server's in-cluster fetch needs that exact tailnet hostname to resolve to something
+  # reachable (Traefik's ClusterIP) for Authentik to echo it back, even though argocd-server
+  # itself has no real route to the tailnet. Harmless to always set, LAN-only sessions never
+  # request it.
   set {
     name  = "argo-cd.global.hostAliases[0].ip"
     value = data.kubernetes_service.traefik_web_8080.spec[0].cluster_ip
@@ -46,6 +54,18 @@ resource "helm_release" "argocd" {
     name  = "argo-cd.global.hostAliases[0].hostnames[0]"
     value = "authentik.lan"
   }
+  set {
+    name  = "argo-cd.global.hostAliases[0].hostnames[1]"
+    value = "raspberrypi94.tail60240b.ts.net"
+  }
+
+  # values-tailscale.yaml layering, same as main.tf's for_each "service" block / helm_release.vault
+  # — argocd's own configs.cm.url (values.yaml) needs the tailnet host for off-LAN devices.
+  values = (
+    var.environment == "dev" && fileexists("${path.module}/../argocd/helm/values-tailscale.yaml")
+    ? [file("${path.module}/../argocd/helm/values-tailscale.yaml")]
+    : []
+  )
 
   # Real secret, never committed — only meaningful (and only required) for prod; dev keeps the
   # hand-typed matched placeholder already in services/argocd/helm/values.yaml. Must match

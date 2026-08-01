@@ -14,12 +14,14 @@ spec:
         app: server1-grpc
     spec:
       initContainers:
+        # Fully-qualified, not bare "server1-grpc-db"/"server1-grpc-redis" — both live in
+        # server1-grpc-infra now, a different namespace than this Deployment's own.
         - name: wait-for-server1-grpc-db
           image: postgres:15.3-alpine
-          command: ["sh", "-c", "until pg_isready -h server1-grpc-db -p 5432 -U myuser; do sleep 2; done"]
+          command: ["sh", "-c", "until pg_isready -h server1-grpc-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done"]
         - name: wait-for-server1-grpc-redis
           image: redis:7-alpine
-          command: ["sh", "-c", "until redis-cli -h server1-grpc-redis -p 6379 ping; do sleep 2; done"]
+          command: ["sh", "-c", "until redis-cli -h server1-grpc-redis.{{ .Values.infraNamespace }}.svc.cluster.local -p 6379 ping; do sleep 2; done"]
       containers:
         - name: server1-grpc
           image: server1-grpc:latest
@@ -34,9 +36,10 @@ spec:
                 name: server1-grpc-redis-secret
 
 ---
-# Stable in-cluster DNS (server1-grpc.servers.svc.cluster.local, or bare "server1-grpc" from
-# within the same "servers" namespace) for other servers — e.g. server1-graphql's gRPC client —
-# to reach this Deployment's gRPC port. Nothing else in this chart provided one before.
+# Stable in-cluster DNS (server1-grpc.server1-grpc-app.svc.cluster.local, or bare "server1-grpc"
+# from within this same namespace) for other servers — e.g. server1-graphql's gRPC client, now
+# using the fully-qualified form since it lives in a different namespace ("servers") — to reach
+# this Deployment's gRPC port.
 apiVersion: v1
 kind: Service
 metadata:

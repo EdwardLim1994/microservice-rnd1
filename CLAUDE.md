@@ -14,9 +14,9 @@ Bun + Turborepo monorepo. Run everything from repo root; Turbo fans out to works
 - `bun run gen` — `turbo run gen` (codegen, e.g. GraphQL codegen) then rebuilds `api` specifically
 - `bun run generate` — `turbo gen`, runs the Plop generators under `turbo/generators/` (see below)
 - `bun run supergraph` — builds/composes the Apollo Federation supergraph
-- `bun run k8s:build` — builds workspace Docker images against the minikube docker daemon (`eval "$(minikube docker-env)"` first)
+- `bun run k8s:build` — builds workspace Docker images for the local cluster (k3d: no separate docker-env step needed — Tilt's own `docker_build()` calls already `k3d image import` automatically; this script is for building outside Tilt)
 - `bun run release:cut` / `release:bump-rc` / `release:promote` / `release:hotfix` / `release:touched-apps` — release flows, all implemented in `packages/script/src/bin/release-manager.ts`
-- `tilt up` from repo root — the primary way to run this repo locally. Root `Tiltfile` `include()`s `services/`, `apps/servers/`, `apps/web/`, `apps/mfe/` own `Tiltfile`s, each of which renders its own `helm/` chart via Tilt's `helm()` and `docker_build()`s any locally-built images (see each workspace's own `helm/` + `Dockerfile`). Chart dependencies (e.g. `services/traefik/helm`, `services/authentik/helm`) aren't fetched by Tilt itself — run `helm dependency update <chart-dir>` manually after editing a `Chart.yaml`'s `dependencies:`.
+- `tilt up` from repo root — the primary way to run `apps/servers/`, `apps/web/`, `apps/mfe/` locally. Root `Tiltfile` `include()`s only `apps/Tiltfile`; each workspace's own `Tiltfile` renders its `helm/` chart via Tilt's `helm()` and `docker_build()`s any locally-built images. `services/*` is NOT Tilt-managed (see "services/ (deployed via Terraform, not Tilt)" below) — apply it once with `terraform apply` in `services/terraform` before `tilt up`, so its Jobs (Vault provisioning, DB migrations) are already satisfied. Chart dependencies (e.g. `services/traefik/helm`, `services/authentik/helm`) aren't fetched by Tilt/Terraform — run `helm dependency update <chart-dir>` manually after editing a `Chart.yaml`'s `dependencies:`.
 - `docker compose up` from repo root — kept as a working backup, not the primary path anymore. Root `docker-compose.yml` `include:`s `services/`, `servers/`, `frontends/`, `apps/` own compose files. Some compose-only pieces have no Tilt/helm equivalent yet (e.g. `services/adminer` was retired outright in favor of Grafana, not migrated).
 
 ## Architecture
@@ -31,9 +31,13 @@ Bun + Turborepo monorepo. Run everything from repo root; Turbo fans out to works
 - `e2e/` — end-to-end tests (Cypress + Vitest/API tests)
 - `turbo/generators/` — Plop code generators, invoked via `bun run generate`
 
-### Tilt + Helm (primary local-dev runtime)
+### services/ (deployed via Terraform, not Tilt)
 
-Every `services/*`, `apps/servers/*`, `apps/web/*`, `apps/mfe/*` workspace owns a `helm/` chart (`Chart.yaml` + `values.yaml` + `templates/`) and a `Tiltfile`, included transitively from the root `Tiltfile` via each directory's own `Tiltfile` (`services/Tiltfile`, `apps/servers/Tiltfile`, etc — mirrors the old docker-compose `include:` chain). `turbo gen server` / `turbo gen web` scaffold both automatically for new workspaces (`turbo/generators/templates/*/helm/` + `Tiltfile`), registering the new `Tiltfile` into its parent's include list the same way they used to register a `docker-compose.yml`.
+`services/*` charts are applied once via `services/terraform` (`helm_release` per chart, `kube_context` defaults to `k3d-dev`) instead of being re-rendered by Tilt on every `tilt up` — a real Helm release is a k8s object like any other, so it survives a k3d cluster stop/start without redeploying. Run `terraform apply` there once per cluster; re-run only when a `services/*/helm` chart actually changes. `services/*` no longer has any `Tiltfile`.
+
+### Tilt + Helm (primary local-dev runtime for apps/servers, apps/web, apps/mfe)
+
+Every `apps/servers/*`, `apps/web/*`, `apps/mfe/*` workspace owns a `helm/` chart (`Chart.yaml` + `values.yaml` + `templates/`) and a `Tiltfile`, included transitively from the root `Tiltfile` via `apps/Tiltfile`. `turbo gen server` / `turbo gen web` scaffold both automatically for new workspaces (`turbo/generators/templates/*/helm/` + `Tiltfile`), registering the new `Tiltfile` into its parent's include list.
 
 Patterns established during the docker-compose → Tilt/helm migration:
 - Simple single/multi-container infra (Redis, Meilisearch, MinIO, ClickHouse, Apicurio Registry, Vault, Kafka) — hand-rolled charts, no upstream chart dependency; matches what the old compose file actually ran, nothing more.

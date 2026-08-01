@@ -1,3 +1,23 @@
+{{- /*
+server1-grpc-infra (apps/servers/server1-grpc-infra, Terraform-applied via apps/terraform — a
+different Terraform root than this chart's own services/terraform, but the same live cluster)
+mints its own db/redis superuser passwords at apply time (see that chart's db.yaml/redis.yaml
+`randAlphaNum 32`), not a fixed literal this chart can hardcode. `lookup` reads them straight from
+that chart's own Secrets — same trick apps/servers/server1-grpc/helm/templates/env.yaml uses for
+its own DATABASE_URL/REDIS_URL — falling back to the old placeholder literals only under `helm
+template`/Tilt's offline-only render (`lookup` always returns nothing there) or before
+server1-grpc-infra has been applied at all yet.
+*/}}
+{{- $server1DbSecret := lookup "v1" "Secret" "server1-grpc-infra" "server1-grpc-db-secret" }}
+{{- $server1DbPassword := "server1-grpc-tilt-local-dev-db-password" }}
+{{- if $server1DbSecret }}
+{{- $server1DbPassword = index $server1DbSecret.data "password" | b64dec }}
+{{- end }}
+{{- $server1RedisSecret := lookup "v1" "Secret" "server1-grpc-infra" "server1-grpc-redis-admin-secret" }}
+{{- $server1RedisPassword := "server1-grpc-tilt-local-dev-redis-password" }}
+{{- if $server1RedisSecret }}
+{{- $server1RedisPassword = index $server1RedisSecret.data "password" | b64dec }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,10 +32,49 @@ data:
   # fine as-is in-cluster, same namespace, no FQDN rewrite needed.
   datasources.yaml: |
 {{ .Files.Get "files/grafana-datasources.yaml" | indent 4 }}
-  # Real copy of apps/servers/server1-grpc/grafana-datasources.yaml — lives there since it's that
-  # server's own Postgres/Redis query access, not generic monitoring-stack config. Same
-  # .Files.Get restriction and "re-copy manually" caveat as the key above.
+  # Real copy of apps/servers/server1-grpc/grafana-datasources.yaml, but NOT loaded via
+  # .Files.Get like the key above — that bypasses Helm's own Go-templating entirely (see
+  # db-provision-init.sh's own comment on the same tradeoff elsewhere in this repo), which is
+  # exactly why this datasource used to ship with permanently-stale placeholder passwords
+  # instead of the $server1DbPassword/$server1RedisPassword `lookup`-derived values computed
+  # above. Inlined here instead so those substitutions actually apply.
   server1-grpc-datasources.yaml: |
-{{ .Files.Get "files/grafana-datasource-server1-grpc.yaml" | indent 4 }}
+    apiVersion: 1
+
+    # Direct query access (SQL Explore / Redis command console in Grafana), separate from the
+    # postgres-exporter/redis-exporter Prometheus metrics already wired in
+    # apps/servers/server1-grpc-infra/helm/templates/db.yaml/redis.yaml — this lets you run
+    # ad-hoc queries against the actual data, not just point-in-time gauges.
+    datasources:
+      - name: server1-grpc Postgres
+        uid: server1-grpc-postgres
+        # Canonical plugin id, not the deprecated "postgres" alias — provisioning with the alias
+        # resolves fine for display/queries but leaves the resource client (table/schema
+        # dropdown in the query builder) unwired, "[plugin.notImplemented] method not
+        # implemented".
+        type: grafana-postgresql-datasource
+        access: proxy
+        url: server1-grpc-db.server1-grpc-infra.svc.cluster.local:5432
+        database: server1-grpc
+        user: myuser
+        editable: false
+        jsonData:
+          sslmode: disable
+          postgresVersion: 1500
+        secureJsonData:
+          password: {{ $server1DbPassword }}
+
+      - name: server1-grpc Redis
+        uid: server1-grpc-redis
+        # Requires the redis-datasource plugin (not built into Grafana core, unlike postgres) —
+        # see grafana-statefulset.yaml's GF_INSTALL_PLUGINS.
+        type: redis-datasource
+        access: proxy
+        url: redis://server1-grpc-redis.server1-grpc-infra.svc.cluster.local:6379
+        editable: false
+        jsonData:
+          client: standalone
+        secureJsonData:
+          password: {{ $server1RedisPassword }}
   dashboards.yaml: |
 {{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}

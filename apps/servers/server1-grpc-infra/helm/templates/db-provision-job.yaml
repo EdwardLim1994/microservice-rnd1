@@ -1,15 +1,22 @@
 # Vault's database secrets engine, pointed at this server's own server1-grpc-db (see db.yaml) —
 # same idea as services/vault/helm/templates/db-provision-job.yaml (authentik's), simplified:
-# this only ever patches server1-grpc-secret and rolls server1-grpc's own Deployment, both in this
-# chart's own namespace, so no cross-namespace kubectl RBAC is needed beyond that.
+# this only ever patches the app chart's own server1-grpc-secret and rolls its Deployment.
+#
+# Cross-namespace: this Job's own ServiceAccount/pod lives in server1-grpc-infra (this chart's
+# own namespace), but the Secret/Deployment it patches live in server1-grpc-app (the app chart's
+# namespace, Tilt-owned) — a plain same-namespace Role wouldn't reach it. The Role/RoleBinding
+# below are deliberately created IN .Values.appNamespace (not .Values.namespace like everything
+# else in this chart) with this namespace's ServiceAccount as the RoleBinding's subject — valid
+# k8s RBAC (a RoleBinding's subjects can reference a ServiceAccount in any namespace) and doesn't
+# need the app namespace to exist yet at plan-time beyond apply-time (see
+# apps/terraform/main.tf, which creates both namespaces upfront specifically so this
+# ordering never bites regardless of whether Terraform or Tilt runs first).
 #
 # Split across two containers by tool, same reasoning as services/vault/helm's own
 # db-provision-job.yaml: an initContainer (hashicorp/vault image) runs every `vault` CLI command
 # and writes its results to a shared emptyDir volume; the main container (bitnami/kubectl image)
 # only ever runs `kubectl`/`curl` against those files — neither image has both toolsets, so
-# `vault` commands can't run in the kubectl container or vice versa (a single shared
-# bitnami/kubectl-only container running `vault status` here originally, in server1-grpc's actual
-# deploy, just hung forever on "command not found" masquerading as "waiting for vault...").
+# `vault` commands can't run in the kubectl container or vice versa.
 # The one Vault-API call the main container still needs (revoking the previous lease) uses plain
 # `curl` against Vault's HTTP API instead of the `vault` CLI, same as the authentik version.
 #
@@ -46,7 +53,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: vault-db-provision
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.appNamespace }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -61,7 +68,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: vault-db-provision
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.appNamespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -119,6 +126,8 @@ spec:
           env:
             - name: VAULT_ADDR
               value: "http://vault.infra.svc.cluster.local:8200"
+            - name: APP_NAMESPACE
+              value: {{ .Values.appNamespace }}
           command:
             - sh
             - -c
@@ -177,6 +186,8 @@ spec:
               env:
                 - name: VAULT_ADDR
                   value: "http://vault.infra.svc.cluster.local:8200"
+                - name: APP_NAMESPACE
+                  value: {{ .Values.appNamespace }}
               command:
                 - sh
                 - -c

@@ -1,23 +1,27 @@
 # Vault's database secrets engine (yes, "database" — Vault's redis-database-plugin mounts under
 # the same database/ path as Postgres's) pointed at this server's own server1-grpc-redis (see
-# redis.yaml) — same shape as helm-db-provision-job.yaml.hbs's Postgres provisioning, own
+# redis.yaml) — same shape as db-provision-job.yaml's Postgres provisioning, own
 # ServiceAccount/Role (vault-redis-provision, not vault-db-provision) so this composes cleanly
 # whether or not the database extension is also present on this server.
 #
-# Split across two containers by tool, same reasoning as helm-db-provision-job.yaml.hbs: an
-# initContainer (hashicorp/vault image) runs every `vault` CLI command and writes its results to
-# a shared emptyDir volume; the main container (bitnami/kubectl image) only ever runs
-# `kubectl`/`curl` against those files — neither image has both toolsets. The one Vault-API call
-# the main container still needs (revoking the previous lease) uses plain `curl` against Vault's
-# HTTP API instead of the `vault` CLI.
+# Cross-namespace RBAC — see db-provision-job.yaml's own header comment for the full reasoning:
+# this Job's ServiceAccount/pod live in server1-grpc-infra, but the Secret/Deployment it patches
+# live in server1-grpc-app, so the Role/RoleBinding below are created in .Values.appNamespace.
+#
+# Split across two containers by tool, same reasoning as db-provision-job.yaml: an initContainer
+# (hashicorp/vault image) runs every `vault` CLI command and writes its results to a shared
+# emptyDir volume; the main container (bitnami/kubectl image) only ever runs `kubectl`/`curl`
+# against those files — neither image has both toolsets. The one Vault-API call the main
+# container still needs (revoking the previous lease) uses plain `curl` against Vault's HTTP API
+# instead of the `vault` CLI.
 #
 # Scripts live in files/redis-provision-init.sh and files/redis-provision-main.sh, loaded via
 # `.Files.Get` (bypasses Helm's own Go-templating for that file's content) — same convention as
 # the Postgres provisioning Job.
 #
-# Runs on two triggers, both loading the same two scripts — see helm-db-provision-job.yaml.hbs's
-# header comment for the full "why a CronJob too" reasoning (dev-mode Vault losing lease state on
-# every restart, long-running pods outliving a lease's default_ttl, etc.) — identical here.
+# Runs on two triggers, both loading the same two scripts — see db-provision-job.yaml's header
+# comment for the full "why a CronJob too" reasoning (dev-mode Vault losing lease state on every
+# restart, long-running pods outliving a lease's default_ttl, etc.) — identical here.
 #
 # Always authenticates via Vault's Kubernetes auth method, reusing the same "db-provision" role
 # services/vault/helm/templates/k8s-auth-provision-job.yaml sets up for the Postgres provisioning
@@ -34,7 +38,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: vault-redis-provision
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.appNamespace }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -49,7 +53,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: vault-redis-provision
-  namespace: {{ .Values.namespace }}
+  namespace: {{ .Values.appNamespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -104,6 +108,8 @@ spec:
           env:
             - name: VAULT_ADDR
               value: "http://vault.infra.svc.cluster.local:8200"
+            - name: APP_NAMESPACE
+              value: {{ .Values.appNamespace }}
           command:
             - sh
             - -c
@@ -160,6 +166,8 @@ spec:
               env:
                 - name: VAULT_ADDR
                   value: "http://vault.infra.svc.cluster.local:8200"
+                - name: APP_NAMESPACE
+                  value: {{ .Values.appNamespace }}
               command:
                 - sh
                 - -c

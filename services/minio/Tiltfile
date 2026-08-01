@@ -1,2 +1,0 @@
-k8s_yaml(helm("./helm", name="minio", namespace="infra"))
-k8s_resource("minio", labels=["infra"])

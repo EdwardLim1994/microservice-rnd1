@@ -1,4 +1,0 @@
-# The "infra" Namespace itself is declared once, centrally, in services/Tiltfile — every chart
-# here just targets it via namespace="infra" below.
-k8s_yaml(helm("./helm", name="traefik", namespace="infra"))
-k8s_resource("traefik", labels=["infra"])

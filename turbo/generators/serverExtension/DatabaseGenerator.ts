@@ -283,9 +283,7 @@ function appendDatabaseTiltfile(
 	}
 	const snippet =
 		`\ndocker_build("${name}-migrate", "../../..", dockerfile="./Dockerfile", target="migrate")\n\n` +
-		// "services-ready" (services/Tiltfile) gates this on every services/* resource actually
-		// being up first — same reasoning as the "{name}" resource's own gate.
-		`k8s_resource(\n    "${name}-db",\n    resource_deps=["services-ready"],\n    port_forwards=["${port}:5432"],\n    labels=["servers"],\n)\n\n` +
+		`k8s_resource(\n    "${name}-db",\n    port_forwards=["${port}:5432"],\n    labels=["servers"],\n)\n\n` +
 		// "${name}-migrate" (the Job) has no explicit k8s_resource() call otherwise, so it falls
 		// into Tilt's default "unlabeled" UI bucket instead of grouping with everything else here.
 		`k8s_resource(\n    "${name}-migrate",\n    resource_deps=["${name}-db"],\n    labels=["servers"],\n)\n\n` +
@@ -295,8 +293,8 @@ function appendDatabaseTiltfile(
 		// status deployment/${name}` with no retry loop of its own, so without this the Job can hit
 		// "deployment ${name} not found" if it runs before ${name}'s own Deployment even exists yet
 		// and burn through backoffLimit needing a manual re-trigger.
-		`k8s_resource(\n    "${name}-db-provision:job",\n    resource_deps=["services-ready", "${name}-db", "${name}"],\n    labels=["servers"],\n)\n\n` +
-		`k8s_resource(\n    "${name}-db-provision:cronjob",\n    resource_deps=["services-ready", "${name}-db", "${name}"],\n    labels=["servers"],\n)\n`;
+		`k8s_resource(\n    "${name}-db-provision:job",\n    resource_deps=["${name}-db", "${name}"],\n    labels=["servers"],\n)\n\n` +
+		`k8s_resource(\n    "${name}-db-provision:cronjob",\n    resource_deps=["${name}-db", "${name}"],\n    labels=["servers"],\n)\n`;
 	fs.writeFileSync(
 		absTiltfilePath,
 		`${collapseTrailingNewlines(raw)}\n${snippet}`,

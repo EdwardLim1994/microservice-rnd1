@@ -28,6 +28,7 @@ spec:
         - ip: {{ if .Values.traefikClusterIp }}{{ .Values.traefikClusterIp }}{{ else if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
           hostnames:
             - authentik.lan
+            - raspberrypi94.tail60240b.ts.net
       containers:
         - name: vault
           image: "{{ .Values.image }}"

@@ -37,6 +37,24 @@ dbSslMode: disable
 # services/authentik/helm/values.yaml's vaultOidcClientSecret.
 oidcClientSecret: vaultoidcclientsecret
 
+# Server-side discovery fetch — see oidc-provision-job.yaml's own comment for why this must
+# resolve to the same browser-reachable authority as oidcRedirectUris below, not the in-cluster
+# Service DNS name.
+oidcDiscoveryUrl: "http://authentik.lan:8080/application/o/vault/"
+
+# oidc/role/default's own allowed_redirect_uris (see oidc-provision-job.yaml) — Vault enforces
+# this allow-list independently of whatever Authentik's own vault-provider registers, so this
+# must list the exact same hosts as services/authentik/helm/values.yaml's vaultRedirectUris.
+# https:8443 entries alongside the http:8080 ones (not replacing) — Vault's UI builds its own
+# callback from window.location, so whichever scheme/port the browser used to reach vault.lan
+# needs to be in this list.
+oidcRedirectUris:
+  - http://vault.localhost/ui/vault/auth/oidc/oidc/callback
+  - http://vault.lan/ui/vault/auth/oidc/oidc/callback
+  - http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback
+  - https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
+  - https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
+
 # Empty by default — statefulset.yaml's hostAliases falls back to a `lookup` of
 # traefik-web-8080's ClusterIP (works fine for a real `helm install`/Terraform). Tilt's own
 # helm() is "offline-only" templating with no live cluster access at all, so `lookup` always

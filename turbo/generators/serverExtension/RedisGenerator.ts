@@ -195,10 +195,8 @@ export default class RedisGenerator {
 			if (raw.includes(`${name}-redis-provision`)) {
 				return `${relToRoot(absTiltfilePath)} already has ${name}-redis-provision resource`;
 			}
-			// "services-ready" (services/Tiltfile) gates this on every services/* resource
-			// actually being up first — same reasoning as DatabaseGenerator's own db-provision
-			// gate. "${name}-redis" (redis.yaml's Deployment) has no explicit k8s_resource() call
-			// otherwise either, so it'd fall into Tilt's default "unlabeled" UI bucket instead of
+			// "${name}-redis" (redis.yaml's Deployment) has no explicit k8s_resource() call
+			// otherwise, so it'd fall into Tilt's default "unlabeled" UI bucket instead of
 			// grouping with everything else here — give it one too, not just the provision job.
 			// Tilt disambiguates same-named Job+CronJob pairs as "<name>:job"/"<name>:cronjob" —
 			// a plain "${name}-redis-provision" isn't a valid resource name here. Also depends on
@@ -208,9 +206,9 @@ export default class RedisGenerator {
 			// ${name}'s own Deployment even exists yet and burn through backoffLimit needing a
 			// manual re-trigger.
 			const snippet =
-				`\nk8s_resource(\n    "${name}-redis",\n    resource_deps=["services-ready"],\n    labels=["servers"],\n)\n\n` +
-				`k8s_resource(\n    "${name}-redis-provision:job",\n    resource_deps=["services-ready", "${name}-redis", "${name}"],\n    labels=["servers"],\n)\n\n` +
-				`k8s_resource(\n    "${name}-redis-provision:cronjob",\n    resource_deps=["services-ready", "${name}-redis", "${name}"],\n    labels=["servers"],\n)\n`;
+				`\nk8s_resource(\n    "${name}-redis",\n    labels=["servers"],\n)\n\n` +
+				`k8s_resource(\n    "${name}-redis-provision:job",\n    resource_deps=["${name}-redis", "${name}"],\n    labels=["servers"],\n)\n\n` +
+				`k8s_resource(\n    "${name}-redis-provision:cronjob",\n    resource_deps=["${name}-redis", "${name}"],\n    labels=["servers"],\n)\n`;
 			fs.writeFileSync(absTiltfilePath, `${collapseTrailingNewlines(raw)}\n${snippet}`);
 			return `${relToRoot(absTiltfilePath)} (+${name}-redis-provision)`;
 		});

@@ -25,11 +25,20 @@ spec:
       # services/traefik/helm/templates/web-8080-service.yaml) — not a real Service name CoreDNS
       # knows about, and *.localhost/*.lan can't be relied on to resolve to anything but loopback
       # (or nothing) from inside the pod's own network namespace.
+      #
+      # The tailscale tunnel hostname (values-tailscale.yaml's oidcConfigUrl) needs the exact
+      # same treatment for the exact same reason — a pod has no Tailscale client of its own, so
+      # nothing would otherwise resolve raspberrypi94.tail60240b.ts.net at all, let alone route
+      # it back to Traefik. Aliased to the same ClusterIP: what matters for Authentik's "echo the
+      # request's own authority" behavior is only the Host header string the discovery fetch
+      # sends, not which real network path got it there. Harmless to always list both — an
+      # unused hostAlias resolves to nothing anyone asks for in plain-LAN mode.
       {{- $traefikSvc := lookup "v1" "Service" "infra" "traefik-web-8080" }}
       hostAliases:
         - ip: {{ if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
           hostnames:
             - authentik.lan
+            - raspberrypi94.tail60240b.ts.net
       containers:
         - name: minio
           image: "{{ .Values.image }}"

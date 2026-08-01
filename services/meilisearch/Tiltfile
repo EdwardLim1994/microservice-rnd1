@@ -1,2 +1,0 @@
-k8s_yaml(helm("./helm", name="meilisearch", namespace="infra"))
-k8s_resource("meilisearch", labels=["infra"])

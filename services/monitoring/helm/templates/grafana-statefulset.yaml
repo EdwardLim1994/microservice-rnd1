@@ -15,6 +15,14 @@ spec:
     metadata:
       labels:
         {{- include "grafana.labels" . | nindent 8 }}
+      annotations:
+        # envFrom: secretRef (below) only names the Secret — the pod template itself doesn't
+        # change when the Secret's own content does, so a `helm upgrade` that only edits
+        # grafana-secret.yaml's values (authUrl/rootUrl etc.) silently no-ops: same pod spec
+        # hash, no rollout, old env vars stay live until something else restarts the pod.
+        # Hashing the rendered Secret into an annotation here forces a new pod template hash
+        # (and therefore an actual rollout) whenever it changes — standard Helm idiom.
+        checksum/secret: {{ include (print $.Template.BasePath "/grafana-secret.yaml") . | sha256sum }}
     spec:
       enableServiceLinks: false
       # No use of the Kubernetes API from within this pod.

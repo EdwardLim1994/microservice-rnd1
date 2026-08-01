@@ -54,24 +54,16 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-profile"]]
             - !KeyOf minio-policy-mapping
+          # One entry per host services/minio/helm's MINIO_IDENTITY_OPENID_REDIRECT_URI might be
+          # pointed at — values-driven (see this chart's own values.yaml's minioRedirectUris) so
+          # an overlay like values-tailscale.yaml can add another host without editing this
+          # template, same as grafana-provider below.
           redirect_uris:
+            {{- range .Values.minioRedirectUris }}
             - matching_mode: strict
-              url: http://minio.localhost/oauth_callback
+              url: {{ . }}
               redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://minio.lan/oauth_callback
-              redirect_uri_type: authorization
-            # :8080 matches the temporary port-forward used for LAN device access — see
-            # services/minio/helm/templates/secret.yaml's MINIO_IDENTITY_OPENID_REDIRECT_URI.
-            - matching_mode: strict
-              url: http://minio.lan:8080/oauth_callback
-              redirect_uri_type: authorization
-            # :8443 https — MINIO_IDENTITY_OPENID_REDIRECT_URI now points here (see
-            # secret.yaml); the plain-http entries above are kept for anyone still on the
-            # docker-compose backup / bare-nodePort path, not actually requested by MinIO anymore.
-            - matching_mode: strict
-              url: https://minio.lan:8443/oauth_callback
-              redirect_uri_type: authorization
+            {{- end }}
       - model: authentik_core.application
         id: minio-app
         identifiers:
@@ -139,26 +131,16 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-profile"]]
           # Vault UI's OIDC callback is fixed as "<addr>/ui/vault/auth/<mount path>/oidc/callback"
-          # (mount path is "oidc", see the provisioning Job) — one entry per host, same
-          # three-host pattern as minio/grafana.
+          # (mount path is "oidc", see the provisioning Job) — one entry per host, values-driven
+          # (see this chart's own values.yaml's vaultRedirectUris, and
+          # services/vault/helm/values.yaml's oidcRedirectUris, which must list the exact same
+          # hosts) same as minio/grafana above.
           redirect_uris:
+            {{- range .Values.vaultRedirectUris }}
             - matching_mode: strict
-              url: http://vault.localhost/ui/vault/auth/oidc/oidc/callback
+              url: {{ . }}
               redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://vault.lan/ui/vault/auth/oidc/oidc/callback
-              redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback
-              redirect_uri_type: authorization
-            # :8443 https — matches oidc/role/default's allowed_redirect_uris (see
-            # oidc-provision-job.yaml).
-            - matching_mode: strict
-              url: https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
-              redirect_uri_type: authorization
-            - matching_mode: strict
-              url: https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
-              redirect_uri_type: authorization
+            {{- end }}
       - model: authentik_core.application
         id: vault-app
         identifiers:
@@ -187,21 +169,14 @@ data:
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-email"]]
             - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-profile"]]
           # ArgoCD's redirect_uri is fixed as "<url>/auth/callback" (not user configurable) — one
-          # entry per host configs.cm.url might be pointed at, same as minio/grafana/vault.
+          # entry per host configs.cm.url might be pointed at, values-driven (see this chart's
+          # own values.yaml's argocdRedirectUris) same as minio/grafana/vault above.
           redirect_uris:
+            {{- range .Values.argocdRedirectUris }}
             - matching_mode: strict
-              url: http://argocd.localhost/auth/callback
+              url: {{ . }}
               redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://argocd.lan/auth/callback
-              redirect_uri_type: authorization
-            - matching_mode: strict
-              url: http://argocd.lan:8080/auth/callback
-              redirect_uri_type: authorization
-            # :8443 https — configs.cm.url now points here (see argocd values.yaml).
-            - matching_mode: strict
-              url: https://argocd.lan:8443/auth/callback
-              redirect_uri_type: authorization
+            {{- end }}
       - model: authentik_core.application
         id: argocd-app
         identifiers:

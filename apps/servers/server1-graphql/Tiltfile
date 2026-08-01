@@ -35,11 +35,10 @@ k8s_yaml(helm(
     ],
 ))
 
-# "services-ready" (services/Tiltfile) gates this on every services/* resource actually being up
-# first — see apps/servers/server1/Tiltfile's identical gate for the full reasoning.
+# services/* is no longer Tilt-managed — run `terraform apply` in services/terraform once
+# (against minikube) before `tilt up` here.
 k8s_resource(
     "server1-graphql",
-    resource_deps=["services-ready"],
     port_forwards=["4001:4001"],
     labels=["servers"],
 )

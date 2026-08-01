@@ -12,8 +12,8 @@ scrape_configs:
   # chart's Service FQDN (<service>.<namespace>.svc.cluster.local:<port>).
   - job_name: server1-grpc-postgres
     static_configs:
-      - targets: ["server1-grpc-db.servers.svc.cluster.local:9187"]
+      - targets: ["server1-grpc-db.server1-grpc-infra.svc.cluster.local:9187"]
 
   - job_name: server1-grpc-redis
     static_configs:
-      - targets: ["server1-grpc-redis.servers.svc.cluster.local:9121"]
+      - targets: ["server1-grpc-redis.server1-grpc-infra.svc.cluster.local:9121"]
