@@ -18,10 +18,10 @@ declare -A APPS=(
   [8085]="infra svc/grafana 3000 18082"
   [8090]="infra svc/vault 8200 18083"
   [8095]="infra svc/minio 9001 18084"
-  [8100]="argocd svc/argocd-server 80 18085"
   # Router serves both the GraphQL API and its interactive Sandbox playground at the same
   # path (/graphql) — content-negotiated on the request's Accept header, browser gets the UI.
   [8105]="infra svc/apollo-router 80 18086"
+  [8110]="infra svc/kafka-ui 8080 18087"
 )
 
 PF_PIDS=()
