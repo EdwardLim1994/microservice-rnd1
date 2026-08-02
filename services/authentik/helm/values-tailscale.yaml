@@ -1,6 +1,6 @@
 # Registers the tailnet hostname as a real Traefik route to authentik-server — see
 # templates/ingress.yaml's own comment. Without this, every request below that resolves this
-# hostname via a hostAliases entry (vault/minio/argocd's own statefulset.yaml/argocd.tf) still
+# hostname via a hostAliases entry (vault/minio's own statefulset.yaml) still
 # 404s at Traefik: a hostAliases-resolved connection alone only gets it as far as the ClusterIP,
 # not past Traefik's own Host-based routing.
 extraIngressHosts:
@@ -40,12 +40,3 @@ vaultRedirectUris:
   - https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
   - https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
   - https://raspberrypi94.tail60240b.ts.net:8090/ui/vault/auth/oidc/oidc/callback
-
-# Must match services/argocd/helm/values-tailscale.yaml's argo-cd.configs.cm.url exactly. Port
-# 8100 — scripts/port-forward.sh's own APPS map.
-argocdRedirectUris:
-  - http://argocd.localhost/auth/callback
-  - http://argocd.lan/auth/callback
-  - http://argocd.lan:8080/auth/callback
-  - https://argocd.lan:8443/auth/callback
-  - https://raspberrypi94.tail60240b.ts.net:8100/auth/callback

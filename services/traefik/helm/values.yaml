@@ -22,7 +22,7 @@ traefik:
 
   # Default cert for every route that doesn't declare its own tls: block — issued by
   # services/cert-manager-config/helm's Certificate (vault-issuer, pki_int). No per-app Ingress
-  # edit needed to get https on grafana/vault/authentik/minio/argocd — just visit the :8443 form
+  # edit needed to get https on grafana/vault/authentik/minio — just visit the :8443 form
   # if you want it; existing :8080 OIDC flows are untouched.
   tlsStore:
     default:

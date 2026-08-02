@@ -1,13 +1,11 @@
 # Must match services/minio/helm/values.yaml's oidcClientSecret,
-# services/monitoring/helm/values.yaml's grafanaOidcClientSecret,
-# services/vault/helm/values.yaml's oidcClientSecret, and
-# services/argocd/helm/values.yaml's configs.secret.extra."oidc.auth.client.secret" — separate
-# Helm releases, no shared values, so these are duplicated by hand like every other cross-chart
-# dev secret here (authentiksecretkey, vaultroottoken, ...).
+# services/monitoring/helm/values.yaml's grafanaOidcClientSecret, and
+# services/vault/helm/values.yaml's oidcClientSecret — separate Helm releases, no shared values,
+# so these are duplicated by hand like every other cross-chart dev secret here (authentiksecretkey,
+# vaultroottoken, ...).
 minioOidcClientSecret: miniooidcclientsecret
 grafanaOidcClientSecret: grafanaoidcclientsecret
 vaultOidcClientSecret: vaultoidcclientsecret
-argocdOidcClientSecret: argocdoidcclientsecret
 
 # Every host grafana-provider must accept an OAuth callback from — Grafana's own redirect_uri is
 # always "<rootUrl>/login/generic_oauth" (not user configurable), one entry per host
@@ -47,13 +45,6 @@ vaultRedirectUris:
   - https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
   - https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
 
-# Same story as grafanaRedirectUris above, for services/argocd/helm's configs.cm.url.
-argocdRedirectUris:
-  - http://argocd.localhost/auth/callback
-  - http://argocd.lan/auth/callback
-  - http://argocd.lan:8080/auth/callback
-  - https://argocd.lan:8443/auth/callback
-
 authentik:
   # akadmin's login — only takes effect on the very first bootstrap (an already-provisioned
   # install, like this one originally was, needs its password set by hand once via
@@ -64,7 +55,7 @@ authentik:
         value: authentikadmin
       - name: AUTHENTIK_BOOTSTRAP_EMAIL
         value: akadmin@authentik.local
-  # Registers minio/grafana/vault/argocd as native OIDC apps on boot — see
+  # Registers minio/grafana/vault as native OIDC apps on boot — see
   # templates/proxy-blueprint-configmap.yaml. The configmap name must match the release's
   # rendered name exactly (Helm doesn't template values.yaml itself).
   blueprints:

@@ -34,15 +34,13 @@ locals {
 
   # Every one of these is duplicated by hand across two independent Helm releases today (see
   # each app's own values.yaml — "must match services/authentik/helm/values.yaml's
-  # <app>OidcClientSecret"). Only meaningful in prod (see the set_sensitive blocks below and
-  # argocd.tf's) — dev keeps the hand-typed matched placeholders already in each chart's
-  # values.yaml, unchanged.
+  # <app>OidcClientSecret"). Only meaningful in prod (see the set_sensitive blocks below) — dev
+  # keeps the hand-typed matched placeholders already in each chart's values.yaml, unchanged.
   oidc_secret_overrides = {
     authentik = {
       "minioOidcClientSecret"                      = random_password.minio_oidc_client_secret.result
       "grafanaOidcClientSecret"                    = random_password.grafana_oidc_client_secret.result
       "vaultOidcClientSecret"                      = random_password.vault_oidc_client_secret.result
-      "argocdOidcClientSecret"                     = random_password.argocd_oidc_client_secret.result
       "authentik.authentik.secret_key"             = var.authentik_secret_key
       "authentik.authentik.postgresql.password"    = var.authentik_postgres_password
       "authentik.postgresql.auth.password"         = var.authentik_postgres_password
@@ -73,10 +71,6 @@ resource "random_password" "grafana_oidc_client_secret" {
   special = false
 }
 resource "random_password" "vault_oidc_client_secret" {
-  length  = 32
-  special = false
-}
-resource "random_password" "argocd_oidc_client_secret" {
   length  = 32
   special = false
 }

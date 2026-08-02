@@ -1,5 +1,4 @@
-# One cert for every host traefik fronts (grafana, vault, authentik, minio, ca-distribution,
-# argocd) —
+# One cert for every host traefik fronts (grafana, vault, authentik, minio, ca-distribution) —
 # set as traefik's tlsStore default certificate (see services/traefik/helm/values.yaml), so no
 # per-app Ingress needs its own tls: block.
 #
@@ -30,7 +29,5 @@ spec:
     - minio.lan
     - ca.localhost
     - ca.lan
-    - argocd.localhost
-    - argocd.lan
   duration: 720h
   renewBefore: 240h
