@@ -20,6 +20,17 @@ docker_build_with_restart(
     ],
 )
 
+# Own namespace, normally created by apps/terraform (kubernetes_namespace.app) — but that's a
+# separate terraform root Tilt has no ordering guarantee against (e.g. after a from-scratch k3d
+# cluster, tilt up can easily run first). kubectl apply on a Namespace is idempotent, so
+# pre-creating it here too is a harmless no-op once apps/terraform has also run.
+k8s_yaml(blob("""
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: server1-grpc-app
+"""))
+
 # postgres/redis/debezium/Vault-provisioning moved to server1-grpc-infra (Terraform-applied once,
 # see apps/terraform) — this chart is just the app Deployment/Service/migrate Job now,
 # and needs server1-grpc-infra to already exist (run `terraform apply` there first).
