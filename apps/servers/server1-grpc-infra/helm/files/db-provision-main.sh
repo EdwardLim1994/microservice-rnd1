@@ -5,8 +5,8 @@ NEW_LEASE=$(cat /shared/new_lease)
 VAULT_TOKEN=$(cat /shared/vault_token)
 
 # -n "$APP_NAMESPACE" on every kubectl call below — this Job's own pod runs in
-# server1-grpc-infra (this chart's namespace), but the Secret/Deployment it patches live in
-# server1-grpc-app (the app chart's namespace). See db-provision-job.yaml's own header comment
+# server-infra (this chart's namespace), but the Secret/Deployment it patches live in
+# server-apps (the app chart's namespace). See db-provision-job.yaml's own header comment
 # for the cross-namespace RBAC (Role/RoleBinding) that makes this allowed.
 #
 # Skip the patch/rollout entirely if the app chart's own Secret doesn't exist yet (e.g. this
@@ -19,8 +19,8 @@ if kubectl get secret server1-grpc-secret -n "$APP_NAMESPACE" >/dev/null 2>&1; t
   PREV_LEASE=$(kubectl get secret server1-grpc-secret -n "$APP_NAMESPACE" -o jsonpath='{.metadata.annotations.vault\.lease-id}' 2>/dev/null || true)
 
   # Fully-qualified, not bare "server1-grpc-db" — this URL is read by the app's own Deployment
-  # pod, which lives in server1-grpc-app, a different namespace than server1-grpc-db.
-  DATABASE_URL="postgresql://${NEW_USER}:${NEW_PASS}@server1-grpc-db.server1-grpc-infra.svc.cluster.local:5432/server1-grpc"
+  # pod, which lives in server-apps, a different namespace than server1-grpc-db.
+  DATABASE_URL="postgresql://${NEW_USER}:${NEW_PASS}@server1-grpc-db.server-infra.svc.cluster.local:5432/server1-grpc"
   B64_URL=$(printf '%s' "$DATABASE_URL" | base64 | tr -d '\n')
   kubectl patch secret server1-grpc-secret -n "$APP_NAMESPACE" --type merge \
     -p "{\"data\":{\"DATABASE_URL\":\"$B64_URL\"}}"

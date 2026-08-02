@@ -76,6 +76,9 @@ spec:
               mountPath: /etc/grafana/provisioning/datasources/server1-grpc.yaml
               subPath: server1-grpc-datasources.yaml
             - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/server2-grpc.yaml
+              subPath: server2-grpc-datasources.yaml
+            - name: provisioning
               mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
               subPath: dashboards.yaml
             - name: dashboards-json

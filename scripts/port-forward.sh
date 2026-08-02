@@ -22,6 +22,9 @@ declare -A APPS=(
   # path (/graphql) — content-negotiated on the request's Accept header, browser gets the UI.
   [8105]="infra svc/apollo-router 80 18086"
   [8110]="infra svc/kafka-ui 8080 18087"
+  # Meilisearch serves its own web UI (index/document browser) at "/" on the same port as its
+  # HTTP API — no separate dashboard port to forward.
+  [8115]="infra svc/meilisearch 7700 18088"
 )
 
 PF_PIDS=()

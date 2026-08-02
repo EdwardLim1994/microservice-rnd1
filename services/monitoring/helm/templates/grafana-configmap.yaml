@@ -8,15 +8,25 @@ its own DATABASE_URL/REDIS_URL — falling back to the old placeholder literals 
 template`/Tilt's offline-only render (`lookup` always returns nothing there) or before
 server1-grpc-infra has been applied at all yet.
 */}}
-{{- $server1DbSecret := lookup "v1" "Secret" "server1-grpc-infra" "server1-grpc-db-secret" }}
+{{- $server1DbSecret := lookup "v1" "Secret" "server-infra" "server1-grpc-db-secret" }}
 {{- $server1DbPassword := "server1-grpc-tilt-local-dev-db-password" }}
 {{- if $server1DbSecret }}
 {{- $server1DbPassword = index $server1DbSecret.data "password" | b64dec }}
 {{- end }}
-{{- $server1RedisSecret := lookup "v1" "Secret" "server1-grpc-infra" "server1-grpc-redis-admin-secret" }}
+{{- $server1RedisSecret := lookup "v1" "Secret" "server-infra" "server1-grpc-redis-admin-secret" }}
 {{- $server1RedisPassword := "server1-grpc-tilt-local-dev-redis-password" }}
 {{- if $server1RedisSecret }}
 {{- $server1RedisPassword = index $server1RedisSecret.data "password" | b64dec }}
+{{- end }}
+{{- /*
+server2-grpc-db-secret now lives in the same shared "server-infra" namespace as
+server1-grpc-db-secret above (see apps/servers/server2-grpc-infra, split out the same way
+server1-grpc-infra was) — no longer a different lookup namespace per server.
+*/}}
+{{- $server2DbSecret := lookup "v1" "Secret" "server-infra" "server2-grpc-db-secret" }}
+{{- $server2DbPassword := "server2-grpc-tilt-local-dev-db-password" }}
+{{- if $server2DbSecret }}
+{{- $server2DbPassword = index $server2DbSecret.data "password" | b64dec }}
 {{- end }}
 apiVersion: v1
 kind: ConfigMap
@@ -54,7 +64,7 @@ data:
         # implemented".
         type: grafana-postgresql-datasource
         access: proxy
-        url: server1-grpc-db.server1-grpc-infra.svc.cluster.local:5432
+        url: server1-grpc-db.server-infra.svc.cluster.local:5432
         database: server1-grpc
         user: myuser
         editable: false
@@ -70,11 +80,33 @@ data:
         # see grafana-statefulset.yaml's GF_INSTALL_PLUGINS.
         type: redis-datasource
         access: proxy
-        url: redis://server1-grpc-redis.server1-grpc-infra.svc.cluster.local:6379
+        url: redis://server1-grpc-redis.server-infra.svc.cluster.local:6379
         editable: false
         jsonData:
           client: standalone
         secureJsonData:
           password: {{ $server1RedisPassword }}
+  # Real copy of apps/servers/server2-grpc/grafana-datasources.yaml, inlined for the same reason
+  # as server1-grpc-datasources.yaml above (Go-templating the password substitution in).
+  server2-grpc-datasources.yaml: |
+    apiVersion: 1
+
+    # Direct query access (SQL Explore) against Collection/Item2 — server2-grpc's db has no
+    # postgres-exporter sidecar (unlike server1-grpc-infra's split-out chart), so its dashboard
+    # queries Postgres directly through this datasource instead of Prometheus.
+    datasources:
+      - name: server2-grpc Postgres
+        uid: server2-grpc-postgres
+        type: grafana-postgresql-datasource
+        access: proxy
+        url: server2-grpc-db.server-infra.svc.cluster.local:5432
+        database: server2-grpc
+        user: myuser
+        editable: false
+        jsonData:
+          sslmode: disable
+          postgresVersion: 1500
+        secureJsonData:
+          password: {{ $server2DbPassword }}
   dashboards.yaml: |
 {{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}

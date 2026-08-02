@@ -1,14 +1,15 @@
-# Own namespace, separate from server1-grpc-infra (postgres/redis/debezium/Vault provisioning,
-# Terraform-applied once) — this chart is just the app Deployment/Service (+ its migrate Job),
-# Tilt-iterated on every `tilt up`. See apps/terraform/main.tf for why both namespaces
-# are created there, not by either chart.
-namespace: server1-grpc-app
+# Shared "server-apps" namespace — every server's app chart lands here (see
+# apps/servers/Tiltfile's own Namespace declaration), separate from "server-infra"
+# (postgres/redis/debezium/Vault provisioning, Terraform-applied once). This chart is just the
+# app Deployment/Service (+ its migrate Job), Tilt-iterated on every `tilt up`. See
+# apps/terraform/main.tf for why both namespaces are created there, not by either chart.
+namespace: server-apps
 
 # Where server1-grpc-infra's Postgres/Redis actually live — every hostname this chart's own
 # templates reference for them has to be the fully-qualified cross-namespace form
 # (server1-grpc-db.{{ .Values.infraNamespace }}.svc.cluster.local), not the bare in-namespace
 # name that worked back when everything shared one chart/namespace.
-infraNamespace: server1-grpc-infra
+infraNamespace: server-infra
 
 # Bootstrap-only password overrides, empty by default — env.yaml's server1-grpc-secret/
 # server1-grpc-redis-secret (DATABASE_URL/REDIS_URL) fall back to a `lookup` of

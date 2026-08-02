@@ -1,30 +1,31 @@
 # Every apps/servers/<name>-infra chart (Postgres/Redis/etc. for that server — see
 # ServerExtensionGenerator) is deployed here, by Terraform, same as services/*. Its app
-# counterpart (apps/servers/<name>, the "<name>-app" namespace) stays Tilt-iterated on every
-# `tilt up` — see both charts' own values.yaml "Own namespace, separate from..." comments.
+# counterpart (apps/servers/<name>) stays Tilt-iterated on every `tilt up` — see both charts' own
+# values.yaml "Own namespace, separate from..." comments.
 locals {
   infra_charts = toset([
     for f in fileset("${path.module}/../servers", "*-infra/helm/Chart.yaml") : split("/", f)[0]
   ])
 }
 
-# Both namespaces per chart are created here, by neither chart itself — <name>-infra's own
-# db-provision-job.yaml/redis-provision-job.yaml need a Role/RoleBinding to already exist in
-# <name>-app (see those templates' own header comments for the full cross-namespace RBAC shape),
-# and creating both upfront means that works regardless of whether this `terraform apply` or the
-# app chart's own `tilt up` runs first — a RoleBinding just needs its target *namespace* to
-# exist, not the ServiceAccount/Secret/Deployment it actually authorizes yet.
-resource "kubernetes_namespace" "infra" {
-  for_each = local.infra_charts
+# Two fixed, shared namespaces — every server's infra chart (Postgres/Redis/etc.) lands in
+# "server-infra", every server's app chart (grpc/graphql) lands in "server-apps", regardless of
+# which server they belong to. Not one pair per chart like before: that's the whole point of this
+# convention (see each chart's own values.yaml "namespace"/"appNamespace"/"infraNamespace"
+# comments) — a resource collision between two servers' infra charts is avoided by prefixing every
+# object name with that server's own name (server1-grpc-db, server2-grpc-db-secret, etc.), not by
+# giving each server its own namespace anymore. The one exception is the Vault-provisioning
+# ServiceAccount/Role/RoleBinding trio, which is also per-server-prefixed now (see
+# services/vault/helm/templates/k8s-auth-provision-job.yaml's bound_service_account_names="*").
+resource "kubernetes_namespace" "server_infra" {
   metadata {
-    name = each.key
+    name = "server-infra"
   }
 }
 
-resource "kubernetes_namespace" "app" {
-  for_each = local.infra_charts
+resource "kubernetes_namespace" "server_apps" {
   metadata {
-    name = replace(each.key, "-infra", "-app")
+    name = "server-apps"
   }
 }
 
@@ -52,21 +53,27 @@ resource "random_password" "redis" {
 # db-provision-job.yaml/redis-provision-job.yaml authenticate against services/vault
 # (http://vault.infra.svc.cluster.local:8200) via the "db-provision" Kubernetes-auth role
 # services/vault/helm/templates/k8s-auth-provision-job.yaml sets up (bound_service_account_names
-# already includes "vault-db-provision"/"vault-redis-provision", bound_service_account_namespaces
-# = "*", so it doesn't care which namespace this Job's ServiceAccount actually lives in). No
-# explicit `depends_on` across these two independent terraform roots is possible — if this fails
-# with "connection refused" against vault.infra.svc.cluster.local, run services/terraform first.
+# = "*" now — every server's own <name>-vault-db-provision/<name>-vault-redis-provision
+# ServiceAccount authenticates as this same role, since bound_service_account_namespaces is
+# already "*" too and per-server-prefixed SA names are what avoid the k8s-level naming collision
+# these two now-shared namespaces would otherwise cause). No explicit `depends_on` across these
+# two independent terraform roots is possible — if this fails with "connection refused" against
+# vault.infra.svc.cluster.local, run services/terraform first.
 resource "helm_release" "infra" {
   for_each = local.infra_charts
 
   name      = each.key
   chart     = "${path.module}/../servers/${each.key}/helm"
-  namespace = kubernetes_namespace.infra[each.key].metadata[0].name
-  # Don't block apply on pod readiness — same reasoning as services/terraform's own helm_release
-  # blocks: a cancelled/killed wait leaves the release's Helm secret stuck in pending-install,
-  # which then blocks all future installs/upgrades until manually cleared.
-  wait    = false
-  timeout = 900
+  namespace = kubernetes_namespace.server_infra.metadata[0].name
+  # Wait for the post-install db-provision Job to actually finish (and succeed) before apply
+  # returns — previously wait=false let apply "succeed" even when that hook Job failed
+  # (BackoffLimitExceeded), leaving the release stuck in a half-provisioned state that only
+  # surfaced later as a downstream app auth failure. Trade-off: a cancelled/killed apply can still
+  # leave the release's Helm secret in pending-install, requiring a manual `helm rollback`/delete
+  # to unstick future installs — accepted so failures surface here instead of silently downstream.
+  wait          = true
+  wait_for_jobs = true
+  timeout       = 900
 
   set_sensitive {
     name  = "dbPassword"
@@ -77,5 +84,5 @@ resource "helm_release" "infra" {
     value = random_password.redis[each.key].result
   }
 
-  depends_on = [kubernetes_namespace.app]
+  depends_on = [kubernetes_namespace.server_apps]
 }

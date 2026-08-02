@@ -1,0 +1,27 @@
+apiVersion: 1
+
+# Direct query access (SQL Explore), for ad-hoc queries against the actual Collection/Item2
+# data — separate from any Prometheus metrics (server2-grpc's db isn't wired to a
+# postgres-exporter sidecar, unlike server1-grpc-infra's split-out chart, so this dashboard's
+# panels query Postgres directly via this datasource instead of Prometheus).
+#
+# ponytail: password below is a stale placeholder — see services/monitoring/helm/templates/
+# grafana-configmap.yaml's inlined copy of this file, which substitutes the real
+# server2-grpc-db-secret password via `lookup` at render time. This file is just the
+# source-of-truth mirror (matches server1-grpc/grafana-datasources.yaml's own convention).
+datasources:
+  - name: server2-grpc Postgres
+    uid: server2-grpc-postgres
+    # Canonical plugin id, not the deprecated "postgres" alias — see server1-grpc's own
+    # datasources file for why (unwired resource client/table dropdown otherwise).
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: server2-grpc-db.server-infra.svc.cluster.local:5432
+    database: server2-grpc
+    user: myuser
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+    secureJsonData:
+      password: server2-grpc-tilt-local-dev-db-password

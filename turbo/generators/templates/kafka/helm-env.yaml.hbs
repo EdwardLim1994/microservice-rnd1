@@ -3,10 +3,11 @@ kind: ConfigMap
 metadata:
   name: {{ name }}-kafka-env
 data:
-  # In-cluster k8s Service names (see services/kafka/helm) — not docker-compose's old
-  # localhost:29092 host-mapped port, which only made sense from outside the cluster.
-  KAFKA_BROKERS: kafka:9092
-  SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  # Fully-qualified — services/kafka and services/apicurio-registry live in the "infra"
+  # namespace, a different one than this server's own "server-apps" (see
+  # apps/servers/Tiltfile's Namespace declaration).
+  KAFKA_BROKERS: kafka.infra.svc.cluster.local:9092
+  SCHEMA_REGISTRY_URL: http://apicurio-registry.infra.svc.cluster.local:8080/apis/ccompat/v7
 {{#if includeGroupId}}
   KAFKA_GROUP_ID: {{ name }}-group
 {{/if}}

@@ -28,7 +28,7 @@ docker_build_with_restart(
 k8s_yaml(helm(
     "./helm",
     name="server1-graphql",
-    namespace="servers",
+    namespace="server-apps",
     set=[
         "dbPassword=server1-graphql-tilt-local-dev-db-password",
         "redisPassword=server1-graphql-tilt-local-dev-redis-password",
@@ -37,8 +37,12 @@ k8s_yaml(helm(
 
 # services/* is no longer Tilt-managed — run `terraform apply` in services/terraform once
 # (against minikube) before `tilt up` here.
+#
+# resource_deps: this server calls server1-grpc over gRPC, so it shouldn't come up until that
+# resource is ready — which itself now waits on server1-grpc-migrate (see server1-grpc/Tiltfile).
 k8s_resource(
     "server1-graphql",
     port_forwards=["4001:4001"],
     labels=["servers"],
+    resource_deps=["server1-grpc"],
 )

@@ -1,13 +1,16 @@
-# Own namespace, separate from server1-grpc's app chart (server1-grpc-app) — this chart is
-# deploy-once (Terraform-applied), the app chart is Tilt-iterated. See root-level comment in
-# apps/terraform/main.tf for why both namespaces are created there, not by either chart.
-namespace: server1-grpc-infra
+# Shared namespace — every server's infra chart (Postgres/Redis/etc.) lands here, not a
+# dedicated one per server. Collisions between servers are avoided by prefixing every object name
+# with this server's own name (server1-grpc-db, server1-grpc-vault-db-provision, etc.), not by
+# namespace. This chart is deploy-once (Terraform-applied); the app chart is Tilt-iterated. See
+# root-level comment in apps/terraform/main.tf.
+namespace: server-infra
 
 # Where the app chart's own Deployment/Secret live — db-provision-job.yaml/redis-provision-job.yaml
 # patch DATABASE_URL/REDIS_URL and roll the Deployment there on every credential rotation, so this
 # chart's own ServiceAccount needs a Role/RoleBinding scoped into that namespace too, not just its
-# own. See those templates' own header comments for the full cross-namespace RBAC shape.
-appNamespace: server1-grpc-app
+# own. Also shared across every server now, same reasoning as "namespace" above. See those
+# templates' own header comments for the full cross-namespace RBAC shape.
+appNamespace: server-apps
 
 # Empty by default — db.yaml's Postgres superuser password falls back to a `lookup` of the
 # already-set value (real `helm install`/Terraform) or a fresh `randAlphaNum` on first install.

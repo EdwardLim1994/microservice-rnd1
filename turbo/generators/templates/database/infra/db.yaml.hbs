@@ -5,11 +5,10 @@
 \{{- else if .Values.dbPassword }}
 # Tilt override (see Tiltfile's set=["dbPassword=..."]) — `lookup` above always returns nothing
 # under Tilt's own "offline-only" helm() (no live cluster access at all), so without this, every
-# single Tiltfile reconcile would mint a *new* random password here while server1-db's own pod
-# (fixed at its last boot) and server1-migrate's Job (a literal env value, immutable once
-# created) each keep whatever stale value they already had — three different passwords, auth
-# failures. A real `helm install`/Terraform never sets this, so it still gets a real random
-# password there, correctly reused via `lookup` on every later `helm upgrade`.
+# single Tiltfile reconcile would mint a *new* random password here while {{ name }}-db's own pod
+# (fixed at its last boot) keeps whatever it already has. A real `helm install`/Terraform never
+# sets this, so it still gets a real random password there, correctly reused via `lookup` on
+# every later `helm upgrade`.
 \{{- $dbPassword = .Values.dbPassword }}
 \{{- end }}
 apiVersion: apps/v1
@@ -82,7 +81,9 @@ metadata:
   labels:
     app: {{ name }}-db
 spec:
-  # ClusterIP — only this server's own app pod and the migrate Job need to reach this.
+  # ClusterIP — the app chart's own Deployment/migrate Job (a different namespace now, see
+  # {{ name }}'s own values.yaml infraNamespace), and Vault (services/vault, its own database
+  # secrets engine config) all reach this cross-namespace via its fully-qualified DNS name.
   type: ClusterIP
   selector:
     app: {{ name }}-db
@@ -108,61 +109,3 @@ metadata:
 type: Opaque
 data:
   password: \{{ $dbPassword | b64enc }}
-
----
-# Consumed via envFrom by this chart's own deployment.yaml (see wireHelmDeploymentConfigMap) and
-# by the migrate Job below. DB_HOST/DB_PORT/DB_NAME only — DATABASE_URL itself lives in
-# {{ name }}-secret (below), not here, since it holds Vault-minted credentials rather than a
-# static value safe for a ConfigMap.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ name }}-env
-  namespace: \{{ .Values.namespace }}
-data:
-  DB_HOST: {{ name }}-db
-  DB_PORT: "5432"
-  DB_NAME: {{ name }}
-
----
-# DATABASE_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the
-# static superuser creds so the app can still boot before db-provision-job.yaml's post-install
-# hook has run once; that hook immediately overwrites this key with Vault-minted leaf creds and
-# rolls the Deployment. See db-provision-job.yaml for the whole rotation story.
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ name }}-secret
-  namespace: \{{ .Values.namespace }}
-type: Opaque
-stringData:
-  DATABASE_URL: postgresql://myuser:\{{ $dbPassword }}@{{ name }}-db:5432/{{ name }}
-
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  # A Job's spec is immutable — re-running `tilt up`/`helm upgrade` after a real schema change
-  # needs this Job deleted first (`kubectl delete job {{ name }}-migrate`), or the apply fails
-  # trying to update a field it can't change in place.
-  name: {{ name }}-migrate
-  namespace: \{{ .Values.namespace }}
-  labels:
-    app: {{ name }}-migrate
-spec:
-  # Postgres's own readinessProbe gates whether its Service has any endpoints at all — until it
-  # does, connections here just fail outright rather than queueing, so this Job relies on
-  # backoffLimit's retries (with backoff) rather than an initContainer wait-loop.
-  backoffLimit: 6
-  template:
-    metadata:
-      labels:
-        app: {{ name }}-migrate
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: migrate
-          image: {{ name }}-migrate
-          env:
-            - name: DATABASE_URL
-              value: postgresql://myuser:\{{ $dbPassword }}@{{ name }}-db:5432/{{ name }}

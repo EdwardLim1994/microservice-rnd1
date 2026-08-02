@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server2-grpc
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server2-grpc
+  template:
+    metadata:
+      labels:
+        app: server2-grpc
+    spec:
+      initContainers:
+        # Fully-qualified, not bare "server2-grpc-db" — it lives in server2-grpc-infra now, a
+        # different namespace than this Deployment's own.
+        - name: wait-for-server2-grpc-db
+          image: postgres:15.3-alpine
+          command: ["sh", "-c", "until pg_isready -h server2-grpc-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done"]
+      containers:
+        - name: server2-grpc
+          image: server2-grpc:latest
+          envFrom:
+            - configMapRef:
+                name: server2-grpc-grpc-env
+            - configMapRef:
+                name: server2-grpc-env
+            - secretRef:
+                name: server2-grpc-secret
+            - configMapRef:
+                name: server2-grpc-kafka-env
+            - configMapRef:
+                name: server2-grpc-meilisearch-env
+          ports:
+            - containerPort: 5002

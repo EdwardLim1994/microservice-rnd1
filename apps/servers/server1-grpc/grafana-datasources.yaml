@@ -22,7 +22,7 @@ datasources:
     # the query builder) unwired, "[plugin.notImplemented] method not implemented".
     type: grafana-postgresql-datasource
     access: proxy
-    url: server1-grpc-db.server1-grpc-infra.svc.cluster.local:5432
+    url: server1-grpc-db.server-infra.svc.cluster.local:5432
     database: server1-grpc
     user: myuser
     editable: false
@@ -38,7 +38,7 @@ datasources:
     # grafana-statefulset.yaml's GF_INSTALL_PLUGINS.
     type: redis-datasource
     access: proxy
-    url: redis://server1-grpc-redis.server1-grpc-infra.svc.cluster.local:6379
+    url: redis://server1-grpc-redis.server-infra.svc.cluster.local:6379
     editable: false
     jsonData:
       client: standalone

@@ -20,6 +20,25 @@ const TEMPLATES_DIR = path.join(
 	"templates",
 	"database",
 );
+const INFRA_TEMPLATES_DIR = path.join(TEMPLATES_DIR, "infra");
+const MONITORING_CONFIGMAP_PATH = path.join(
+	process.cwd(),
+	"services",
+	"monitoring",
+	"helm",
+	"templates",
+	"grafana-configmap.yaml",
+);
+
+/** kebab-case -> camelCase, for Helm template variable names (e.g. "server2-grpc" -> "server2GrpcDbPassword"). */
+function camelCase(name: string): string {
+	return name
+		.split(/[-_]/)
+		.map((part, i) =>
+			i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1),
+		)
+		.join("");
+}
 
 function relToRoot(absPath: string): string {
 	return path.relative(process.cwd(), absPath);
@@ -151,8 +170,8 @@ function mergePrismaIntoPackageJson(absPackageJsonPath: string): string {
 }
 
 /**
- * Static superuser creds — same one scaffolded for <name>-db's own container (see
- * helm-db.yaml.hbs) — passed straight into `new PgAdapter(databaseUrl)`. No Vault indirection;
+ * Static superuser creds — same one scaffolded for <name>-infra's own container (see
+ * infra/db.yaml.hbs) — passed straight into `new PgAdapter(databaseUrl)`. No Vault indirection;
  * DATABASE_URL is also read directly by prisma.config.ts (createPrismaConfig()) for Prisma CLI
  * operations (generate/migrate).
  */
@@ -193,10 +212,9 @@ function appendDatabaseEnvBlock(
 /**
  * Scans every apps/servers/* /Tiltfile for a host port-forward already bound to Postgres's
  * container port (5432) and returns the lowest port >= DEFAULT_DB_PORT not already taken —
- * e.g. demo1 has "5101:5432", so a second DB-enabled server gets 5102, not another 5101. In
- * k8s this port only matters for host-side `prisma` CLI access via Tilt's port-forward — the
- * server's own Deployment/migrate Job reach the DB in-cluster via the `<name>-db` Service, no
- * host port involved.
+ * e.g. demo1 has "5101:5432", so a second DB-enabled server gets 5102, not another 5101. This
+ * port only matters for host-side `prisma` CLI access — kept as a stable-per-server local dev
+ * convention even though the Postgres itself now lives in the separate <name>-infra chart.
  */
 function findAvailableDbPort(root: string): number {
 	const serversDir = path.join(root, "apps", "servers");
@@ -220,22 +238,92 @@ function findAvailableDbPort(root: string): number {
 }
 
 /**
- * Writes the <name>-db chart (Postgres Deployment/Service/PVC/Secret + the <name>-migrate Job)
- * into this server's own helm/templates/ — the k8s equivalent of docker-compose's <name>-db and
- * <name>-migrate one-off services.
+ * Scaffolds the sibling `<name>-infra` chart (Chart.yaml, values.yaml, templates/db.yaml,
+ * templates/db-provision-job.yaml, files/db-provision-*.sh) next to `<name>`'s own app chart —
+ * Postgres (and any future Redis/etc.) for every server lives in the shared "server-infra"
+ * namespace, Terraform-applied (see apps/terraform/main.tf, which auto-discovers any
+ * apps/servers/*-infra/helm/Chart.yaml — no registration needed here beyond creating the files).
  */
-function writeDatabaseHelmChart(
-	absHelmTemplatesDir: string,
-	snippet: string,
+function scaffoldInfraChart(
+	root: string,
+	location: string,
 	name: string,
+	plopApi: { renderString: (template: string, data: unknown) => string },
 ): string {
-	const destPath = path.join(absHelmTemplatesDir, "db.yaml");
-	if (fs.existsSync(destPath)) {
-		return `${relToRoot(destPath)} already exists`;
+	const infraDir = path.join(
+		root,
+		path.dirname(location),
+		`${name}-infra`,
+		"helm",
+	);
+	if (fs.existsSync(infraDir)) {
+		return `${path.relative(root, infraDir)} already exists`;
 	}
-	fs.mkdirSync(absHelmTemplatesDir, { recursive: true });
-	fs.writeFileSync(destPath, snippet);
-	return `${relToRoot(destPath)} (+${name}-db, +${name}-migrate)`;
+
+	const render = (templateName: string) =>
+		plopApi.renderString(
+			fs.readFileSync(path.join(INFRA_TEMPLATES_DIR, templateName), "utf-8"),
+			{ name },
+		);
+
+	fs.mkdirSync(path.join(infraDir, "templates"), { recursive: true });
+	fs.mkdirSync(path.join(infraDir, "files"), { recursive: true });
+	fs.writeFileSync(path.join(infraDir, "Chart.yaml"), render("Chart.yaml.hbs"));
+	fs.writeFileSync(
+		path.join(infraDir, "values.yaml"),
+		render("values.yaml.hbs"),
+	);
+	fs.writeFileSync(
+		path.join(infraDir, "templates", "db.yaml"),
+		render("db.yaml.hbs"),
+	);
+	fs.writeFileSync(
+		path.join(infraDir, "templates", "db-provision-job.yaml"),
+		render("db-provision-job.yaml.hbs"),
+	);
+	fs.writeFileSync(
+		path.join(infraDir, "files", "db-provision-init.sh"),
+		render("db-provision-init.sh.hbs"),
+	);
+	fs.writeFileSync(
+		path.join(infraDir, "files", "db-provision-main.sh"),
+		render("db-provision-main.sh.hbs"),
+	);
+	return `${path.relative(root, infraDir)} (+${name}-infra chart)`;
+}
+
+/**
+ * Appends `infraNamespace: server-infra` / `dbPassword: ""` to the app chart's own, already
+ * existing helm/values.yaml (created by the base "server" template) — a splice-append, not a
+ * fresh `add` action, since that file already exists by the time this generator runs and a
+ * `skipIfExists` "add" would silently skip writing these keys at all (confirmed the hard way:
+ * this exact gap left a freshly-scaffolded server missing `dbProvision` entirely once already).
+ * Idempotent: skips if "infraNamespace:" is already present.
+ */
+function appendInfraNamespaceToValues(absValuesPath: string): string {
+	const existing = fs.existsSync(absValuesPath)
+		? fs.readFileSync(absValuesPath, "utf-8")
+		: "";
+	if (existing.includes("infraNamespace:")) {
+		return `${relToRoot(absValuesPath)} already has infraNamespace`;
+	}
+	const block =
+		`\n# Where <name>-infra's Postgres actually lives — every hostname this chart's own\n` +
+		`# templates reference for it has to be the fully-qualified cross-namespace form\n` +
+		`# (<name>-db.{{ .Values.infraNamespace }}.svc.cluster.local), not the bare in-namespace\n` +
+		`# name that would work if everything shared one chart/namespace.\n` +
+		`infraNamespace: server-infra\n\n` +
+		`# Bootstrap-only password override, empty by default — env.yaml's <name>-secret\n` +
+		`# (DATABASE_URL) falls back to a \`lookup\` of <name>-infra's real password Secret\n` +
+		`# (cross-namespace — Helm's \`lookup\` takes an explicit namespace argument, not just the\n` +
+		`# release's own). Tilt's own helm() has no live cluster access at all, so that \`lookup\`\n` +
+		`# always returns nothing there — this chart's own Tiltfile instead reads the real,\n` +
+		`# Terraform-generated password straight from the (already Terraform-applied) cluster via\n` +
+		`# \`kubectl get secret\` and passes it as this override.\n` +
+		`dbPassword: ""\n`;
+	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
+	fs.writeFileSync(absValuesPath, `${existing}${separator}${block}`);
+	return `${relToRoot(absValuesPath)} (+infraNamespace, +dbPassword)`;
 }
 
 /**
@@ -246,7 +334,7 @@ function writeDatabaseHelmChart(
  */
 function injectGeneratedSync(absTiltfilePath: string, name: string): string {
 	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	if (raw.includes("/generated\"")) {
+	if (raw.includes('/generated"')) {
 		return `${relToRoot(absTiltfilePath)} already syncs generated/`;
 	}
 
@@ -266,40 +354,88 @@ function injectGeneratedSync(absTiltfilePath: string, name: string): string {
 }
 
 /**
- * Appends the <name>-migrate image build + <name>-db k8s_resource port-forward to this server's
- * own Tiltfile — the docker_build has to target the Dockerfile's "migrate" stage specifically
- * (see dockerfile-migrate-stage.hbs), a second image alongside the server's own runtime image.
+ * Adds `set=["dbPassword=" + db_password]` to the existing `k8s_yaml(helm("./helm", ...))` call
+ * (finds the whole `k8s_yaml(helm(` marker, not just `helm(` — a bare `helm(` also matches
+ * inside this same Tiltfile's own prose comments describing Tilt's helm(), which don't have a
+ * matching close paren where expected — and splices right before the real call's own closing
+ * paren, same bracket-matching approach as helpers.ts's injectDriverEntry).
+ * Idempotent: skips if a `set=` argument is already present on that call.
  */
-function appendDatabaseTiltfile(
-	absTiltfilePath: string,
-	name: string,
-	port: number,
-): string {
-	injectGeneratedSync(absTiltfilePath, name);
-
+function injectHelmDbPasswordSet(absTiltfilePath: string): string {
 	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	if (raw.includes(`${name}-db`)) {
-		return `${relToRoot(absTiltfilePath)} already has database resources`;
+	if (raw.includes('set=["dbPassword=')) {
+		return `${relToRoot(absTiltfilePath)} already sets dbPassword`;
 	}
+
+	const marker = "k8s_yaml(helm(";
+	const markerIndex = raw.indexOf(marker);
+	if (markerIndex === -1) {
+		throw new Error(`Could not find "${marker}" in ${absTiltfilePath}`);
+	}
+	const openParenIndex = markerIndex + marker.length - 1;
+	const closeParenIndex = findMatchingBracket(raw, openParenIndex, "(", ")");
+
+	const before = raw.slice(0, closeParenIndex);
+	const trimmedBefore = before.trimEnd();
+	const needsComma =
+		!trimmedBefore.endsWith(",") && !trimmedBefore.endsWith("(");
+	const insertion = `${needsComma ? "," : ""}\n    set=["dbPassword=" + db_password],\n`;
+
+	const next = `${before}${insertion}${raw.slice(closeParenIndex)}`;
+	fs.writeFileSync(absTiltfilePath, next);
+	return `${relToRoot(absTiltfilePath)} (+dbPassword set)`;
+}
+
+/**
+ * Adds the `db_password = str(local("kubectl get secret <name>-db-secret -n server-infra ..."))`
+ * lookup line right before the `k8s_yaml(helm(` call, plus the migrate image build + its
+ * k8s_resource — <name>-infra itself (Postgres/Vault-provisioning) is Terraform-applied, not
+ * Tilt-managed, so unlike the old colocated setup there's no "<name>-db"/"<name>-db-provision"
+ * k8s_resource() to register here anymore, just the migrate Job that still lives in this app
+ * chart.
+ */
+function appendDatabaseTiltfile(absTiltfilePath: string, name: string): string {
+	injectGeneratedSync(absTiltfilePath, name);
+	const setResult = injectHelmDbPasswordSet(absTiltfilePath);
+
+	let raw = fs.readFileSync(absTiltfilePath, "utf-8");
+	if (!raw.includes("db_password = ")) {
+		const marker = "k8s_yaml(helm(";
+		const markerIndex = raw.indexOf(marker);
+		if (markerIndex === -1) {
+			throw new Error(`Could not find "${marker}" in ${absTiltfilePath}`);
+		}
+		const lineStart = raw.lastIndexOf("\n", markerIndex) + 1;
+		const lookup =
+			`# postgres/Vault-provisioning moved to ${name}-infra (Terraform-applied once, see\n` +
+			`# apps/terraform) — this chart is just the app Deployment/Service/migrate Job now, and\n` +
+			`# needs ${name}-infra to already exist (run \`terraform apply\` there first).\n` +
+			`#\n` +
+			`# dbPassword: this chart's own env.yaml builds DATABASE_URL by \`lookup\`-ing\n` +
+			`# ${name}-infra's real password Secret — but Tilt's own helm() has no live cluster access\n` +
+			`# at all, so that \`lookup\` always returns nothing here. Unlike a Tilt-only dev password,\n` +
+			`# ${name}-infra's is a Terraform-generated random value, not a Tilt-controlled override.\n` +
+			`# Read it straight from the (already Terraform-applied) cluster instead.\n` +
+			`db_password = str(local(\n` +
+			`    "kubectl get secret ${name}-db-secret -n server-infra -o jsonpath='{.data.password}' | base64 -d",\n` +
+			`    quiet=True,\n` +
+			`)).strip()\n\n`;
+		raw = `${raw.slice(0, lineStart)}${lookup}${raw.slice(lineStart)}`;
+		fs.writeFileSync(absTiltfilePath, raw);
+	}
+
+	if (raw.includes(`${name}-migrate`)) {
+		return `${setResult}; ${relToRoot(absTiltfilePath)} already has migrate resources`;
+	}
+	raw = fs.readFileSync(absTiltfilePath, "utf-8");
 	const snippet =
 		`\ndocker_build("${name}-migrate", "../../..", dockerfile="./Dockerfile", target="migrate")\n\n` +
-		`k8s_resource(\n    "${name}-db",\n    port_forwards=["${port}:5432"],\n    labels=["servers"],\n)\n\n` +
-		// "${name}-migrate" (the Job) has no explicit k8s_resource() call otherwise, so it falls
-		// into Tilt's default "unlabeled" UI bucket instead of grouping with everything else here.
-		`k8s_resource(\n    "${name}-migrate",\n    resource_deps=["${name}-db"],\n    labels=["servers"],\n)\n\n` +
-		// Tilt disambiguates same-named Job+CronJob pairs as "<name>:job"/"<name>:cronjob" — a
-		// plain "${name}-db-provision" isn't a valid resource name here. Also depends on "${name}"
-		// itself, not just "${name}-db": db-provision-main.sh ends with `kubectl rollout restart/
-		// status deployment/${name}` with no retry loop of its own, so without this the Job can hit
-		// "deployment ${name} not found" if it runs before ${name}'s own Deployment even exists yet
-		// and burn through backoffLimit needing a manual re-trigger.
-		`k8s_resource(\n    "${name}-db-provision:job",\n    resource_deps=["${name}-db", "${name}"],\n    labels=["servers"],\n)\n\n` +
-		`k8s_resource(\n    "${name}-db-provision:cronjob",\n    resource_deps=["${name}-db", "${name}"],\n    labels=["servers"],\n)\n`;
+		`k8s_resource(\n    "${name}-migrate",\n    labels=["servers"],\n)\n`;
 	fs.writeFileSync(
 		absTiltfilePath,
 		`${collapseTrailingNewlines(raw)}\n${snippet}`,
 	);
-	return `${relToRoot(absTiltfilePath)} (+${name}-db, +${name}-migrate)`;
+	return `${setResult}; ${relToRoot(absTiltfilePath)} (+${name}-migrate)`;
 }
 
 /**
@@ -367,6 +503,162 @@ function injectDockerfilePrismaGenerate(absDockerfilePath: string): string {
 	return `${relToRoot(absDockerfilePath)} (+explicit prisma generate)`;
 }
 
+/**
+ * Writes <location>/grafana-datasources.yaml — the per-server source-of-truth mirror (same
+ * convention as apps/servers/server1-grpc/server2-grpc's own copies), documenting the datasource
+ * that wireGrafanaConfigmap below actually wires into Grafana (inlined there, not loaded via
+ * this file directly — see that function's own comment for why).
+ */
+function scaffoldGrafanaDatasourceFile(
+	root: string,
+	location: string,
+	name: string,
+): string {
+	const destPath = path.join(root, location, "grafana-datasources.yaml");
+	if (fs.existsSync(destPath)) {
+		return `${path.relative(root, destPath)} already exists`;
+	}
+	const content =
+		"apiVersion: 1\n\n" +
+		`# Direct query access (SQL Explore), for ad-hoc queries against ${name}'s own data — no\n` +
+		"# postgres-exporter sidecar wired for this chart, so there's no Prometheus metrics path.\n" +
+		"#\n" +
+		"# ponytail: password below is a stale placeholder — see services/monitoring/helm/templates/\n" +
+		`# grafana-configmap.yaml's inlined copy of this file, which substitutes the real\n` +
+		`# ${name}-db-secret password via \`lookup\` at render time. This file is just the\n` +
+		"# source-of-truth mirror.\n" +
+		"datasources:\n" +
+		`  - name: ${name} Postgres\n` +
+		`    uid: ${name}-postgres\n` +
+		'    # Canonical plugin id, not the deprecated "postgres" alias — the alias leaves the\n' +
+		"    # resource client (table/schema dropdown in the query builder) unwired.\n" +
+		"    type: grafana-postgresql-datasource\n" +
+		"    access: proxy\n" +
+		`    url: ${name}-db.server-infra.svc.cluster.local:5432\n` +
+		`    database: ${name}\n` +
+		"    user: myuser\n" +
+		"    editable: false\n" +
+		"    jsonData:\n" +
+		"      sslmode: disable\n" +
+		"      postgresVersion: 1500\n" +
+		"    secureJsonData:\n" +
+		`      password: ${name}-tilt-local-dev-db-password\n`;
+	fs.writeFileSync(destPath, content);
+	return `${path.relative(root, destPath)} (+${name} Postgres datasource)`;
+}
+
+/**
+ * Wires <name>'s Postgres into services/monitoring's own Grafana provisioning ConfigMap: a
+ * `$<name>DbPassword` `lookup`-of-the-real-Secret block (same trick as the existing
+ * server1/server2 blocks above it — see this file's own header comment) plus an inlined
+ * datasource key. Inlined, not loaded via `.Files.Get` of the sibling grafana-datasources.yaml
+ * file above — `.Files.Get` bypasses Helm's own Go-templating entirely, which is exactly why a
+ * datasource wired that way ships with a permanently-stale placeholder password instead of the
+ * `lookup`-derived real one. Idempotent: skips if this server's variable is already present.
+ */
+function wireGrafanaConfigmap(root: string, name: string): string {
+	if (!fs.existsSync(MONITORING_CONFIGMAP_PATH)) {
+		return `${path.relative(root, MONITORING_CONFIGMAP_PATH)} not found, skipped`;
+	}
+	const varName = `${camelCase(name)}DbPassword`;
+	const secretVarName = `${camelCase(name)}DbSecret`;
+
+	let raw = fs.readFileSync(MONITORING_CONFIGMAP_PATH, "utf-8");
+	if (raw.includes(`$${varName}`)) {
+		return `${path.relative(root, MONITORING_CONFIGMAP_PATH)} already wires ${name}`;
+	}
+
+	const apiVersionMarker = "\napiVersion: v1\n";
+	const apiVersionIndex = raw.indexOf(apiVersionMarker);
+	if (apiVersionIndex === -1) {
+		throw new Error(
+			`Could not find "apiVersion: v1" in ${MONITORING_CONFIGMAP_PATH}`,
+		);
+	}
+	const lookupBlock =
+		`{{- $${secretVarName} := lookup "v1" "Secret" "server-infra" "${name}-db-secret" }}\n` +
+		`{{- $${varName} := "${name}-tilt-local-dev-db-password" }}\n` +
+		`{{- if $${secretVarName} }}\n` +
+		`{{- $${varName} = index $${secretVarName}.data "password" | b64dec }}\n` +
+		"{{- end }}\n";
+	const lookupInsertAt = apiVersionIndex + 1;
+	raw = `${raw.slice(0, lookupInsertAt)}${lookupBlock}${raw.slice(lookupInsertAt)}`;
+
+	const dashboardsMarker = "  dashboards.yaml: |";
+	const dashboardsIndex = raw.indexOf(dashboardsMarker);
+	if (dashboardsIndex === -1) {
+		throw new Error(
+			`Could not find "${dashboardsMarker}" in ${MONITORING_CONFIGMAP_PATH}`,
+		);
+	}
+	const datasourceBlock =
+		`  # Real copy of ${path.posix.join("apps/servers", name)}/grafana-datasources.yaml, inlined\n` +
+		"  # for the same reason as the other per-server datasource keys above (Go-templating the\n" +
+		"  # password substitution in).\n" +
+		`  ${name}-datasources.yaml: |\n` +
+		"    apiVersion: 1\n" +
+		"\n" +
+		"    datasources:\n" +
+		`      - name: ${name} Postgres\n` +
+		`        uid: ${name}-postgres\n` +
+		"        type: grafana-postgresql-datasource\n" +
+		"        access: proxy\n" +
+		`        url: ${name}-db.server-infra.svc.cluster.local:5432\n` +
+		`        database: ${name}\n` +
+		"        user: myuser\n" +
+		"        editable: false\n" +
+		"        jsonData:\n" +
+		"          sslmode: disable\n" +
+		"          postgresVersion: 1500\n" +
+		"        secureJsonData:\n" +
+		`          password: {{ $${varName} }}\n`;
+	raw = `${raw.slice(0, dashboardsIndex)}${datasourceBlock}${raw.slice(dashboardsIndex)}`;
+
+	fs.writeFileSync(MONITORING_CONFIGMAP_PATH, raw);
+	return `${path.relative(root, MONITORING_CONFIGMAP_PATH)} (+${name} datasource)`;
+}
+
+/**
+ * Adds a subPath volumeMount for <name>'s datasource key to grafana-statefulset.yaml — a
+ * ConfigMap key alone is not enough for Grafana to see it: this StatefulSet mounts the
+ * "provisioning" ConfigMap one file at a time (subPath per file, not the whole ConfigMap as a
+ * directory), so every new datasource key needs its own explicit volumeMount entry here too, or
+ * it silently never reaches the pod at all. Idempotent: skips if this server's mount already
+ * exists.
+ */
+function wireGrafanaStatefulsetMount(root: string, name: string): string {
+	const statefulsetPath = path.join(
+		root,
+		"services",
+		"monitoring",
+		"helm",
+		"templates",
+		"grafana-statefulset.yaml",
+	);
+	if (!fs.existsSync(statefulsetPath)) {
+		return `${path.relative(root, statefulsetPath)} not found, skipped`;
+	}
+	const raw = fs.readFileSync(statefulsetPath, "utf-8");
+	if (raw.includes(`subPath: ${name}-datasources.yaml`)) {
+		return `${path.relative(root, statefulsetPath)} already mounts ${name}`;
+	}
+
+	const marker = /^(\s+)- name: provisioning\n\s+mountPath: \/etc\/grafana\/provisioning\/dashboards\/dashboards\.yaml\n/m;
+	const match = marker.exec(raw);
+	if (!match) {
+		throw new Error(`Could not find the dashboards.yaml volumeMount in ${statefulsetPath}`);
+	}
+	const indent = match[1];
+	const entry =
+		`${indent}- name: provisioning\n` +
+		`${indent}  mountPath: /etc/grafana/provisioning/datasources/${name}.yaml\n` +
+		`${indent}  subPath: ${name}-datasources.yaml\n`;
+	const insertAt = match.index;
+	const next = `${raw.slice(0, insertAt)}${entry}${raw.slice(insertAt)}`;
+	fs.writeFileSync(statefulsetPath, next);
+	return `${path.relative(root, statefulsetPath)} (+${name} volumeMount)`;
+}
+
 export default class DatabaseGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI, serverWorkspaces: string[]) {
 		plop.setActionType("addPrismaPackageJson", (answers) => {
@@ -396,83 +688,51 @@ export default class DatabaseGenerator {
 			return results.length > 0 ? results.join("; ") : "no .env files updated";
 		});
 
-		plop.setActionType("injectDatabaseHelm", (answers, _config, plopApi) => {
-			const { location } = answers as { location: string };
-			const name = path.basename(location);
-			const port = findAvailableDbPort(process.cwd());
-			const template = fs.readFileSync(
-				path.join(TEMPLATES_DIR, "helm-db.yaml.hbs"),
-				"utf-8",
-			);
-			const snippet = plopApi.renderString(template, { name, port });
-			const chartResult = writeDatabaseHelmChart(
-				path.join(process.cwd(), location, "helm", "templates"),
-				snippet,
-				name,
-			);
-			const tiltResult = appendDatabaseTiltfile(
-				path.join(process.cwd(), location, "Tiltfile"),
-				name,
-				port,
-			);
-			return `${chartResult}; ${tiltResult}`;
-		});
-
-		// Vault-backed dynamic Postgres creds for the app's own Deployment (see
-		// helm-db-provision-job.yaml.hbs) — a post-install/post-upgrade hook Job plus a
-		// recurring CronJob that mint a fresh leased role, patch it into <name>-secret, and roll
-		// the Deployment. Written alongside <name>-db (db.yaml, from injectDatabaseHelm) rather
-		// than folded into it, since it's a distinct concern (Vault provisioning vs. the DB
-		// itself) with its own RBAC (a dedicated vault-db-provision ServiceAccount).
+		// Scaffolds the sibling <name>-infra chart (Postgres + Vault provisioning), and appends
+		// this app chart's own infraNamespace/dbPassword to its already-existing values.yaml.
 		plop.setActionType(
-			"injectDatabaseProvisionJob",
+			"scaffoldDatabaseInfraChart",
 			(answers, _config, plopApi) => {
 				const { location } = answers as { location: string };
 				const name = path.basename(location);
-				const helmDir = path.join(process.cwd(), location, "helm");
-
-				const jobTemplate = fs.readFileSync(
-					path.join(TEMPLATES_DIR, "helm-db-provision-job.yaml.hbs"),
-					"utf-8",
+				const infraResult = scaffoldInfraChart(
+					process.cwd(),
+					location,
+					name,
+					plopApi,
 				);
-				const jobSnippet = plopApi.renderString(jobTemplate, { name });
-				const jobDestPath = path.join(
-					helmDir,
-					"templates",
-					"db-provision-job.yaml",
+				const valuesResult = appendInfraNamespaceToValues(
+					path.join(process.cwd(), location, "helm", "values.yaml"),
 				);
-
-				// The scripts live under helm/files/, not helm/templates/ — see
-				// helm-db-provision-job.yaml.hbs's header comment for why: Helm's `.Files.Get`
-				// skips Go-templating this file's content entirely, letting Vault's own
-				// `{{username}}`-style template placeholders reach the shell script literally.
-				// Two scripts, not one — the Job/CronJob split into a vault-CLI initContainer and
-				// a kubectl-only main container (neither image has both toolsets).
-				const initDestPath = path.join(helmDir, "files", "db-provision-init.sh");
-				const mainDestPath = path.join(helmDir, "files", "db-provision-main.sh");
-
-				if (
-					fs.existsSync(jobDestPath) ||
-					fs.existsSync(initDestPath) ||
-					fs.existsSync(mainDestPath)
-				) {
-					return `${relToRoot(jobDestPath)} already exists`;
-				}
-				fs.writeFileSync(jobDestPath, jobSnippet);
-				fs.mkdirSync(path.dirname(initDestPath), { recursive: true });
-				for (const [templateName, destPath] of [
-					["db-provision-init.sh.hbs", initDestPath],
-					["db-provision-main.sh.hbs", mainDestPath],
-				] as const) {
-					const template = fs.readFileSync(
-						path.join(TEMPLATES_DIR, templateName),
-						"utf-8",
-					);
-					fs.writeFileSync(destPath, plopApi.renderString(template, { name }));
-				}
-				return `${relToRoot(jobDestPath)}, ${relToRoot(initDestPath)}, ${relToRoot(mainDestPath)} (+${name}-db-provision Job/CronJob)`;
+				return `${infraResult}; ${valuesResult}`;
 			},
 		);
+
+		plop.setActionType("injectDatabaseEnvYaml", (answers, _config, plopApi) => {
+			const { location } = answers as { location: string };
+			const name = path.basename(location);
+			const destPath = path.join(
+				process.cwd(),
+				location,
+				"helm",
+				"templates",
+				"env.yaml",
+			);
+			if (fs.existsSync(destPath)) {
+				return `${relToRoot(destPath)} already exists`;
+			}
+			const template = fs.readFileSync(
+				path.join(TEMPLATES_DIR, "env.yaml.hbs"),
+				"utf-8",
+			);
+			fs.mkdirSync(path.dirname(destPath), { recursive: true });
+			fs.writeFileSync(destPath, plopApi.renderString(template, { name }));
+			const tiltResult = appendDatabaseTiltfile(
+				path.join(process.cwd(), location, "Tiltfile"),
+				name,
+			);
+			return `${relToRoot(destPath)}; ${tiltResult}`;
+		});
 
 		plop.setActionType("injectDatabaseDockerfile", (answers) => {
 			const { location } = answers as { location: string };
@@ -500,6 +760,21 @@ export default class DatabaseGenerator {
 			);
 		});
 
+		// Wires this server's Postgres into Grafana by default — same datasource pattern already
+		// hand-maintained for server1-grpc/server2-grpc, now automatic for every new database.
+		plop.setActionType("wireGrafanaDatasource", (answers) => {
+			const { location } = answers as { location: string };
+			const name = path.basename(location);
+			const fileResult = scaffoldGrafanaDatasourceFile(
+				process.cwd(),
+				location,
+				name,
+			);
+			const configmapResult = wireGrafanaConfigmap(process.cwd(), name);
+			const mountResult = wireGrafanaStatefulsetMount(process.cwd(), name);
+			return `${fileResult}; ${configmapResult}; ${mountResult}`;
+		});
+
 		plop.setActionType("wireDatabaseHelmDeployment", (answers) => {
 			const { location } = answers as { location: string };
 			const name = path.basename(location);
@@ -515,29 +790,27 @@ export default class DatabaseGenerator {
 				`${name}-env`,
 			);
 			// DATABASE_URL lives in <name>-secret, not the <name>-env ConfigMap above — it holds
-			// Vault-minted credentials (see helm-db-provision-job.yaml.hbs), rotated in place by
+			// Vault-minted credentials (see infra/db-provision-job.yaml.hbs), rotated in place by
 			// that Job/CronJob without this Deployment's envFrom ever changing.
 			const secretResult = wireHelmDeploymentConfigMap(
 				deploymentPath,
 				`${name}-secret`,
 				"secretRef",
 			);
-			// server1-db has no dependents that don't already retry/self-heal (see server1's own
-			// deployment.yaml comment) except this app container itself — a Service has no
-			// endpoints until its pod passes readinessProbe, so without this wait the app can boot
-			// against a DB that isn't accepting connections yet.
+			// Fully-qualified — <name>-db now lives in <name>-infra, a different namespace than
+			// this Deployment's own (see values.yaml's infraNamespace).
 			const waitResult = wireHelmInitContainerWait(
 				deploymentPath,
 				`wait-for-${name}-db`,
 				"postgres:15.3-alpine",
-				`until pg_isready -h ${name}-db -p 5432 -U myuser; do sleep 2; done`,
+				`until pg_isready -h ${name}-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done`,
 			);
 			return `${configMapResult}; ${secretResult}; ${waitResult}`;
 		});
 
 		plop.setGenerator("database", {
 			description:
-				"Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a <name>-db helm chart (Postgres Deployment/Service/ConfigMap + <name>-migrate Job) + Tiltfile wiring + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts, and a <name>-db-provision Job/CronJob (helm-db-provision-job.yaml.hbs) that mints Vault-backed dynamic Postgres creds into <name>-secret by default — app.ts itself only ever reads DATABASE_URL, so no app-side Vault client code is needed (the old VaultPgAdapter approach); see services/vault/CLAUDE.md for the provisioning story",
+				'Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a sibling <name>-infra chart (Postgres Deployment/Service/Secret + Vault provisioning, Terraform-applied into the shared "server-infra" namespace) + this chart\'s own env.yaml (ConfigMap/Secret/migrate Job, cross-namespace `lookup` into <name>-infra) + Tiltfile wiring + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts (app.ts itself only ever reads DATABASE_URL, so no app-side Vault client code is needed — the old VaultPgAdapter approach; see services/vault/CLAUDE.md for the provisioning story), and wires this Postgres into Grafana as a datasource by default (grafana-datasources.yaml + an inlined, `lookup`-substituted copy in services/monitoring/helm/templates/grafana-configmap.yaml)',
 			prompts: [
 				{
 					type: "list",
@@ -560,19 +833,14 @@ export default class DatabaseGenerator {
 					path: "{{ turbo.paths.root }}/{{ location }}/src/schemas/prisma/schema.prisma",
 					templateFile: "templates/database/schema.prisma.hbs",
 				},
-				{
-					type: "add",
-					path: "{{ turbo.paths.root }}/{{ location }}/helm/values.yaml",
-					templateFile: "templates/database/values.yaml.hbs",
-					skipIfExists: true,
-				},
 				{ type: "addPrismaPackageJson" },
 				{ type: "appendDatabaseEnv" },
-				{ type: "injectDatabaseHelm" },
-				{ type: "injectDatabaseProvisionJob" },
+				{ type: "scaffoldDatabaseInfraChart" },
+				{ type: "injectDatabaseEnvYaml" },
 				{ type: "wireDatabaseHelmDeployment" },
 				{ type: "injectDatabaseDockerfile" },
 				{ type: "injectDatabaseIntoServerApp" },
+				{ type: "wireGrafanaDatasource" },
 			],
 		});
 	}

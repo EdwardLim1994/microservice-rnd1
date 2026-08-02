@@ -9,7 +9,7 @@ done
 # this Job's post-install hook can start before server1-grpc-db's Postgres container finishes its
 # first boot, and unlike that other initContainer this one has no restartPolicy: OnFailure loop to
 # eventually catch up — backoffLimit: 5 burns out and the whole install fails.
-until nc -z server1-grpc-db.server1-grpc-infra.svc.cluster.local 5432 2>/dev/null; do
+until nc -z server1-grpc-db.server-infra.svc.cluster.local 5432 2>/dev/null; do
   echo "waiting for postgres..."
   sleep 2
 done
@@ -21,13 +21,13 @@ vault secrets enable database 2>/dev/null || true
 
 # Fully-qualified, not bare "server1-grpc-db" — this connection is made by Vault itself, running in
 # a different namespace (services/vault's "infra") than server1-grpc-db (this chart's own
-# "server1-grpc-infra"), and Vault maintains/reuses this connection for every future
+# "server-infra"), and Vault maintains/reuses this connection for every future
 # `vault read database/creds/...` too, not just this one write. Bare service names only resolve
 # within the resolving pod's own namespace, so Vault's own DNS search domain (infra) can't find a
 # bare "server1-grpc-db" that only exists in a different namespace.
 vault write database/config/server1-grpc-postgresql \
   plugin_name=postgresql-database-plugin \
-  connection_url="postgresql://{{username}}:{{password}}@server1-grpc-db.server1-grpc-infra.svc.cluster.local:5432/server1-grpc?sslmode=disable" \
+  connection_url="postgresql://{{username}}:{{password}}@server1-grpc-db.server-infra.svc.cluster.local:5432/server1-grpc?sslmode=disable" \
   username="myuser" \
   password="$PGADMIN_PASSWORD" \
   allowed_roles="server1-grpc-role"

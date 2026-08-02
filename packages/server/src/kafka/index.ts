@@ -1,3 +1,4 @@
+export { JsonKafkaSerializer } from './JsonKafkaSerializer';
 export type { KafkaSerializer } from './KafkaSerializer';
 export type {
   ProtobufDeserializerLike,

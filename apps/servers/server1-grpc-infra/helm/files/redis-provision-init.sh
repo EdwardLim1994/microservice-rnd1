@@ -15,12 +15,12 @@ vault secrets enable database 2>/dev/null || true
 #
 # Fully-qualified, not bare "server1-grpc-redis" — this connection is made by Vault itself, running
 # in a different namespace (services/vault's "infra") than server1-grpc-redis (this chart's own
-# "server1-grpc-infra"), and Vault maintains/reuses this connection for every future
+# "server-infra"), and Vault maintains/reuses this connection for every future
 # `vault read database/creds/...` too, not just this one write. Bare service names only resolve
 # within the resolving pod's own namespace.
 vault write database/config/server1-grpc-redis \
   plugin_name=redis-database-plugin \
-  host=server1-grpc-redis.server1-grpc-infra.svc.cluster.local \
+  host=server1-grpc-redis.server-infra.svc.cluster.local \
   port=6379 \
   tls=false \
   username=default \

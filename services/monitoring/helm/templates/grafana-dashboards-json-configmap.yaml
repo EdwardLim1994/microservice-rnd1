@@ -15,3 +15,7 @@ data:
   # since ConfigMap volumes are always flat.
   server1-grpc.json: |
 {{ .Files.Get "files/grafana-dashboard-server1-grpc.json" | indent 4 }}
+  # Real copy of apps/servers/server2-grpc/grafana-dashboard.json — same convention as
+  # server1-grpc.json above.
+  server2-grpc.json: |
+{{ .Files.Get "files/grafana-dashboard-server2-grpc.json" | indent 4 }}

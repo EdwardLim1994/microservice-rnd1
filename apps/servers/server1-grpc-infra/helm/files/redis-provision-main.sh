@@ -12,9 +12,9 @@ if kubectl get secret server1-grpc-redis-secret -n "$APP_NAMESPACE" >/dev/null 2
   PREV_LEASE=$(kubectl get secret server1-grpc-redis-secret -n "$APP_NAMESPACE" -o jsonpath='{.metadata.annotations.vault\.lease-id}' 2>/dev/null || true)
 
   # Fully-qualified, not bare "server1-grpc-redis" — this URL is read by the app's own
-  # Deployment pod, which lives in server1-grpc-app, a different namespace than
+  # Deployment pod, which lives in server-apps, a different namespace than
   # server1-grpc-redis.
-  REDIS_URL="redis://${NEW_USER}:${NEW_PASS}@server1-grpc-redis.server1-grpc-infra.svc.cluster.local:6379"
+  REDIS_URL="redis://${NEW_USER}:${NEW_PASS}@server1-grpc-redis.server-infra.svc.cluster.local:6379"
   B64_URL=$(printf '%s' "$REDIS_URL" | base64 | tr -d '\n')
   kubectl patch secret server1-grpc-redis-secret -n "$APP_NAMESPACE" --type merge \
     -p "{\"data\":{\"REDIS_URL\":\"$B64_URL\"}}"

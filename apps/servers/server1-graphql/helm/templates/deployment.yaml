@@ -32,9 +32,10 @@ data:
   GRAPHQL_PORT: "4001"
   OTEL_SERVICE_NAME: server1-graphql
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.infra.svc.cluster.local:4317
-  # Fully-qualified, not bare "server1-grpc" — server1-grpc now lives in its own
-  # "server1-grpc-app" namespace (split from the shared "servers" one), not this pod's own.
-  ITEM_GRPC_ADDRESS: server1-grpc.server1-grpc-app.svc.cluster.local:5001
+  # Fully-qualified, even though server1-grpc shares this same "server-apps" namespace now — a
+  # bare "server1-grpc" would resolve fine too, but the FQDN form stays unambiguous if that ever
+  # changes again.
+  ITEM_GRPC_ADDRESS: server1-grpc.server-apps.svc.cluster.local:5001
 
 ---
 # Stable in-cluster DNS for anything that needs to reach this gateway directly (Apollo Router's

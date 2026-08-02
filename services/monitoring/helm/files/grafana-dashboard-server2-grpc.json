@@ -1,0 +1,44 @@
+{
+  "title": "server2-grpc: Postgres",
+  "uid": "server2-grpc-db",
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Item2s",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "server2-grpc-postgres" },
+      "targets": [{ "format": "table", "rawSql": "SELECT count(*) FROM \"Item2\"", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Item2s created per hour",
+      "gridPos": { "h": 8, "w": 20, "x": 4, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "server2-grpc-postgres" },
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('hour', \"createdAt\") AS time, count(*) AS count FROM \"Item2\" WHERE $__timeFilter(\"createdAt\") GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Recent Item2s",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "server2-grpc-postgres" },
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT id, name, \"itemId\", \"createdAt\" FROM \"Item2\" ORDER BY \"createdAt\" DESC LIMIT 50",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

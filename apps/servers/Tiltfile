@@ -1,13 +1,16 @@
-# Declared once, centrally — every apps/servers/* chart targets namespace="servers" in its own
-# helm(...) call (see turbo/generators/templates/server/Tiltfile), but none of their own
+# Declared once, centrally — every apps/servers/* chart targets namespace="server-apps" in its
+# own helm(...) call (see turbo/generators/templates/server/Tiltfile), but none of their own
 # helm/templates/ create the Namespace object itself. Same pattern as services/Tiltfile's own
-# "infra" Namespace declaration.
+# "infra" Namespace declaration. The sibling "server-infra" namespace (Postgres/Redis/etc. for
+# every server) is Terraform-applied instead (see apps/terraform/main.tf), not declared here.
 k8s_yaml(blob("""
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: servers
+  name: server-apps
 """))
 
 include("./server1-grpc/Tiltfile")
 include("./server1-graphql/Tiltfile")
+include("./server2-grpc/Tiltfile")
+include("./server2-graphql/Tiltfile")

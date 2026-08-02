@@ -1,0 +1,45 @@
+set -e
+NEW_USER=$(cat /shared/new_user)
+NEW_PASS=$(cat /shared/new_pass)
+NEW_LEASE=$(cat /shared/new_lease)
+VAULT_TOKEN=$(cat /shared/vault_token)
+
+# -n "$APP_NAMESPACE" on every kubectl call below — this Job's own pod runs in
+# server-infra (this chart's namespace), but the Secret/Deployment it patches live in
+# server-apps (the app chart's namespace). See db-provision-job.yaml's own header comment
+# for the cross-namespace RBAC (Role/RoleBinding) that makes this allowed.
+#
+# Skip the patch/rollout entirely if the app chart's own Secret doesn't exist yet (e.g. this
+# infra chart's first apply lands before Tilt's first `tilt up` reconcile — env.yaml, which
+# creates {{ name }}-secret, is app-chart/Tilt-owned, not this chart's) — nothing to patch, and
+# these are Vault-leased creds anyway: the CronJob below re-runs on Values.dbProvision.schedule
+# and picks this up as soon as the app chart's own Secret/Deployment do exist, same self-healing
+# story as this file's own header comment already describes for Vault losing lease state.
+if kubectl get secret {{ name }}-secret -n "$APP_NAMESPACE" >/dev/null 2>&1; then
+  PREV_LEASE=$(kubectl get secret {{ name }}-secret -n "$APP_NAMESPACE" -o jsonpath='{.metadata.annotations.vault\.lease-id}' 2>/dev/null || true)
+
+  # Fully-qualified, not bare "{{ name }}-db" — this URL is read by the app's own Deployment
+  # pod, which lives in server-apps, a different namespace than {{ name }}-db.
+  DATABASE_URL="postgresql://${NEW_USER}:${NEW_PASS}@{{ name }}-db.server-infra.svc.cluster.local:5432/{{ name }}"
+  B64_URL=$(printf '%s' "$DATABASE_URL" | base64 | tr -d '\n')
+  kubectl patch secret {{ name }}-secret -n "$APP_NAMESPACE" --type merge \
+    -p "{\"data\":{\"DATABASE_URL\":\"$B64_URL\"}}"
+  kubectl annotate secret {{ name }}-secret -n "$APP_NAMESPACE" "vault.lease-id=$NEW_LEASE" --overwrite
+
+  # Skip if the app chart's own Deployment hasn't been created yet either — nothing to restart,
+  # and the Deployment's very first rollout will read the DATABASE_URL just patched above once it
+  # does show up.
+  if kubectl get deployment/{{ name }} -n "$APP_NAMESPACE" >/dev/null 2>&1; then
+    kubectl rollout restart deployment/{{ name }} -n "$APP_NAMESPACE"
+    kubectl rollout status deployment/{{ name }} -n "$APP_NAMESPACE" --timeout=5m
+  fi
+else
+  PREV_LEASE=""
+fi
+
+if [ -n "$PREV_LEASE" ]; then
+  echo "revoking previous lease $PREV_LEASE"
+  curl -sf -X PUT -H "X-Vault-Token: $VAULT_TOKEN" \
+    -d "{\"lease_id\":\"$PREV_LEASE\"}" \
+    "$VAULT_ADDR/v1/sys/leases/revoke" || true
+fi

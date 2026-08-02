@@ -37,7 +37,8 @@ router:
     scalar link__Import
 
     enum join__Graph {
-      SERVER1_GRAPHQL @join__graph(name: "server1-graphql", url: "http://server1-graphql.servers.svc.cluster.local:4001/")
+      SERVER1_GRAPHQL @join__graph(name: "server1-graphql", url: "http://server1-graphql.server-apps.svc.cluster.local:4001/")
+      SERVER2_GRAPHQL @join__graph(name: "server2-graphql", url: "http://server2-graphql.server-apps.svc.cluster.local:4002/")
     }
 
     scalar join__FieldSet
@@ -53,19 +54,41 @@ router:
       selection: join__FieldValue!
     }
 
-    type Item @join__type(graph: SERVER1_GRAPHQL, key: "id") {
+    type Item @join__type(graph: SERVER1_GRAPHQL, key: "id") @join__type(graph: SERVER2_GRAPHQL, key: "id") {
+      id: ID!
+      name: String! @join__field(graph: SERVER1_GRAPHQL)
+      createdAt: String! @join__field(graph: SERVER1_GRAPHQL)
+      item2s: [Item2!]! @join__field(graph: SERVER2_GRAPHQL)
+    }
+
+    type Query @join__type(graph: SERVER1_GRAPHQL) @join__type(graph: SERVER2_GRAPHQL) {
+      item(id: ID!): Item @join__field(graph: SERVER1_GRAPHQL)
+      items: [Item!]! @join__field(graph: SERVER1_GRAPHQL)
+      item2(id: ID!): Item2 @join__field(graph: SERVER2_GRAPHQL)
+      item2s: [Item2!]! @join__field(graph: SERVER2_GRAPHQL)
+      search(query: String!): [Item2SearchHit!]! @join__field(graph: SERVER2_GRAPHQL)
+    }
+
+    type Mutation @join__type(graph: SERVER1_GRAPHQL) @join__type(graph: SERVER2_GRAPHQL) {
+      createItem(name: String!): Item! @join__field(graph: SERVER1_GRAPHQL)
+      updateItem(id: ID!, name: String!): Item! @join__field(graph: SERVER1_GRAPHQL)
+      deleteItem(id: ID!): Boolean! @join__field(graph: SERVER1_GRAPHQL)
+      createItem2(name: String!, itemId: ID!): Item2! @join__field(graph: SERVER2_GRAPHQL)
+      updateItem2(id: ID!, name: String!): Item2! @join__field(graph: SERVER2_GRAPHQL)
+      deleteItem2(id: ID!): Boolean! @join__field(graph: SERVER2_GRAPHQL)
+    }
+
+    type Item2 @join__type(graph: SERVER2_GRAPHQL, key: "id") {
       id: ID!
       name: String!
+      itemId: ID!
       createdAt: String!
+      item: Item!
     }
 
-    type Query @join__type(graph: SERVER1_GRAPHQL) {
-      item(id: ID!): Item
-      items: [Item!]!
-    }
-
-    type Mutation @join__type(graph: SERVER1_GRAPHQL) {
-      createItem(name: String!): Item!
-      updateItem(id: ID!, name: String!): Item!
-      deleteItem(id: ID!): Boolean!
+    type Item2SearchHit @join__type(graph: SERVER2_GRAPHQL) {
+      id: ID!
+      name: String!
+      itemId: ID!
+      createdAt: String!
     }

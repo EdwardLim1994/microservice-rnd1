@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server2-grpc-grpc-env
+  namespace: {{ .Values.namespace }}
+data:
+  GRPC_PORT: "5002"
+
+---
+# Stable in-cluster DNS (server2-grpc, or server2-grpc.{{ .Values.namespace }}.svc.cluster.local
+# from another namespace) so another server's gRPC client can actually reach this Deployment —
+# nothing else in this chart provides one.
+apiVersion: v1
+kind: Service
+metadata:
+  name: server2-grpc
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: server2-grpc
+  ports:
+    - name: grpc
+      port: 5002
+      targetPort: 5002

@@ -1,12 +1,13 @@
 # Vault's database secrets engine (yes, "database" — Vault's redis-database-plugin mounts under
 # the same database/ path as Postgres's) pointed at this server's own server1-grpc-redis (see
 # redis.yaml) — same shape as db-provision-job.yaml's Postgres provisioning, own
-# ServiceAccount/Role (vault-redis-provision, not vault-db-provision) so this composes cleanly
-# whether or not the database extension is also present on this server.
+# ServiceAccount/Role (server1-grpc-vault-redis-provision, not server1-grpc-vault-db-provision)
+# so this composes cleanly whether or not the database extension is also present on this server.
 #
 # Cross-namespace RBAC — see db-provision-job.yaml's own header comment for the full reasoning:
-# this Job's ServiceAccount/pod live in server1-grpc-infra, but the Secret/Deployment it patches
-# live in server1-grpc-app, so the Role/RoleBinding below are created in .Values.appNamespace.
+# this Job's ServiceAccount/pod live in the shared "server-infra" namespace, but the
+# Secret/Deployment it patches live in "server-apps", so the Role/RoleBinding below are created
+# in .Values.appNamespace.
 #
 # Split across two containers by tool, same reasoning as db-provision-job.yaml: an initContainer
 # (hashicorp/vault image) runs every `vault` CLI command and writes its results to a shared
@@ -25,19 +26,19 @@
 #
 # Always authenticates via Vault's Kubernetes auth method, reusing the same "db-provision" role
 # services/vault/helm/templates/k8s-auth-provision-job.yaml sets up for the Postgres provisioning
-# Job (bound_service_account_names lists both "vault-db-provision" and "vault-redis-provision") —
-# its policy already grants database/config/*, database/roles/*, database/creds/*,
-# sys/leases/revoke, which covers the redis-database-plugin mount just as well as postgres's.
+# Job (bound_service_account_names="*" — any SA name, see that role's own comment for why) — its
+# policy already grants database/config/*, database/roles/*, database/creds/*, sys/leases/revoke,
+# which covers the redis-database-plugin mount just as well as postgres's.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: vault-redis-provision
+  name: server1-grpc-vault-redis-provision
   namespace: {{ .Values.namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: vault-redis-provision
+  name: server1-grpc-vault-redis-provision
   namespace: {{ .Values.appNamespace }}
 rules:
   - apiGroups: [""]
@@ -52,15 +53,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: vault-redis-provision
+  name: server1-grpc-vault-redis-provision
   namespace: {{ .Values.appNamespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: vault-redis-provision
+  name: server1-grpc-vault-redis-provision
 subjects:
   - kind: ServiceAccount
-    name: vault-redis-provision
+    name: server1-grpc-vault-redis-provision
     namespace: {{ .Values.namespace }}
 ---
 apiVersion: batch/v1
@@ -77,7 +78,7 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      serviceAccountName: vault-redis-provision
+      serviceAccountName: server1-grpc-vault-redis-provision
       automountServiceAccountToken: true
       initContainers:
         - name: redis-provision-init
@@ -135,7 +136,7 @@ spec:
       template:
         spec:
           restartPolicy: Never
-          serviceAccountName: vault-redis-provision
+          serviceAccountName: server1-grpc-vault-redis-provision
           automountServiceAccountToken: true
           initContainers:
             - name: redis-provision-init

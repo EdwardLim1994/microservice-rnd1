@@ -20,16 +20,8 @@ docker_build_with_restart(
     ],
 )
 
-# Own namespace, normally created by apps/terraform (kubernetes_namespace.app) — but that's a
-# separate terraform root Tilt has no ordering guarantee against (e.g. after a from-scratch k3d
-# cluster, tilt up can easily run first). kubectl apply on a Namespace is idempotent, so
-# pre-creating it here too is a harmless no-op once apps/terraform has also run.
-k8s_yaml(blob("""
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: server1-grpc-app
-"""))
+# Own namespace declared once, centrally, in apps/servers/Tiltfile (shared "server-apps" —
+# every server's app chart lands there now, not a dedicated namespace per server).
 
 # postgres/redis/debezium/Vault-provisioning moved to server1-grpc-infra (Terraform-applied once,
 # see apps/terraform) — this chart is just the app Deployment/Service/migrate Job now,
@@ -43,33 +35,37 @@ metadata:
 # Terraform-applied) cluster instead, same trick services/vault/Tiltfile used to use for
 # traefik's ClusterIP before that chart moved to Terraform too.
 db_password = str(local(
-    "kubectl get secret server1-grpc-db-secret -n server1-grpc-infra -o jsonpath='{.data.password}' | base64 -d",
+    "kubectl get secret server1-grpc-db-secret -n server-infra -o jsonpath='{.data.password}' | base64 -d",
     quiet=True,
 )).strip()
 redis_password = str(local(
-    "kubectl get secret server1-grpc-redis-admin-secret -n server1-grpc-infra -o jsonpath='{.data.password}' | base64 -d",
+    "kubectl get secret server1-grpc-redis-admin-secret -n server-infra -o jsonpath='{.data.password}' | base64 -d",
     quiet=True,
 )).strip()
 
 k8s_yaml(helm(
     "./helm",
     name="server1-grpc",
-    namespace="server1-grpc-app",
+    namespace="server-apps",
     set=[
         "dbPassword=" + db_password,
         "redisPassword=" + redis_password,
     ],
 ))
 
-k8s_resource(
-    "server1-grpc",
-    port_forwards=["5001:5001"],
-    labels=["servers"],
-)
-
 docker_build("server1-grpc-migrate", "../../..", dockerfile="./Dockerfile", target="migrate")
 
 k8s_resource(
     "server1-grpc-migrate",
     labels=["servers"],
+)
+
+# resource_deps: don't bring the app Deployment up (or restart it on a live_update) until the
+# migrate Job has actually completed — otherwise Tilt starts both in parallel and the app can boot
+# against a schema the migration hasn't finished applying yet.
+k8s_resource(
+    "server1-grpc",
+    port_forwards=["5001:5001"],
+    labels=["servers"],
+    resource_deps=["server1-grpc-migrate"],
 )

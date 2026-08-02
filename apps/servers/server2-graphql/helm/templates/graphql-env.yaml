@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server2-graphql-graphql-env
+  namespace: {{ .Values.namespace }}
+data:
+  GRAPHQL_PORT: "4002"
+  SERVER2_GRPC_ADDRESS: server2-grpc.server-apps.svc.cluster.local:5002
+
+---
+# Stable in-cluster DNS (server2-graphql, or server2-graphql.{{ .Values.namespace }}.svc.cluster.local
+# from another namespace) — for the Apollo Router supergraph's routing_url once this subgraph is
+# registered (see appendSupergraphSubgraph), or for manual testing — nothing else in this chart
+# provides one.
+apiVersion: v1
+kind: Service
+metadata:
+  name: server2-graphql
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: server2-graphql
+  ports:
+    - name: graphql
+      port: 4002
+      targetPort: 4002

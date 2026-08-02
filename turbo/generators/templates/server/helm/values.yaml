@@ -1,3 +1,5 @@
 # Every apps/servers/* chart shares this namespace (see apps/servers/Tiltfile's Namespace
-# declaration) — matches how every services/* chart shares "infra".
-namespace: servers
+# declaration) — matches how every services/* chart shares "infra". A sibling "server-infra"
+# namespace (Postgres/Redis/etc., Terraform-applied) exists too — see the "database" extension
+# generator for how a server's own infra chart wires into it.
+namespace: server-apps

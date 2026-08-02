@@ -1,17 +1,30 @@
-# Vault's database secrets engine, pointed at this server's own {{ name }}-db (see db.yaml) —
+# Vault's database secrets engine, pointed at this server's own server2-grpc-db (see db.yaml) —
 # same idea as services/vault/helm/templates/db-provision-job.yaml (authentik's), simplified:
-# this only ever patches {{ name }}-secret and rolls {{ name }}'s own Deployment, both in this
-# chart's own namespace, so no cross-namespace kubectl RBAC is needed beyond that.
+# this only ever patches the app chart's own server2-grpc-secret and rolls its Deployment.
+#
+# Cross-namespace: this Job's own ServiceAccount/pod lives in the shared "server-infra" namespace
+# (this chart's own namespace), but the Secret/Deployment it patches live in the shared
+# "server-apps" namespace (the app chart's namespace, Tilt-owned) — a plain same-namespace Role
+# wouldn't reach it. The Role/RoleBinding below are deliberately created IN .Values.appNamespace
+# (not .Values.namespace like everything else in this chart) with this namespace's ServiceAccount
+# as the RoleBinding's subject — valid k8s RBAC (a RoleBinding's subjects can reference a
+# ServiceAccount in any namespace) and doesn't need the app namespace to exist yet at plan-time
+# beyond apply-time (see apps/terraform/main.tf, which creates both namespaces upfront
+# specifically so this ordering never bites regardless of whether Terraform or Tilt runs first).
+#
+# ServiceAccount/Role/RoleBinding are named "server2-grpc-vault-db-provision", not the plain
+# "vault-db-provision" every server used to share back when each had its own dedicated infra
+# namespace — now that every server's infra chart lands in the same shared "server-infra"
+# namespace, a per-server prefix is what avoids a same-name-same-namespace collision between two
+# servers' charts. See services/vault/helm/templates/k8s-auth-provision-job.yaml's
+# bound_service_account_names="*" for the Vault-side half of this.
 #
 # Split across two containers by tool, same reasoning as services/vault/helm's own
 # db-provision-job.yaml: an initContainer (hashicorp/vault image) runs every `vault` CLI command
 # and writes its results to a shared emptyDir volume; the main container (bitnami/kubectl image)
-# only ever runs `kubectl`/`curl` against those files — neither image has both toolsets, so
-# `vault` commands can't run in the kubectl container or vice versa (a single shared
-# bitnami/kubectl-only container running `vault status` here originally, in server1's actual
-# deploy, just hung forever on "command not found" masquerading as "waiting for vault...").
-# The one Vault-API call the main container still needs (revoking the previous lease) uses plain
-# `curl` against Vault's HTTP API instead of the `vault` CLI, same as the authentik version.
+# only ever runs `kubectl`/`curl` against those files — neither image has both toolsets. The one
+# Vault-API call the main container still needs (revoking the previous lease) uses plain `curl`
+# against Vault's HTTP API instead of the `vault` CLI.
 #
 # Scripts live in files/db-provision-init.sh and files/db-provision-main.sh, loaded via
 # `.Files.Get` (bypasses Helm's own Go-templating for that file's content entirely) rather than
@@ -39,43 +52,43 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: vault-db-provision
-  namespace: \{{ .Values.namespace }}
+  name: server2-grpc-vault-db-provision
+  namespace: {{ .Values.namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: vault-db-provision
-  namespace: \{{ .Values.namespace }}
+  name: server2-grpc-vault-db-provision
+  namespace: {{ .Values.appNamespace }}
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    resourceNames: ["{{ name }}-secret"]
+    resourceNames: ["server2-grpc-secret"]
     verbs: ["get", "patch"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    resourceNames: ["{{ name }}"]
+    resourceNames: ["server2-grpc"]
     verbs: ["get", "patch", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: vault-db-provision
-  namespace: \{{ .Values.namespace }}
+  name: server2-grpc-vault-db-provision
+  namespace: {{ .Values.appNamespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: vault-db-provision
+  name: server2-grpc-vault-db-provision
 subjects:
   - kind: ServiceAccount
-    name: vault-db-provision
-    namespace: \{{ .Values.namespace }}
+    name: server2-grpc-vault-db-provision
+    namespace: {{ .Values.namespace }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ name }}-db-provision
-  namespace: \{{ .Values.namespace }}
+  name: server2-grpc-db-provision
+  namespace: {{ .Values.namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
@@ -88,7 +101,7 @@ spec:
       # jobRestartPolicy: a failed pod sticks around for `kubectl logs` instead of being
       # replaced in place with nothing left to inspect.
       restartPolicy: Never
-      serviceAccountName: vault-db-provision
+      serviceAccountName: server2-grpc-vault-db-provision
       automountServiceAccountToken: true
       initContainers:
         - name: db-provision-init
@@ -99,17 +112,17 @@ spec:
             - name: PGADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ name }}-db-secret
+                  name: server2-grpc-db-secret
                   key: password
             - name: DB_DEFAULT_TTL
-              value: \{{ .Values.dbProvision.defaultTtl | quote }}
+              value: {{ .Values.dbProvision.defaultTtl | quote }}
             - name: DB_MAX_TTL
-              value: \{{ .Values.dbProvision.maxTtl | quote }}
+              value: {{ .Values.dbProvision.maxTtl | quote }}
           command:
             - sh
             - -c
             - |
-              \{{ .Files.Get "files/db-provision-init.sh" | nindent 14 }}
+              {{ .Files.Get "files/db-provision-init.sh" | nindent 14 }}
           volumeMounts:
             - name: shared
               mountPath: /shared
@@ -119,11 +132,13 @@ spec:
           env:
             - name: VAULT_ADDR
               value: "http://vault.infra.svc.cluster.local:8200"
+            - name: APP_NAMESPACE
+              value: {{ .Values.appNamespace }}
           command:
             - sh
             - -c
             - |
-              \{{ .Files.Get "files/db-provision-main.sh" | nindent 14 }}
+              {{ .Files.Get "files/db-provision-main.sh" | nindent 14 }}
           volumeMounts:
             - name: shared
               mountPath: /shared
@@ -134,19 +149,19 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ name }}-db-provision
-  namespace: \{{ .Values.namespace }}
+  name: server2-grpc-db-provision
+  namespace: {{ .Values.namespace }}
 spec:
   # 6h poll against a 24h default_ttl (see values.yaml) — several missed runs in a row before
   # the lease is ever actually at risk of expiring.
-  schedule: \{{ .Values.dbProvision.schedule | quote }}
+  schedule: {{ .Values.dbProvision.schedule | quote }}
   jobTemplate:
     spec:
       backoffLimit: 5
       template:
         spec:
           restartPolicy: Never
-          serviceAccountName: vault-db-provision
+          serviceAccountName: server2-grpc-vault-db-provision
           automountServiceAccountToken: true
           initContainers:
             - name: db-provision-init
@@ -157,17 +172,17 @@ spec:
                 - name: PGADMIN_PASSWORD
                   valueFrom:
                     secretKeyRef:
-                      name: {{ name }}-db-secret
+                      name: server2-grpc-db-secret
                       key: password
                 - name: DB_DEFAULT_TTL
-                  value: \{{ .Values.dbProvision.defaultTtl | quote }}
+                  value: {{ .Values.dbProvision.defaultTtl | quote }}
                 - name: DB_MAX_TTL
-                  value: \{{ .Values.dbProvision.maxTtl | quote }}
+                  value: {{ .Values.dbProvision.maxTtl | quote }}
               command:
                 - sh
                 - -c
                 - |
-                  \{{ .Files.Get "files/db-provision-init.sh" | nindent 18 }}
+                  {{ .Files.Get "files/db-provision-init.sh" | nindent 18 }}
               volumeMounts:
                 - name: shared
                   mountPath: /shared
@@ -177,11 +192,13 @@ spec:
               env:
                 - name: VAULT_ADDR
                   value: "http://vault.infra.svc.cluster.local:8200"
+                - name: APP_NAMESPACE
+                  value: {{ .Values.appNamespace }}
               command:
                 - sh
                 - -c
                 - |
-                  \{{ .Files.Get "files/db-provision-main.sh" | nindent 18 }}
+                  {{ .Files.Get "files/db-provision-main.sh" | nindent 18 }}
               volumeMounts:
                 - name: shared
                   mountPath: /shared
