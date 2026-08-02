@@ -1,6 +1,7 @@
 import type { RedisClient } from "bun";
-import { BaseRepository, cacheAside, cacheAsideAll } from "server";
+import { BaseRepository, cacheAside, cacheAsideAll, type KafkaProducer } from "server";
 import type { PrismaClient } from "../../generated/prisma";
+import { ITEM_CREATED_TOPIC } from "../topics";
 
 export interface ItemRecord {
 	id: string;
@@ -12,16 +13,27 @@ const cacheKey = (id: string) => `item:${id}`;
 
 export default class ItemRepository extends BaseRepository<PrismaClient> {
 	private readonly redis: RedisClient;
+	private readonly kafkaProducer: KafkaProducer;
 
-	constructor({ prisma, redis }: { prisma: PrismaClient; redis: RedisClient }) {
+	constructor({
+		prisma,
+		redis,
+		kafkaProducer,
+	}: {
+		prisma: PrismaClient;
+		redis: RedisClient;
+		kafkaProducer: KafkaProducer;
+	}) {
 		super({ prisma });
 		this.redis = redis;
+		this.kafkaProducer = kafkaProducer;
 	}
 
 	async create(name: string): Promise<ItemRecord> {
 		const item = await this.prisma.item.create({ data: { name } });
 		const record = { ...item, createdAt: item.createdAt.toISOString() };
 		await this.redis.set(cacheKey(record.id), JSON.stringify(record));
+		await this.kafkaProducer.send(ITEM_CREATED_TOPIC, record);
 		return record;
 	}
 

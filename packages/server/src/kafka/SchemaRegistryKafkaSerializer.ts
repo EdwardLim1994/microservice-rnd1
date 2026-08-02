@@ -4,6 +4,7 @@ import {
   ProtobufSerializer,
   SchemaRegistryClient,
   SerdeType,
+  SubjectNameStrategyType,
 } from '@confluentinc/schemaregistry';
 import type { KafkaMessageType } from '../router/KafkaRouter';
 import type { KafkaSerializer } from './KafkaSerializer';
@@ -61,11 +62,20 @@ export class SchemaRegistryKafkaSerializer implements KafkaSerializer {
             'http://localhost:8081',
         ],
       });
+      // subjectNameStrategyType: TOPIC — the client's own default (ASSOCIATED) calls a
+      // Confluent-Cloud-only "Data Contracts" resource-associations endpoint that Apicurio's
+      // Confluent-compatible API doesn't implement, failing every serialize()/deserialize() with
+      // a 404 ("Request failed with status code 404") before it ever reaches the actual
+      // register/lookup call. TOPIC is the plain "<topic>-value" subject naming every
+      // Confluent-compatible registry (including Apicurio) supports.
       return {
         serializer: new ProtobufSerializer(client, SerdeType.VALUE, {
           autoRegisterSchemas: true,
+          subjectNameStrategyType: SubjectNameStrategyType.TOPIC,
         }),
-        deserializer: new ProtobufDeserializer(client, SerdeType.VALUE, {}),
+        deserializer: new ProtobufDeserializer(client, SerdeType.VALUE, {
+          subjectNameStrategyType: SubjectNameStrategyType.TOPIC,
+        }),
       };
     },
   ) {

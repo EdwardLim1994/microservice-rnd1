@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package server1_grpc;
+
+message ItemCreatedEvent {
+  string id = 1;
+  string name = 2;
+  string createdAt = 3;
+}

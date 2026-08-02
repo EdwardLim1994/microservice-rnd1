@@ -11,6 +11,15 @@ plugins:
       - useOptionals=messages
       - stringEnums=true
       - outputTypeRegistry=true
+  # protobuf-es output alongside ts_proto's — SchemaRegistryKafkaSerializer needs a real
+  # DescMessage (see packages/server/src/kafka/SchemaRegistryKafkaSerializer.ts), which ts_proto
+  # doesn't produce. Same out dir as ts_proto: protoc-gen-es's default "_pb.ts" suffix never
+  # collides with ts_proto's plain ".ts" output, and APIGenerator's barrel step only scans this
+  # one proto/ directory.
+  - local: protoc-gen-es
+    out: ../../../packages/api/src/generated/server1-grpc/proto/
+    opt:
+      - target=ts
 
 inputs:
   - directory: ./src/schemas/proto/
