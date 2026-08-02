@@ -1,5 +1,5 @@
 import type { RedisClient } from "bun";
-import { BaseRepository } from "server";
+import { BaseRepository, cacheAside, cacheAsideAll } from "server";
 import type { PrismaClient } from "../../generated/prisma";
 
 export interface ItemRecord {
@@ -37,21 +37,18 @@ export default class ItemRepository extends BaseRepository<PrismaClient> {
 		await this.redis.del(cacheKey(id));
 	}
 
-	/** Cache-aside: serves from Redis on a hit, otherwise falls through to Postgres and repopulates. */
 	async findById(id: string): Promise<ItemRecord | null> {
-		const cached = await this.redis.get(cacheKey(id));
-		if (cached) return JSON.parse(cached);
-
-		const item = await this.prisma.item.findUnique({ where: { id } });
-		if (!item) return null;
-
-		const record = { ...item, createdAt: item.createdAt.toISOString() };
-		await this.redis.set(cacheKey(id), JSON.stringify(record));
-		return record;
+		return cacheAside(this.redis, cacheKey(id), async () => {
+			const item = await this.prisma.item.findUnique({ where: { id } });
+			if (!item) return null;
+			return { ...item, createdAt: item.createdAt.toISOString() };
+		});
 	}
 
 	async findAll(): Promise<ItemRecord[]> {
-		const items = await this.prisma.item.findMany();
-		return items.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }));
+		return cacheAsideAll(this.redis, "item:*", cacheKey, async () => {
+			const items = await this.prisma.item.findMany();
+			return items.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }));
+		});
 	}
 }

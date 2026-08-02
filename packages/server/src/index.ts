@@ -4,5 +4,6 @@ export * from './driver';
 export * from './interceptor';
 export * from './kafka';
 export * from './plugin';
+export * from './redis';
 export * from './router';
 export { ServerApp, singleton, transient } from './ServerApp';
