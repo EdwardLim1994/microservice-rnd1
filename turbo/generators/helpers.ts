@@ -729,3 +729,50 @@ export function wireHelmInitContainerWait(
 	);
 	return `${relToRoot(absDeploymentPath)} (+initContainer ${name})`;
 }
+
+const PROMETHEUS_CONFIG_PATHS = [
+	path.join(process.cwd(), "services", "monitoring", "config", "prometheus.yml"),
+	path.join(process.cwd(), "services", "monitoring", "helm", "files", "prometheus.yml"),
+];
+
+/**
+ * Appends a `<name>-health` scrape job (targeting this server's HealthCheckPlugin port, 9000, via
+ * its Service FQDN in the server-apps namespace) to both services/monitoring's prometheus.yml —
+ * the real one (config/) and its Helm-chart mirror (helm/files/, re-copied by hand today; see
+ * that file's own header comment for why a mirror has to exist at all). Without this, a newly
+ * generated server's healthcheck port is reachable but nothing ever scrapes it, so it never gets
+ * its own `up{job="<name>-health"}` signal — the generic kube-state-metrics-driven dashboards
+ * (Servers App/Infra Overview) still pick the server up from its Deployment existing, but
+ * k8s-workload-detail.json's "matching app-level Prometheus jobs" table stays empty for it.
+ * Idempotent per server name; called from both GrpcGenerator and GraphqlGenerator's wireHelm
+ * actions since either driver can be the first (or only) one installed on a given server.
+ */
+export function wireHealthcheckPrometheusJob(name: string): string {
+	const jobName = `${name}-health`;
+	const block =
+		`\n  # apps/servers/${name}'s HealthCheckPlugin (packages/server) — a plain 200 on its own\n` +
+		"  # port, valid Prometheus exposition format, so this job's own `up{job=...}` gauge IS the\n" +
+		"  # healthcheck.\n" +
+		`  - job_name: ${jobName}\n` +
+		"    static_configs:\n" +
+		`      - targets: ["${name}.server-apps.svc.cluster.local:9000"]\n`;
+
+	const results = PROMETHEUS_CONFIG_PATHS.map((absPath) => {
+		if (!fs.existsSync(absPath)) {
+			return `${relToRoot(absPath)} not found, skipped`;
+		}
+		const raw = fs.readFileSync(absPath, "utf-8");
+		if (raw.includes(`job_name: ${jobName}`)) {
+			return `${relToRoot(absPath)} already has ${jobName}`;
+		}
+		const marker = "scrape_configs:\n";
+		const markerIndex = raw.indexOf(marker);
+		if (markerIndex === -1) {
+			throw new Error(`Could not find "${marker}" in ${absPath}`);
+		}
+		const insertAt = markerIndex + marker.length;
+		fs.writeFileSync(absPath, `${raw.slice(0, insertAt)}${block}${raw.slice(insertAt)}`);
+		return `${relToRoot(absPath)} (+${jobName})`;
+	});
+	return results.join("; ");
+}

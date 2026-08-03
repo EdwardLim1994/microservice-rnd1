@@ -1,6 +1,7 @@
 import { type AwilixContainer, asClass } from 'awilix';
 import { BaseRouter } from '../abstract/BaseRouter';
 import type { BaseUseCase } from '../abstract/BaseUseCase';
+import { withServerSpan } from '../otel-span';
 
 export type GraphqlHandlerMap = {
   [typeName: string]: {
@@ -48,9 +49,15 @@ export abstract class GraphqlRouter extends BaseRouter {
             return [
               field,
               async (parent: unknown, args: unknown) => {
-                const useCase =
-                  this.container.resolve<BaseUseCase<any, any>>(token);
-                return useCase.execute(isRootType ? args : parent);
+                return withServerSpan(
+                  this.container,
+                  `graphql.${typeName}.${field}`,
+                  () => {
+                    const useCase =
+                      this.container.resolve<BaseUseCase<any, any>>(token);
+                    return useCase.execute(isRootType ? args : parent);
+                  },
+                );
               },
             ];
           }),

@@ -19,3 +19,5 @@ spec:
       port: 9092
     - name: controller
       port: 9093
+    - name: metrics
+      port: 9308

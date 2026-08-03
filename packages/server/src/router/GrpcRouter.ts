@@ -10,6 +10,7 @@ import { type AwilixContainer, asClass } from 'awilix';
 import { BaseRouter } from '../abstract/BaseRouter';
 import type { BaseUseCase } from '../abstract/BaseUseCase';
 import type { Registrable } from '../abstract/Registrable';
+import { withServerSpan } from '../otel-span';
 
 type ExtractReq<T> = T extends handleUnaryCall<infer Req, any> ? Req : never;
 type ExtractRes<T> = T extends handleUnaryCall<any, infer Res> ? Res : never;
@@ -63,9 +64,15 @@ export abstract class GrpcRouter<TService>
             callback: sendUnaryData<any>,
           ) => {
             try {
-              const useCase =
-                this.container.resolve<BaseUseCase<any, any>>(token);
-              const result = await useCase.execute(call.request);
+              const result = await withServerSpan(
+                this.container,
+                `grpc.${method}`,
+                () => {
+                  const useCase =
+                    this.container.resolve<BaseUseCase<any, any>>(token);
+                  return useCase.execute(call.request);
+                },
+              );
               callback(null, result);
             } catch (err) {
               callback(err as Error);

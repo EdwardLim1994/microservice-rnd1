@@ -122,6 +122,17 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /tmp/kraft-combined-logs
+        # Sidecar, not a separate Deployment — same reasoning as server1-grpc-infra's
+        # postgres-exporter/redis-exporter: talks to Kafka over localhost, scraped by Prometheus
+        # via this StatefulSet's Service on the "metrics" port below. Talks Kafka's own wire
+        # protocol (no JMX agent to wire into the broker JVM).
+        - name: kafka-exporter
+          image: danielqsj/kafka-exporter:v1.7.0
+          args:
+            - --kafka.server=localhost:9092
+          ports:
+            - name: metrics
+              containerPort: 9308
   volumeClaimTemplates:
     - metadata:
         name: data

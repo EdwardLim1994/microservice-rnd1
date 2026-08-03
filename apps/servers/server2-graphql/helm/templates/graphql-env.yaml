@@ -6,6 +6,8 @@ metadata:
 data:
   GRAPHQL_PORT: "4002"
   SERVER2_GRPC_ADDRESS: server2-grpc.server-apps.svc.cluster.local:5002
+  OTEL_SERVICE_NAME: server2-graphql
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.infra.svc.cluster.local:4317
 
 ---
 # Stable in-cluster DNS (server2-graphql, or server2-graphql.{{ .Values.namespace }}.svc.cluster.local
@@ -25,3 +27,6 @@ spec:
     - name: graphql
       port: 4002
       targetPort: 4002
+    - name: healthcheck
+      port: 9000
+      targetPort: 9000

@@ -40,6 +40,10 @@ spec:
           env:
             - name: MEILI_ENV
               value: development
+            # Native /metrics endpoint (Prometheus format), gated behind an API key with the
+            # "metrics.get" action — the master key already qualifies, no separate key needed.
+            - name: MEILI_EXPERIMENTAL_METRICS
+              value: "true"
             - name: MEILI_MASTER_KEY
               valueFrom:
                 secretKeyRef:

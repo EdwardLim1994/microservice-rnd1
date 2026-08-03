@@ -23,3 +23,9 @@ spec:
     - name: grpc
       port: {{ port }}
       targetPort: {{ port }}
+    # HealthCheckPlugin (packages/server) — every server includes it from scaffold (see
+    # templates/server/src/app.ts) and it always listens on 9000, so this port is safe to expose
+    # unconditionally rather than gating it behind whether this particular driver uses it.
+    - name: healthcheck
+      port: 9000
+      targetPort: 9000

@@ -10,6 +10,9 @@ loki:
   persistence:
     size: 5Gi
 
+alloy:
+  image: grafana/alloy:v1.5.1
+
 tempo:
   image: grafana/tempo:2.6.1
   persistence:
@@ -41,3 +44,9 @@ grafana:
 
 otelCollector:
   image: otel/opentelemetry-collector-contrib:0.116.1
+
+nodeExporter:
+  image: prom/node-exporter:v1.8.2
+
+kubeStateMetrics:
+  image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0

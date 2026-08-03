@@ -2,6 +2,7 @@ import {
 	ApolloDriver,
 	HealthCheckPlugin,
 	MeilisearchPlugin,
+	OtelPlugin,
 	ServerApp,
 	singleton,
 } from "server";
@@ -17,7 +18,7 @@ export default async function main() {
 				console.log(`GraphQL server is running on ${host}:${port}`),
 		},
 	])
-		.plugins([HealthCheckPlugin, MeilisearchPlugin])
+		.plugins([HealthCheckPlugin, MeilisearchPlugin, OtelPlugin])
 		.containers({
 			item2GrpcClient: singleton(Item2GrpcClient),
 		})

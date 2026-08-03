@@ -16,3 +16,6 @@ spec:
       containers:
         - name: {{name}}
           image: {{name}}:latest
+          envFrom:
+            - configMapRef:
+                name: {{name}}-log-env

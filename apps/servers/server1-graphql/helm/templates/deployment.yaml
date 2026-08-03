@@ -18,6 +18,7 @@ spec:
           image: server1-graphql:latest
           ports:
             - containerPort: 4001
+            - containerPort: 9000
           envFrom:
             - configMapRef:
                 name: server1-graphql-env
@@ -53,3 +54,6 @@ spec:
     - name: graphql
       port: 4001
       targetPort: 4001
+    - name: healthcheck
+      port: 9000
+      targetPort: 9000

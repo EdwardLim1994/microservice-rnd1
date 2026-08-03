@@ -7,6 +7,7 @@ import {
 	findAvailableServerPort,
 	injectDriverEntry,
 	mergePackageJsonDeps,
+	wireHealthcheckPrometheusJob,
 	wireHelmContainerPort,
 	wireHelmDeploymentConfigMap,
 	writePackageJson,
@@ -261,7 +262,13 @@ function registerActionTypes(plop: PlopTypes.NodePlopAPI): void {
 		const deploymentPath = path.join(helmTemplatesDir, "deployment.yaml");
 		const portResult = wireHelmContainerPort(deploymentPath, port);
 		const envResult = wireHelmDeploymentConfigMap(deploymentPath, `${name}-graphql-env`);
-		return `${chartResult}; ${portResult}; ${envResult}`;
+		// HealthCheckPlugin's own port (9000) — every server has it from scaffold (see
+		// templates/server/src/app.ts), so it's wired here unconditionally, same as the Service's
+		// own healthcheck port in helm-graphql-env.yaml.hbs, rather than gating it behind this
+		// driver specifically.
+		const healthPortResult = wireHelmContainerPort(deploymentPath, 9000);
+		const prometheusResult = wireHealthcheckPrometheusJob(name);
+		return `${chartResult}; ${portResult}; ${envResult}; ${healthPortResult}; ${prometheusResult}`;
 	});
 }
 

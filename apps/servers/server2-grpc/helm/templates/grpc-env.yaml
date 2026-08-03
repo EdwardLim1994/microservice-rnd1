@@ -23,3 +23,6 @@ spec:
     - name: grpc
       port: 5002
       targetPort: 5002
+    - name: healthcheck
+      port: 9000
+      targetPort: 9000

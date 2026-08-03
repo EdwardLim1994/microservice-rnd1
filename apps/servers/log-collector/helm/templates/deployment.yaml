@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-collector-env
+  namespace: {{ .Values.namespace }}
+data:
+  OTEL_SERVICE_NAME: log-collector
+  # Fully-qualified — services/kafka lives in the "infra" namespace, a different one than this
+  # server's own "server-apps".
+  KAFKA_BROKERS: kafka.infra.svc.cluster.local:9092
+  KAFKA_CLIENT_ID: log-collector
+  KAFKA_GROUP_ID: log-collector-group
+  # Fully-qualified — services/monitoring (Loki) lives in "infra" too. auth_enabled: false in
+  # loki-config.yaml, so no token is needed here.
+  LOKI_PUSH_URL: http://loki.infra.svc.cluster.local:3100/loki/api/v1/push
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-collector
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-collector
+  template:
+    metadata:
+      labels:
+        app: log-collector
+    spec:
+      containers:
+        - name: log-collector
+          image: log-collector:latest
+          ports:
+            - containerPort: 9000
+          envFrom:
+            - configMapRef:
+                name: log-collector-env
+
+---
+# healthcheck only — this server has no gRPC/GraphQL driver of its own, just a Kafka consumer, so
+# there's no other port anything would ever reach it on.
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-collector
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: log-collector
+  ports:
+    - name: healthcheck
+      port: 9000
+      targetPort: 9000

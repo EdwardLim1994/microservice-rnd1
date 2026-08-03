@@ -6,16 +6,26 @@ metadata:
   labels:
     {{- include "grafana.labels" . | nindent 4 }}
 data:
-  # Real copy of apps/servers/server1-grpc/grafana-dashboard.json — lives there since it's that
-  # server's own dashboard, not generic monitoring-stack config, but Helm's .Files.Get can only
-  # read files inside this chart's own directory tree (see prometheus-configmap.yaml's comment
-  # for the same restriction), so a mirror has to stay here too. Re-copy manually after editing
-  # the source. Each key here becomes a file in dashboards.yaml's provisioned path (see
-  # grafana-statefulset.yaml's volume mount) — add one key per dashboard, not a directory tree,
-  # since ConfigMap volumes are always flat.
-  server1-grpc.json: |
-{{ .Files.Get "files/grafana-dashboard-server1-grpc.json" | indent 4 }}
-  # Real copy of apps/servers/server2-grpc/grafana-dashboard.json — same convention as
-  # server1-grpc.json above.
-  server2-grpc.json: |
-{{ .Files.Get "files/grafana-dashboard-server2-grpc.json" | indent 4 }}
+  # Landing page — one tile per Deployment/StatefulSet in the "infra" namespace only
+  # (services/*), driven by kube-state-metrics so new services show up with no dashboard edit.
+  # apps/servers/* deliberately lives in its own Servers Infra Overview dashboard below instead
+  # — kept separate so the two domains (services/* vs apps/servers/*) don't mix into one grid.
+  # Click a tile, land on k8s-workload-detail.json filtered to that service.
+  services-overview.json: |
+{{ .Files.Get "files/grafana-dashboard-services-overview.json" | indent 4 }}
+  # Generic per-service detail page — templated by $namespace/$app (set via either overview
+  # grid's data links, or by hand in the dropdown), not one dashboard per service. Same file
+  # serves every current and future Deployment/StatefulSet, in any namespace.
+  k8s-workload-detail.json: |
+{{ .Files.Get "files/grafana-dashboard-k8s-workload-detail.json" | indent 4 }}
+  # Same grid pattern as services-overview.json, scoped to the server-apps namespace (the
+  # apps/servers/* app Deployments themselves — server1-grpc, server1-graphql, server2-grpc,
+  # server2-graphql). Kept separate from Servers Infra Overview below on purpose: app tier and
+  # infra tier don't mix into one grid.
+  servers-app-overview.json: |
+{{ .Files.Get "files/grafana-dashboard-servers-app-overview.json" | indent 4 }}
+  # Same grid pattern, scoped to the server-infra namespace (Postgres/Redis/Debezium for every
+  # apps/servers/*-infra chart) — Terraform-applied separately via apps/terraform and routinely
+  # lags or is skipped in a given dev cluster.
+  servers-infra-overview.json: |
+{{ .Files.Get "files/grafana-dashboard-servers-infra-overview.json" | indent 4 }}

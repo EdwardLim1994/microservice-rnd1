@@ -35,3 +35,4 @@ spec:
                 name: server2-grpc-meilisearch-env
           ports:
             - containerPort: 5002
+            - containerPort: 9000

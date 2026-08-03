@@ -1,6 +1,6 @@
 import { BasePlugin } from '../abstract/BasePlugin';
 
-/** Serves a plain 200 "ok" over Bun.serve on its own port — for Grafana/k8s liveness probes, independent of whatever protocol the server's main drivers speak (Grpc/Kafka/Cron have no HTTP surface of their own). */
+/** Serves a 200 over Bun.serve on its own port — for k8s liveness probes (body ignored) and Prometheus scraping (body is valid exposition format, so the scrape's own `up{job=...}` becomes the Grafana healthcheck signal), independent of whatever protocol the server's main drivers speak (Grpc/Kafka/Cron have no HTTP surface of their own). */
 export class HealthCheckPlugin extends BasePlugin {
   private server?: ReturnType<typeof Bun.serve>;
 
@@ -13,7 +13,7 @@ export class HealthCheckPlugin extends BasePlugin {
   async onStart(): Promise<void> {
     this.server = Bun.serve({
       port: this.port,
-      fetch: () => new Response('ok', { status: 200 }),
+      fetch: () => new Response('up 1\n', { status: 200 }),
     });
   }
 

@@ -4,6 +4,7 @@ import {
 	JsonKafkaSerializer,
 	KafkaDriver,
 	MeilisearchPlugin,
+	OtelPlugin,
 	PgAdapter,
 	ServerApp,
 	transient,
@@ -37,7 +38,7 @@ export default async function main() {
 		},
 	])
 		.database(PrismaClient, new PgAdapter(databaseUrl))
-		.plugins([HealthCheckPlugin, MeilisearchPlugin])
+		.plugins([HealthCheckPlugin, MeilisearchPlugin, OtelPlugin])
 		.containers({
 			item2Repository: transient(Item2Repository),
 		})
