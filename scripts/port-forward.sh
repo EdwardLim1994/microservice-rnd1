@@ -25,6 +25,11 @@ declare -A APPS=(
   # Meilisearch serves its own web UI (index/document browser) at "/" on the same port as its
   # HTTP API — no separate dashboard port to forward.
   [8115]="infra svc/meilisearch 7700 18088"
+  # apps/web and apps/mfe charts, not services/* — remote port is each one's rsbuild dev-server
+  # port (see their own rsbuild.config.ts), since Tilt only ever runs the Dockerfile's
+  # "development" target locally.
+  [8120]="apps svc/web1 3000 18089"
+  [8125]="apps svc/mfe1 3001 18090"
 )
 
 PF_PIDS=()

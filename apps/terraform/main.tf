@@ -86,3 +86,29 @@ resource "helm_release" "infra" {
 
   depends_on = [kubernetes_namespace.server_apps]
 }
+
+# Closes a real staleness gap: each server's own Tiltfile reads dbPassword/redisPassword via a
+# one-shot `local("kubectl get secret ...")` call (see that Tiltfile's own comment) — Tilt's
+# helm() has no live cluster access, so env.yaml's `lookup` always misses there, and that
+# local() snapshot only re-runs when Tilt itself reloads its config. Nothing tells an
+# already-running `tilt up` session that THIS apply just rotated the password — a long-running
+# session keeps serving its old snapshot until something forces a reload. Touching the Tiltfile
+# does exactly that, automatically, right after the password that actually changed.
+#
+# `input` only changes (triggering the provisioner) when this server's own password actually
+# rotates — not on every apply — so this doesn't cause a needless Tiltfile touch (and the pod
+# restart that follows) when nothing changed.
+resource "terraform_data" "notify_tilt_of_password_rotation" {
+  for_each = local.infra_charts
+
+  input = {
+    db_password    = random_password.db[each.key].result
+    redis_password = random_password.redis[each.key].result
+  }
+
+  provisioner "local-exec" {
+    command = "touch ${path.module}/../servers/${trimsuffix(each.key, "-infra")}/Tiltfile"
+  }
+
+  depends_on = [helm_release.infra]
+}

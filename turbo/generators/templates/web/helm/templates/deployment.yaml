@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ name }}
+  namespace: \{{ .Values.namespace }}
+spec:
+  replicas: \{{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ name }}
+  template:
+    metadata:
+      labels:
+        app: {{ name }}
+    spec:
+      containers:
+        - name: {{ name }}
+          image: {{ name }}:latest
+          ports:
+            - containerPort: \{{ .Values.port }}
+
+---
+# Stable in-cluster DNS (a host consuming this as a Module Federation remote reaches it via
+# {{ name }}.{{ namespace }}.svc.cluster.local:{{ port }} in dev, same as any other in-cluster
+# service — values-prod.yaml's port override changes the number but not the DNS name).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ name }}
+  namespace: \{{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ name }}
+  ports:
+    - name: http
+      port: \{{ .Values.port }}
+      targetPort: \{{ .Values.port }}

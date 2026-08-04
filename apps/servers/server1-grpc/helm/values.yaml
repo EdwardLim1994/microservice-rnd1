@@ -21,3 +21,7 @@ infraNamespace: server-infra
 # DATABASE_URL/REDIS_URL to a guessed value that doesn't match the real Postgres/Redis password.
 dbPassword: ""
 redisPassword: ""
+
+# Dev default: one pod is enough for Tilt-driven local iteration. values-prod.yaml layers on
+# top for a real deploy (`helm upgrade -f values.yaml -f values-prod.yaml`).
+replicas: 1

@@ -1,0 +1,31 @@
+# Plain k8s Ingress routed by Traefik (ingressClassName: traefik), same pattern as
+# services/monitoring/helm/templates/grafana-ingress.yaml — not Traefik's own IngressRoute CRD,
+# this repo doesn't use that anywhere.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ name }}
+  namespace: \{{ .Values.namespace }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: {{ name }}.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ name }}
+                port:
+                  number: \{{ .Values.port }}
+    - host: {{ name }}.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ name }}
+                port:
+                  number: \{{ .Values.port }}

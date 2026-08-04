@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mfe1
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: mfe1
+  template:
+    metadata:
+      labels:
+        app: mfe1
+    spec:
+      containers:
+        - name: mfe1
+          image: mfe1:latest
+          ports:
+            - containerPort: {{ .Values.port }}
+
+---
+# Stable in-cluster DNS (mfe1.apps.svc.cluster.local) for Traefik's Ingress below to route to —
+# also how web1 (Module Federation host) reaches this remote's static JS in-cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mfe1
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: mfe1
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      targetPort: {{ .Values.port }}

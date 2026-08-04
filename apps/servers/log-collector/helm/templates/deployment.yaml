@@ -21,7 +21,7 @@ metadata:
   name: log-collector
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: log-collector

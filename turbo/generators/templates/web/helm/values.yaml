@@ -1,0 +1,11 @@
+# Shared by every apps/web/* and apps/mfe/* chart (see apps/web/Tiltfile's own Namespace
+# declaration) — matches apps/servers/*'s own "server-apps" namespace convention.
+namespace: {{ namespace }}
+
+# Dev default: Tilt builds the Dockerfile's "development" target (rsbuild dev server, this app's
+# assigned port). values-prod.yaml layers on top for the "production" target (nginx, port 80).
+port: {{ port }}
+
+# Dev default: one pod is enough for Tilt-driven local iteration. values-prod.yaml layers on top
+# for a real deploy — matches apps/servers/*'s own values.yaml/values-prod.yaml pattern.
+replicas: 1

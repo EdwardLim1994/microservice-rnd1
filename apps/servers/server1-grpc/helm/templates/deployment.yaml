@@ -4,7 +4,7 @@ metadata:
   name: server1-grpc
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: server1-grpc

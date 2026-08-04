@@ -1,0 +1,6 @@
+# Layered on top of values.yaml for a prod apply — matches services/cert-manager-config/helm's
+# values-prod.yaml pattern (`helm upgrade -f values.yaml -f values-prod.yaml`). Switches the
+# Deployment/Service port to the Dockerfile's "production" target (nginx, EXPOSE 80) instead of
+# the "development" target's rsbuild dev server.
+port: 80
+replicas: 2

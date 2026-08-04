@@ -1,0 +1,5 @@
+# Namespace "apps" is declared in apps/web/Tiltfile — shared by every apps/web/* and apps/mfe/*
+# chart, same pattern as apps/servers/Tiltfile's own "server-apps" covering every server
+# regardless of protocol.
+
+include("./mfe1/Tiltfile")

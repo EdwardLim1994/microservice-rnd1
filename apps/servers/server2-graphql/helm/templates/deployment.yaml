@@ -4,7 +4,7 @@ metadata:
   name: server2-graphql
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: server2-graphql

@@ -1,2 +1,4 @@
 include("./docs/Tiltfile")
 include("./servers/Tiltfile")
+include("./web/Tiltfile")
+include("./mfe/Tiltfile")
