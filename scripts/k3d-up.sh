@@ -21,6 +21,16 @@ k3d cluster create "$NAME" \
   --k3s-arg "--disable=traefik@server:0" \
   --registry-create "$NAME-registry:0.0.0.0:5000"
 
+# fs.inotify.max_user_instances is a global (non-namespaced) kernel limit shared by every pod's
+# file watcher — the WSL2/Docker Desktop default of 128 is enough for a couple of dev servers but
+# gets exhausted with this repo's full stack (6+ rsbuild/bun watchers, plus any crashlooping pod
+# retrying its own). Once exhausted, whichever pod tries next fails with entr's generic
+# "cannot create kqueue: No file descriptors available" — nothing to do with actual fds or that
+# pod's own history. Not persisted across a WSL restart (it's a live sysctl write); rerun this
+# script or `docker exec k3d-$NAME-server-0 sh -c "echo 1024 > /proc/sys/fs/inotify/max_user_instances"`
+# again if it recurs.
+docker exec "k3d-$NAME-server-0" sh -c "echo 1024 > /proc/sys/fs/inotify/max_user_instances"
+
 # Pre-installs services/traefik's own chart CRDs (TLSStore among them — see that chart's
 # values.yaml tlsStore: block) before services/terraform ever runs. Doing this in Terraform
 # itself doesn't work: provider "helm"'s `experiments.manifest = true` (versions.tf) dry-run

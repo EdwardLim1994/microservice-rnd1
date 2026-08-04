@@ -731,7 +731,16 @@ export default class DatabaseGenerator {
 				path.join(process.cwd(), location, "Tiltfile"),
 				name,
 			);
-			return `${relToRoot(destPath)}; ${tiltResult}`;
+			// Same race the Deployment's initContainer (wireDatabaseHelmDeployment, below) already
+			// guards against: on a fresh cluster the migrate Job can exhaust backoffLimit's retries
+			// before Postgres's first-time initdb finishes, landing in BackoffLimitExceeded forever.
+			const waitResult = wireHelmInitContainerWait(
+				destPath,
+				`wait-for-${name}-db`,
+				"postgres:15.3-alpine",
+				`until pg_isready -h ${name}-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done`,
+			);
+			return `${relToRoot(destPath)}; ${tiltResult}; ${waitResult}`;
 		});
 
 		plop.setActionType("injectDatabaseDockerfile", (answers) => {

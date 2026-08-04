@@ -1,4 +1,4 @@
-import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { ApolloClient, HttpLink, InMemoryCache } from '@apollo/client';
 
 // Apollo Router's supergraph gateway (see services/apollo) — reachable locally via
 // `kubectl port-forward -n infra svc/apollo-router 4000:80`. Override with a PUBLIC_GRAPHQL_URL
@@ -6,6 +6,7 @@ import { ApolloClient, InMemoryCache } from '@apollo/client';
 const GRAPHQL_URL = import.meta.env.PUBLIC_GRAPHQL_URL ?? 'http://localhost:4000/graphql';
 
 export const apolloClient = new ApolloClient({
-  uri: GRAPHQL_URL,
+  // @apollo/client v4 dropped the `uri` shorthand — a `link` is required.
+  link: new HttpLink({ uri: GRAPHQL_URL }),
   cache: new InMemoryCache(),
 });

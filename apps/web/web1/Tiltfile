@@ -30,7 +30,9 @@ k8s_yaml(helm(
     "./helm",
     name="web1",
     namespace="apps",
-    set=["publicMfe1Url=http://mfe1.lan:8080"],
+    # ponytail: hardcoded to this session's tailscale tunnel (see port-forward.sh) — swap back to
+    # "http://mfe1.lan:8080" for the Traefik/.lan access path, don't commit this value upstream.
+    set=["publicMfe1Url=https://desktop-qv5aogf-1.tail60240b.ts.net:8125"],
 ))
 
 k8s_resource(

@@ -14,7 +14,16 @@
 # recurs, so this two-phase dance is only needed once per fresh cluster.
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/../services/terraform"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+# charts/ is gitignored, so a fresh checkout is missing every chart with a `dependencies:` block
+# (Chart.yaml declares it, nothing fetches it) — terraform plan fails with "found in Chart.yaml,
+# but missing in charts/ directory" until this runs once.
+for chart in services/*/helm; do
+  grep -q '^dependencies:' "$chart/Chart.yaml" 2>/dev/null && helm dependency update "$chart"
+done
+
+cd services/terraform
 
 terraform init -input=false
 

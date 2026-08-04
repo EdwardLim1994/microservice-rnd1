@@ -13,7 +13,9 @@
     "test:watch": "rstest --watch"
   },
   "dependencies": {
+    "@apollo/client": "^4.2.9",
     "@heroui/styles": "^3.2.3",
+    "graphql": "^16.14.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

@@ -45,6 +45,10 @@ export default defineConfig({
         react: { singleton: true },
         'react-dom': { singleton: true },
       },
+      // Default dts:true injects a runtime plugin that opens a websocket to a companion
+      // IDE extension (ws://127.0.0.1:<port>) for live remote-type hints — nobody runs that
+      // extension here, so it always fails and spams the console. Not used, off.
+      dts: false,
     }),
 {{/if}}
   ],
