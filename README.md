@@ -27,11 +27,12 @@ services/*         third-party infra (Traefik, Authentik, Kafka, Apollo Router, 
 apps/servers/*      backend microservices (gRPC/GraphQL), one thin composition root each
                     over packages/server; apps/servers/<name>-infra holds that server's
                     own Postgres/Redis/Debezium, applied once via apps/terraform
-apps/web/*          Module Federation host / plain web apps        (scaffolded, not yet built out)
-apps/mfe/*          Module Federation remotes                      (scaffolded, not yet built out)
+                    (none scaffolded yet)
+apps/web/*          Module Federation host / plain web apps        (none scaffolded yet)
+apps/mfe/*          Module Federation remotes                      (none scaffolded yet)
 apps/{docs,mobile}  docs site, mobile app
 packages/*          shared libs: server (backend framework), api, config, script (release tooling)
-test/e2e/           Cypress + Vitest end-to-end tests
+test/e2e/           Vitest API-level end-to-end tests
 test/zap/           OWASP ZAP scan compose setup
 turbo/generators/   Plop scaffolding (`bun run generate`)
 ```
@@ -68,7 +69,7 @@ terraform -chdir=apps/terraform apply   # only after any apps/servers/<name>-inf
 tilt up
 ```
 
-`tilt up` runs `apps/servers/*` (the only workspaces currently wired into `apps/Tiltfile`'s includes — `apps/web`/`apps/mfe`/`apps/docs` are placeholder Tiltfiles not yet included). Re-run `terraform apply` in a `services/*` or `apps/terraform` root only when a chart under it actually changes — routine iteration is Tilt's job.
+`tilt up` includes `apps/servers/*`, `apps/web/*`, `apps/mfe/*`, `apps/docs/*` — no workspace is currently scaffolded under any of them (except `apps/docs`, which has its own separate placeholder), so there's nothing to actually run until `bun run generate` scaffolds a first server/web app. Re-run `terraform apply` in a `services/*` or `apps/terraform` root only when a chart under it actually changes — routine iteration is Tilt's job.
 
 Other common commands (see [`CLAUDE.md`](./CLAUDE.md#commands) for the full list):
 
@@ -83,7 +84,7 @@ bun run supergraph       # compose the Apollo Federation supergraph
 bun run k8s:build        # build workspace images outside of Tilt
 ```
 
-`docker compose up` still works as a kept-as-backup path (`services/*` no longer has compose-equivalents for everything — e.g. `adminer` was retired outright, not migrated).
+`docker compose up` is largely vestigial at this point — root `docker-compose.yml` only includes `apps/docker-compose.yml`, which is currently empty, and `services/*` has no compose files left at all (fully migrated to Terraform/Helm). Use `tilt up` instead.
 
 ## Troubleshooting
 

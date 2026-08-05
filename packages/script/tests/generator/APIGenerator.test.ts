@@ -43,7 +43,9 @@ test('init() with no arg infers the project name from cwd, so one shared script 
   const dir = mkdtempSync(join(tmpdir(), 'my-service-'));
   try {
     process.chdir(dir);
-    const generator = APIGenerator.init() as unknown as { _projectName: string };
+    const generator = APIGenerator.init() as unknown as {
+      _projectName: string;
+    };
     expect(generator._projectName).toBe(basename(dir));
   } finally {
     process.chdir(originalCwd);

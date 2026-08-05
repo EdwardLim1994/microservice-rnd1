@@ -4,44 +4,13 @@ global:
 
 scrape_configs:
 
-  # apps/servers/log-collector's HealthCheckPlugin (packages/server) — a plain 200 on its own
-  # port, valid Prometheus exposition format, so this job's own `up{job=...}` gauge IS the
-  # healthcheck.
-  - job_name: log-collector-health
-    static_configs:
-      - targets: ["log-collector.server-apps.svc.cluster.local:9000"]
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
 
   # No Kubernetes service discovery configured in this repo yet (see root CLAUDE.md) — each
-  # per-server exporter gets a manually-added static target here, cross-namespace via its own
-  # chart's Service FQDN (<service>.<namespace>.svc.cluster.local:<port>).
-  - job_name: server1-grpc-postgres
-    static_configs:
-      - targets: ["server1-grpc-db.server1-grpc-infra.svc.cluster.local:9187"]
-
-  - job_name: server1-grpc-redis
-    static_configs:
-      - targets: ["server1-grpc-redis.server1-grpc-infra.svc.cluster.local:9121"]
-
-  # apps/servers/*'s HealthCheckPlugin (packages/server) — a plain 200 on its own port, valid
-  # Prometheus exposition format, so this job's own `up{job=...}` gauge IS the healthcheck.
-  - job_name: server1-grpc-health
-    static_configs:
-      - targets: ["server1-grpc.server-apps.svc.cluster.local:9000"]
-
-  - job_name: server1-graphql-health
-    static_configs:
-      - targets: ["server1-graphql.server-apps.svc.cluster.local:9000"]
-
-  - job_name: server2-grpc-health
-    static_configs:
-      - targets: ["server2-grpc.server-apps.svc.cluster.local:9000"]
-
-  - job_name: server2-graphql-health
-    static_configs:
-      - targets: ["server2-graphql.server-apps.svc.cluster.local:9000"]
+  # per-server exporter/healthcheck gets a manually-added static target here, cross-namespace via
+  # its own chart's Service FQDN (<service>.<namespace>.svc.cluster.local:<port>).
 
   # Native Prometheus exporter, enabled via services/apollo/helm/values.yaml's
   # telemetry.exporters.metrics.prometheus block — no auth, plain HTTP.

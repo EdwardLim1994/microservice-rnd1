@@ -1,3 +1,0 @@
-# Layered on top of values.yaml for a prod apply (`helm upgrade -f values.yaml -f
-# values-prod.yaml`) — matches services/cert-manager-config/helm's values-prod.yaml pattern.
-replicas: 2

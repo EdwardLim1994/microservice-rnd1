@@ -26,4 +26,6 @@ writeFileSync(
     `router:\n  supergraphFile: |\n${indented}\n`,
 );
 
-log.success('services/apollo/helm/values.supergraph.yaml (+composed supergraph)');
+log.success(
+  'services/apollo/helm/values.supergraph.yaml (+composed supergraph)',
+);

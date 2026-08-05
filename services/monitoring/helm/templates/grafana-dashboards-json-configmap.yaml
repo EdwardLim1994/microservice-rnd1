@@ -19,9 +19,8 @@ data:
   k8s-workload-detail.json: |
 {{ .Files.Get "files/grafana-dashboard-k8s-workload-detail.json" | indent 4 }}
   # Same grid pattern as services-overview.json, scoped to the server-apps namespace (the
-  # apps/servers/* app Deployments themselves — server1-grpc, server1-graphql, server2-grpc,
-  # server2-graphql). Kept separate from Servers Infra Overview below on purpose: app tier and
-  # infra tier don't mix into one grid.
+  # apps/servers/* app Deployments themselves). Kept separate from Servers Infra Overview below
+  # on purpose: app tier and infra tier don't mix into one grid.
   servers-app-overview.json: |
 {{ .Files.Get "files/grafana-dashboard-servers-app-overview.json" | indent 4 }}
   # Same grid pattern, scoped to the server-infra namespace (Postgres/Redis/Debezium for every

@@ -1,11 +1,5 @@
 federation_version: 2
-subgraphs:
-  server1-graphql:
-    # startStandaloneServer (packages/server/src/driver/startStandaloneServerTls.ts) serves at "/", not "/graphql".
-    routing_url: http://server1-graphql.server-apps.svc.cluster.local:4001/
-    schema:
-      file: ../../apps/servers/server1-graphql/src/schemas/graphql/server1-graphql.graphql
-  server2-graphql:
-    routing_url: http://server2-graphql.server-apps.svc.cluster.local:4002/
-    schema:
-      file: ../../apps/servers/server2-graphql/src/schemas/graphql/server2-graphql.graphql
+# No subgraphs yet — server1-graphql/server2-graphql were removed. `rover supergraph compose`
+# needs at least one subgraph to produce a valid schema; add the first new subgraph here before
+# running `bun run supergraph` again.
+subgraphs: {}

@@ -1,7 +1,0 @@
-# Every apps/servers/* chart shares this namespace (see apps/servers/Tiltfile's Namespace
-# declaration) — matches how every services/* chart shares "infra".
-namespace: server-apps
-
-# Dev default: one pod is enough for Tilt-driven local iteration. values-prod.yaml layers on
-# top for a real deploy (`helm upgrade -f values.yaml -f values-prod.yaml`).
-replicas: 1

@@ -10,8 +10,3 @@ metadata:
   name: server-apps
 """))
 
-include("./server1-grpc/Tiltfile")
-include("./server1-graphql/Tiltfile")
-include("./server2-grpc/Tiltfile")
-include("./server2-graphql/Tiltfile")
-include("./log-collector/Tiltfile")

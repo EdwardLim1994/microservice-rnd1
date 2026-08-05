@@ -1,1 +1,0 @@
-export type AuthContextType = Record<string, never>;

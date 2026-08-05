@@ -122,7 +122,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /tmp/kraft-combined-logs
-        # Sidecar, not a separate Deployment — same reasoning as server1-grpc-infra's
+        # Sidecar, not a separate Deployment — same reasoning as server1-infra's
         # postgres-exporter/redis-exporter: talks to Kafka over localhost, scraped by Prometheus
         # via this StatefulSet's Service on the "metrics" port below. Talks Kafka's own wire
         # protocol (no JMX agent to wire into the broker JVM).

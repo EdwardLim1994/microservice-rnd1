@@ -1,20 +1,33 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+# Project context — shown to AI when creating artifacts.
+# Agent-agnostic: compatible with Claude Code, Cursor, local LLM agents, human developers.
+context: |
+  Turborepo monorepo (Bun runtime) with GraphQL Federation (Apollo Router), gRPC
+  microservices, Kafka event streaming with Debezium CDC, and Kubernetes-native local
+  development via Tilt + Helm + k3d.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  No concrete reference implementations exist on disk right now (server1/server2/web1/mfe1
+  were removed). Follow the structural patterns in .claude/skills/backend-server-anatomy/,
+  graphql-subgraph-anatomy/, frontend-webapp-anatomy/, code-generation-pipeline/ instead.
+
+  Never manually scaffold a new server/web/mfe — use `bun run generate` (Plop generators).
+
+  Generated code — never describe edits to these paths in a proposal/design, they are
+  regenerated, not hand-written:
+    - packages/api/src/generated/**
+    - apps/servers/*/generated/prisma/**
+
+  Naming: changes/YYYY-MM-DD-{slug}/, each change requires proposal.md, design.md, tasks.md.
+  Archive location: changes/archive/YYYY-MM-DD-{slug}/.
+
+  GitHub integration: Milestones are used as sprints. Labels: status: ready / in-progress /
+  in-review / blocked. Close issues via PR body `Closes #N`.
+
+# Per-artifact rules — the entries for an artifact apply only when writing that artifact.
+rules:
+  design:
+    - Include a section on proto/GraphQL/Prisma contract changes when the change touches one
+    - Include a section on Helm values/template changes when the change touches infra
+    - Include a section on new or modified Kafka topics when the change touches messaging
+    - Note dependencies on other in-flight stories/issues explicitly

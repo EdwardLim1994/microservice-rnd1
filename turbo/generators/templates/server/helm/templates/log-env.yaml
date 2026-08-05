@@ -8,7 +8,7 @@ data:
   # Fully-qualified — services/kafka lives in the "infra" namespace, a different one than this
   # server's own "server-apps" (see apps/servers/Tiltfile's Namespace declaration). LoggerPlugin
   # (packages/server) reads this to publish every log.info()/warn()/error() call onto Kafka's
-  # shared "log-events" topic, consumed by apps/servers/log-collector and pushed into Loki — see
-  # LoggerPlugin's own header comment for why this exists alongside, not instead of, Alloy's
-  # container-log tailing.
+  # shared "log-events" topic — see LoggerPlugin's own header comment for why this exists
+  # alongside, not instead of, Alloy's container-log tailing. No consumer currently reads this
+  # topic (the previous one, apps/servers/log-collector, was removed).
   KAFKA_BROKERS: kafka.infra.svc.cluster.local:9092

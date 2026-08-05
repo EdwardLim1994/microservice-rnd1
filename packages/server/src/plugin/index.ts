@@ -8,8 +8,8 @@ export {
 } from './AuthentikPlugin';
 export { HealthCheckPlugin } from './HealthCheckPlugin';
 export {
-  type LogEvent,
   LOG_EVENTS_TOPIC,
+  type LogEvent,
   type Logger,
   LoggerPlugin,
   type LogStatus,

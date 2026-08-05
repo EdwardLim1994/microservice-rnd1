@@ -1,6 +1,0 @@
-apiVersion: v2
-name: server2-grpc-infra
-description: server2-grpc's deploy-once infra (postgres, debezium, Vault provisioning) — split from server2-grpc's own app chart so it deploys once via Terraform instead of being re-applied on every `tilt up`.
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

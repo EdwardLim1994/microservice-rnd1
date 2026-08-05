@@ -39,16 +39,27 @@ export async function cacheAsideAll<T extends { id: string }>(
   return [...cached, ...backfilled];
 }
 
-async function scanAndMget<T>(redis: RedisClient, pattern: string): Promise<T[]> {
+async function scanAndMget<T>(
+  redis: RedisClient,
+  pattern: string,
+): Promise<T[]> {
   const keys: string[] = [];
   let cursor = '0';
   do {
-    const [next, batch] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+    const [next, batch] = await redis.scan(
+      cursor,
+      'MATCH',
+      pattern,
+      'COUNT',
+      100,
+    );
     cursor = next;
     keys.push(...batch);
   } while (cursor !== '0');
 
   if (keys.length === 0) return [];
   const values = await redis.mget(...keys);
-  return values.filter((v): v is string => v !== null).map((v) => JSON.parse(v));
+  return values
+    .filter((v): v is string => v !== null)
+    .map((v) => JSON.parse(v));
 }

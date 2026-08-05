@@ -1,1 +1,0 @@
-export type Server1GraphqlContextType = Record<string, never>;

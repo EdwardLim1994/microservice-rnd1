@@ -27,9 +27,8 @@ declare -A APPS=(
   [8115]="infra svc/meilisearch 7700 18088"
   # apps/web and apps/mfe charts, not services/* — remote port is each one's rsbuild dev-server
   # port (see their own rsbuild.config.ts), since Tilt only ever runs the Dockerfile's
-  # "development" target locally.
-  [8120]="apps svc/web1 3000 18089"
-  [8125]="apps svc/mfe1 3001 18090"
+  # "development" target locally. No apps/web or apps/mfe workspace currently scaffolded —
+  # add its own [port]="apps svc/<name> <remote-port> <local-port>" entry here once one exists.
 )
 
 PF_PIDS=()

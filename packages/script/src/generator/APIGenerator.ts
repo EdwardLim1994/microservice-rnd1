@@ -1,7 +1,11 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import { collectSubDirExports, pascalCase, writeSubDirBarrels } from '../helper/barrel';
+import {
+  collectSubDirExports,
+  pascalCase,
+  writeSubDirBarrels,
+} from '../helper/barrel';
 import { checkDependency, log } from '../helper/common';
 
 export default class APIGenerator {

@@ -48,7 +48,6 @@ spec:
             # Grafana core ships a Postgres datasource built in but not Redis — this installs the
             # community redis-datasource plugin at container start (Grafana's own documented
             # mechanism, https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/#install-plugins-from-other-sources).
-            # See apps/servers/server1-grpc/grafana-datasources.yaml for the datasource itself.
             #
             # A GraphQL-via-Infinity-plugin datasource (yesoreyeram-infinity-datasource) was tried
             # here for querying Apollo Router from Grafana — dropped: clunky query editor (has to
@@ -72,12 +71,6 @@ spec:
             - name: provisioning
               mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
               subPath: datasources.yaml
-            - name: provisioning
-              mountPath: /etc/grafana/provisioning/datasources/server1-grpc.yaml
-              subPath: server1-grpc-datasources.yaml
-            - name: provisioning
-              mountPath: /etc/grafana/provisioning/datasources/server2-grpc.yaml
-              subPath: server2-grpc-datasources.yaml
             - name: provisioning
               mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
               subPath: dashboards.yaml

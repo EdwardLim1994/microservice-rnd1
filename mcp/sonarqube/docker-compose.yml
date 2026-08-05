@@ -1,5 +1,0 @@
-services:
-  sonarqube:
-    image: mcp/sonarqube:latest
-    env_file:
-      - path: .env

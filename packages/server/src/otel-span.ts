@@ -31,20 +31,24 @@ export async function withServerSpan<T>(
   const tracer = container.resolve(
     'otelTracer',
   ) as import('@opentelemetry/api').Tracer;
-  return tracer.startActiveSpan(name, { kind: SpanKind.SERVER }, async (span) => {
-    try {
-      const result = await fn();
-      span.setStatus({ code: SpanStatusCode.OK });
-      return result;
-    } catch (err) {
-      span.recordException(err as Error);
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: (err as Error).message,
-      });
-      throw err;
-    } finally {
-      span.end();
-    }
-  });
+  return tracer.startActiveSpan(
+    name,
+    { kind: SpanKind.SERVER },
+    async (span) => {
+      try {
+        const result = await fn();
+        span.setStatus({ code: SpanStatusCode.OK });
+        return result;
+      } catch (err) {
+        span.recordException(err as Error);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: (err as Error).message,
+        });
+        throw err;
+      } finally {
+        span.end();
+      }
+    },
+  );
 }

@@ -79,13 +79,16 @@ test('logger.info() publishes a LogEvent with service/status/message/file/line',
   const plugin = new LoggerPlugin(container, 'my-service', mock.createKafka);
   await plugin.onStart();
 
-  const logger = container.resolve<import('../../src/plugin/LoggerPlugin').Logger>('logger');
+  const logger =
+    container.resolve<import('../../src/plugin/LoggerPlugin').Logger>('logger');
   logger.info('hello world');
   await new Promise((r) => setTimeout(r, 0));
 
   expect(mock.state.sent).toHaveLength(1);
   expect(mock.state.sent[0]?.topic).toBe(LOG_EVENTS_TOPIC);
-  const event: LogEvent = JSON.parse(mock.state.sent[0]?.messages[0]?.value ?? '{}');
+  const event: LogEvent = JSON.parse(
+    mock.state.sent[0]?.messages[0]?.value ?? '{}',
+  );
   expect(event.service).toBe('my-service');
   expect(event.status).toBe('info');
   expect(event.message).toBe('hello world');
@@ -100,11 +103,14 @@ test('logger.error() sets status to "error"', async () => {
   const plugin = new LoggerPlugin(container, 'my-service', mock.createKafka);
   await plugin.onStart();
 
-  const logger = container.resolve<import('../../src/plugin/LoggerPlugin').Logger>('logger');
+  const logger =
+    container.resolve<import('../../src/plugin/LoggerPlugin').Logger>('logger');
   logger.error('boom');
   await new Promise((r) => setTimeout(r, 0));
 
-  const event: LogEvent = JSON.parse(mock.state.sent[0]?.messages[0]?.value ?? '{}');
+  const event: LogEvent = JSON.parse(
+    mock.state.sent[0]?.messages[0]?.value ?? '{}',
+  );
   expect(event.status).toBe('error');
 });
 
@@ -115,7 +121,8 @@ test('a failed send() falls back to console instead of throwing', async () => {
   const plugin = new LoggerPlugin(container, 'my-service', mock.createKafka);
   await plugin.onStart();
 
-  const logger = container.resolve<import('../../src/plugin/LoggerPlugin').Logger>('logger');
+  const logger =
+    container.resolve<import('../../src/plugin/LoggerPlugin').Logger>('logger');
   expect(() => logger.info('will fail to send')).not.toThrow();
   await new Promise((r) => setTimeout(r, 0));
 });

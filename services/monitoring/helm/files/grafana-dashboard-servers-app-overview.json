@@ -1,7 +1,7 @@
 {
   "title": "Servers App Overview",
   "uid": "servers-app-overview",
-  "description": "The apps/servers/* app Deployments themselves (server1-grpc, server1-graphql, server2-grpc, server2-graphql — server-apps namespace, Tilt-iterated). Their Postgres/Redis/Debezium infra lives in the separate Servers Infra Overview dashboard instead, on purpose — the two tiers don't mix into one grid. Empty rows mean that namespace/chart hasn't been applied yet, not a dashboard error.",
+  "description": "The apps/servers/* app Deployments themselves (server-apps namespace, Tilt-iterated). Their Postgres/Redis/Debezium infra lives in the separate Servers Infra Overview dashboard instead, on purpose — the two tiers don't mix into one grid. Empty rows mean that namespace/chart hasn't been applied yet, not a dashboard error.",
   "editable": true,
   "timezone": "browser",
   "time": { "from": "now-1h", "to": "now" },
@@ -34,7 +34,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "App servers (server1-grpc / server1-graphql / server2-grpc / server2-graphql)",
+      "title": "App servers",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
     },
     {

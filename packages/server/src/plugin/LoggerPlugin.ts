@@ -2,12 +2,12 @@ import { type AwilixContainer, asValue } from 'awilix';
 import { Kafka, type KafkaConfig, type Producer } from 'kafkajs';
 import { BasePlugin } from '../abstract/BasePlugin';
 
-/** Every server publishes onto this one shared topic — log-collector (apps/servers/log-collector) is its only consumer. */
+/** Every server publishes onto this one shared topic. No consumer currently exists in this repo — apps/servers/log-collector, the previous consumer, was removed. */
 export const LOG_EVENTS_TOPIC = 'log-events';
 
 export type LogStatus = 'info' | 'warn' | 'error';
 
-/** What actually lands in Kafka, one JSON message per log call — log-collector maps this straight onto a Loki push (see its own ItemLogRouter... LogEventRouter). */
+/** What actually lands in Kafka, one JSON message per log call. */
 export interface LogEvent {
   service: string;
   timestamp: string;
@@ -73,9 +73,7 @@ export class LoggerPlugin extends BasePlugin {
 
   /** Connects a producer (provisioning the shared topic up front) and registers `logger` into the container. */
   async onStart(): Promise<void> {
-    const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:29092').split(
-      ',',
-    );
+    const brokers = (process.env.KAFKA_BROKERS ?? 'localhost:29092').split(',');
     const kafka = this.createKafka({
       brokers,
       clientId: `${this.serviceName}-logger`,

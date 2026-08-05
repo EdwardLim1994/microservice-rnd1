@@ -1,6 +1,0 @@
-apiVersion: v2
-name: server2-graphql
-description: server2-graphql server
-type: application
-version: 0.1.0
-appVersion: "0.1.0"

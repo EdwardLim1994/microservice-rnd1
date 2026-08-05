@@ -1,4 +1,0 @@
-include:
-  - ./sonarqube/docker-compose.yml
-  - ./context7/docker-compose.yml
-  - ./playwright/docker-compose.yml

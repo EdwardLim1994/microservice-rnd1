@@ -1,3 +1,2 @@
 include:
-  - ./mcp/docker-compose.yml
   - ./apps/docker-compose.yml
