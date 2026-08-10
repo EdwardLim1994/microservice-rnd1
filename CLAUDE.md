@@ -90,3 +90,110 @@ Plop-based scaffolding, registered in `turbo/generators/config.ts`:
 Generator actions register through `plop.setActionType`, which is a single global registry keyed by name (not scoped per generator) — never reuse an action name across generators, it will silently overwrite the earlier registration.
 
 Note: newly-scaffolded servers/frontends get a `helm/` chart + `Tiltfile` generated automatically (see "Tilt + Helm" above), not a `docker-compose.yml`. A server's database/redis/debezium extensions do generate Terraform-applied output (its `-infra` chart, picked up by `apps/terraform`'s `fileset` glob) — that's the one place scaffolding targets Terraform instead of Tilt.
+
+---
+
+## SDLC System
+
+This project uses a complete autonomous SDLC system.
+Skills: .claude/skills/ | Commands: .claude/commands/
+
+### Edward's Approval Commands (run these yourself)
+/start "{feature}"               — SDLC entry point: begins planning
+/kickoff v{X}.{Y}.{Z}           — approve sprint start, creates all branches
+/approve-story KAN-{N}          — approve story merge + UAT deployment
+/release-staging v{X}.{Y}.{Z}   — approve staging release
+/release-production v{X}.{Y}.{Z} — approve production release
+
+Situational:
+/rollback v{X}.{Y}.{Z}          — production failure recovery
+/escalate KAN-{N}               — surface decision to Edward
+
+### Phase Structure
+Phase 1: Discovery & Planning
+Phase 2: Development
+Phase 3: UAT (per story, ephemeral ArgoCD namespace)
+Phase 4: Staging (full release, QA performance + stress)
+Phase 5: Release (production deployment)
+Phase 6: Retrospective
+
+### Branch Hierarchy
+release/v{X}.{Y}.{Z}
+└── us/{KAN-N}-{story}
+    ├── feat/{KAN-N}-{feature}
+    │   ├── task/{KAN-N}-{task}         ← developer (NEVER first — api/ goes first)
+    │   ├── api/{KAN-N}-{schema}        ← Data Engineer (ALWAYS MERGES FIRST)
+    │   ├── qa/{KAN-N}-{tests}          ← QA Engineer
+    │   ├── security/{KAN-N}-{config}   ← Security (feature-level)
+    │   └── bugfix/{KAN-N}-{fix}        ← feature-level bugs
+    ├── security/{KAN-N}-{config}       ← story-level security
+    ├── devops/{KAN-N}-{infra}          ← story-level DevOps
+    └── bugfix/{KAN-N}-{fix}            ← story-level bugs
+
+### Hard Sequencing Rules (NEVER violate)
+1. api/ branch MUST merge to feat/ BEFORE any task/ branches start
+2. Data Engineer api-type-generation MUST complete before devs start
+3. Backend Developer MUST complete + PR merged before Frontend/Mobile integrate
+4. Security compliance-code-review MUST clear BEFORE PM adds uat-ready label
+5. /approve-story requires ALL labels: qa: uat-approved, po: uat-approved, security: cleared
+
+### Kanban Conventions
+Tool: fulsomenko/kanban (kanban-cli)
+File: .kanban/boards.json (committed to repo)
+Branch → Card sync: GitHub Actions auto-syncs PR state → kanban card
+
+Card types:
+  type: epic | story | feature | task | api | qa | security | devops |
+  bug-feature | bug-story | bug-release | hotfix | tech-debt | risk
+
+### UAT Convention
+PM adds uat-ready label → ArgoCD creates uat-{branch-slug} namespace
+QA + PO test in PARALLEL at uat-{KAN-N}.uat.internal
+PM removes uat-ready label → namespace auto-destroys
+
+### SonarQube Quality Gates
+Blocker + Critical + Major → PR blocked, fix current sprint
+Minor + Info → warning, backlog
+New code coverage ≥ 80% | Overall coverage ≥ 70%
+Security rating ≥ A | Zero new vulnerabilities
+
+### Performance SLAs (Staging — hard floors)
+GraphQL query:    p99 ≤ 500ms
+GraphQL mutation: p99 ≤ 1000ms
+gRPC call:        p99 ≤ 200ms
+Kafka consumer:   p99 ≤ 100ms
+
+### Scaffolding Rules (NEVER violate)
+ALWAYS use bun turbo gen — NEVER scaffold manually.
+Backend: server → then router/usecase/repository (level 2).
+Frontend/Mobile: webapp → module → page/component/hook/usecase.
+Class generation order: repository → usecase → router → wire in app.ts
+
+### Generated Code (NEVER EDIT THESE)
+packages/api/src/generated/
+apps/servers/*/generated/prisma/
+
+Regenerate after:
+.proto changes    → bun run gen
+.graphql changes  → bun run gen
+schema.prisma     → bun run gen
+After graphql:    → bun run supergraph
+
+### Environment Split
+Local (docker compose):     PostgreSQL, Redis per service
+SIT cluster (shared):       Kafka, Authentik, Apicurio, Vault, Traefik
+All devs point at SIT for shared infra — never run locally.
+Debezium: local docker compose but POINTS AT SIT Kafka.
+
+### Local ZAP Scan (before any PR with public-facing endpoints)
+cd test/zap && docker compose run zap-baseline
+
+### Docs Convention
+Technical Writer writes alongside PRs (same PR as code).
+Writes ONLY to apps/docs/src/content/internal/latest/
+Never writes to openspec/ or contracts/.
+
+### Agent Portability Note
+Skills in .claude/skills/ are agent-agnostic SOPs.
+Future migration: copy to .opencode/skills/ for other coding agents.
+Never use Claude-specific language in skill files.
