@@ -30,12 +30,14 @@ locals {
     "meilisearch",
     "minio",
     "monitoring",
+    "unleash",
   ])
 
   # Every one of these is duplicated by hand across two independent Helm releases today (see
   # each app's own values.yaml — "must match services/authentik/helm/values.yaml's
-  # <app>OidcClientSecret"). Only meaningful in prod (see the set_sensitive blocks below) — dev
-  # keeps the hand-typed matched placeholders already in each chart's values.yaml, unchanged.
+  # <app>OidcClientSecret"). Only meaningful on a non-dev cluster (see the set_sensitive blocks
+  # below) — dev keeps the hand-typed matched placeholders already in each chart's values.yaml,
+  # unchanged.
   oidc_secret_overrides = {
     authentik = {
       "minioOidcClientSecret"                      = random_password.minio_oidc_client_secret.result
@@ -61,7 +63,7 @@ locals {
 
 # Cheap, side-effect-free — always created regardless of environment (referencing them from a
 # count/for_each = 0 resource in a dev apply would itself be a plan-time error, not just a no-op).
-# Only actually used, via oidc_secret_overrides above, when environment = "prod".
+# Only actually used, via oidc_secret_overrides above, when environment != "dev".
 resource "random_password" "minio_oidc_client_secret" {
   length  = 32
   special = false
@@ -87,11 +89,12 @@ resource "helm_release" "service" {
   wait    = false
   timeout = 300
 
-  # Chart's own values.yaml (dev-mode defaults, safe to commit) always applies first. On a prod
-  # apply, each chart's values-prod.yaml — where one exists — layers on top as a Helm values file,
-  # same mechanism as `helm upgrade -f values.yaml -f values-prod.yaml`. Charts with nothing prod
-  # differs on (kafka, meilisearch, ...) simply have no values-prod.yaml and this is a no-op for
-  # them.
+  # Chart's own values.yaml (dev-mode defaults, safe to commit) always applies first. On any
+  # non-dev apply (sit/uat/staging/prod), each chart's values-nondev.yaml — where one exists —
+  # layers on top as a Helm values file, same mechanism as `helm upgrade -f values.yaml -f
+  # values-nondev.yaml`. Nothing today differs between the four real clusters, so they share one
+  # file rather than one each. Charts with nothing non-dev differs on (kafka, meilisearch, ...)
+  # simply have no values-nondev.yaml and this is a no-op for them.
   #
   # values-tailscale.yaml (authentik, monitoring only) layers on top unconditionally in dev —
   # no LAN/tailscale toggle. Points Grafana's OAuth
@@ -102,14 +105,14 @@ resource "helm_release" "service" {
     var.environment == "dev" && fileexists("${path.module}/../${each.key}/helm/values-tailscale.yaml")
     ? [file("${path.module}/../${each.key}/helm/values-tailscale.yaml")]
     : [],
-    var.environment == "prod" && fileexists("${path.module}/../${each.key}/helm/values-prod.yaml")
-    ? [file("${path.module}/../${each.key}/helm/values-prod.yaml")]
+    var.environment != "dev" && fileexists("${path.module}/../${each.key}/helm/values-nondev.yaml")
+    ? [file("${path.module}/../${each.key}/helm/values-nondev.yaml")]
     : []
   )
 
-  # Real secrets, never committed — only meaningful (and only required) for prod.
+  # Real secrets, never committed — only meaningful (and only required) for a non-dev cluster.
   dynamic "set_sensitive" {
-    for_each = var.environment == "prod" ? lookup(local.oidc_secret_overrides, each.key, {}) : {}
+    for_each = var.environment != "dev" ? lookup(local.oidc_secret_overrides, each.key, {}) : {}
     content {
       name  = set_sensitive.key
       value = set_sensitive.value
@@ -143,24 +146,24 @@ resource "helm_release" "vault" {
     var.environment == "dev" && fileexists("${path.module}/../vault/helm/values-tailscale.yaml")
     ? [file("${path.module}/../vault/helm/values-tailscale.yaml")]
     : [],
-    var.environment == "prod" && fileexists("${path.module}/../vault/helm/values-prod.yaml")
-    ? [file("${path.module}/../vault/helm/values-prod.yaml")]
+    var.environment != "dev" && fileexists("${path.module}/../vault/helm/values-nondev.yaml")
+    ? [file("${path.module}/../vault/helm/values-nondev.yaml")]
     : []
   )
 
   # k8s-auth-provision-job.yaml's dev-mode branch bootstraps with the literal `.Values.rootToken`
   # (not a live read of the Secret) — matches vault-secret's own value only if rootToken is
   # something other than its "vaultroottoken" default, which is what makes secret.yaml skip
-  # randomizing it (see that file's own comment). Only matters in dev — prod's values-prod.yaml
-  # sets devMode: false, and that job's prod branch never reads rootToken at all. Ignored (and
-  # harmless) in prod for the same reason.
+  # randomizing it (see that file's own comment). Only matters in dev — values-nondev.yaml
+  # sets devMode: false on every real cluster, and that job's non-dev branch never reads
+  # rootToken at all. Ignored (and harmless) there for the same reason.
   set {
     name  = "rootToken"
     value = "terraform-local-dev-vault-token"
   }
 
   dynamic "set_sensitive" {
-    for_each = var.environment == "prod" ? local.oidc_secret_overrides.vault : {}
+    for_each = var.environment != "dev" ? local.oidc_secret_overrides.vault : {}
     content {
       name  = set_sensitive.key
       value = set_sensitive.value
@@ -211,11 +214,11 @@ resource "helm_release" "cert-manager-config" {
   wait      = false
   timeout   = 300
 
-  # Prod-mode Issuer authenticates to vault via Kubernetes auth instead of the dev root token —
+  # Non-dev Issuer authenticates to vault via Kubernetes auth instead of the dev root token —
   # see cert-manager-config/helm/templates/issuer.yaml.
   values = (
-    var.environment == "prod" && fileexists("${path.module}/../cert-manager-config/helm/values-prod.yaml")
-    ? [file("${path.module}/../cert-manager-config/helm/values-prod.yaml")]
+    var.environment != "dev" && fileexists("${path.module}/../cert-manager-config/helm/values-nondev.yaml")
+    ? [file("${path.module}/../cert-manager-config/helm/values-nondev.yaml")]
     : []
   )
 

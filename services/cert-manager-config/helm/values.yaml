@@ -1,7 +1,7 @@
 namespace: infra
 
 # dev mode: Issuer authenticates to vault with the same root token every other dev-mode
-# provisioning job uses (see issuer.yaml). values-prod.yaml sets this false, switching to Vault's
+# provisioning job uses (see issuer.yaml). values-nondev.yaml sets this false, switching to Vault's
 # Kubernetes auth method against the "cert-manager-issuer" role (see services/vault/helm/
 # templates/k8s-auth-provision-job.yaml) via a static ServiceAccount-token Secret instead.
 devMode: true

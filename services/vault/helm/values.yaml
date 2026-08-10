@@ -3,7 +3,7 @@ namespace: infra
 image: hashicorp/vault:1.18
 
 # dev mode: in-memory storage, auto-unsealed, wiped on every restart, single static root token.
-# Fine for minikube, not for a real cluster — values-prod.yaml sets this false, switching
+# Fine for minikube, not for a real cluster — values-nondev.yaml sets this false, switching
 # statefulset.yaml to Raft storage + configmap.yaml's vault.hcl, and requires vault-init-job.yaml
 # to actually initialize/unseal it.
 devMode: true
@@ -25,8 +25,8 @@ persistence:
 jobRestartPolicy: Never
 
 # db-provision-job.yaml's connection to authentik-postgresql. "disable" only works because dev
-# mode's bundled Postgres doesn't offer TLS at all — values-prod.yaml sets "require" (encrypts
-# the wire) once authentik's values-prod.yaml also turns TLS on for that Postgres. Known gap:
+# mode's bundled Postgres doesn't offer TLS at all — values-nondev.yaml sets "require" (encrypts
+# the wire) once authentik's values-nondev.yaml also turns TLS on for that Postgres. Known gap:
 # this is "require", not "verify-full" — it stops passive wire sniffing but doesn't authenticate
 # the server's certificate, so it doesn't stop an on-path attacker impersonating the DB. Getting
 # to verify-full needs a CA both sides trust signing that Postgres's cert (e.g. cert-manager +

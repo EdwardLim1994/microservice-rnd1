@@ -1,2 +1,0 @@
-# Layered on top of values.yaml for a prod apply (services/terraform's `environment = "prod"`).
-devMode: false
