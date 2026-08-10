@@ -4,8 +4,7 @@ metadata:
   name: {{ name }}-kafka-env
 data:
   # Fully-qualified — services/kafka and services/apicurio-registry live in the "infra"
-  # namespace, a different one than this server's own "server-apps" (see
-  # apps/servers/Tiltfile's Namespace declaration).
+  # namespace, a different one than this server's own "server-apps".
   KAFKA_BROKERS: kafka.infra.svc.cluster.local:9092
   SCHEMA_REGISTRY_URL: http://apicurio-registry.infra.svc.cluster.local:8080/apis/ccompat/v7
 {{#if includeGroupId}}

@@ -60,9 +60,10 @@ spec:
       # Postgres container: initdb scripts run once, at Postgres's very first boot, before the
       # {{ name }}-migrate Job (a separate k8s Job) has any chance to create the table(s) below,
       # so `CREATE PUBLICATION ... FOR TABLE ...` there fails every time against a table that
-      # doesn't exist yet. This runs here instead, after {{ name }}-migrate is guaranteed done
-      # (see the Tiltfile's own resource_deps=["{{ name }}-migrate"] on this Deployment) — guarded
-      # idempotent (checks pg_publication first) since Debezium's own Deployment restarts.
+      # doesn't exist yet. This runs here instead, guarded idempotent (checks pg_publication
+      # first, retries via pg_isready) since Debezium's own Deployment restarts — but nothing
+      # enforces {{ name }}-migrate having already run before this Deployment's first rollout, so
+      # trigger it manually first if this is a fresh install.
       initContainers:
         - name: create-publication
           image: postgres:15.3-alpine

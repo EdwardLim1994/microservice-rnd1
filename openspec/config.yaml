@@ -5,7 +5,7 @@ schema: spec-driven
 context: |
   Turborepo monorepo (Bun runtime) with GraphQL Federation (Apollo Router), gRPC
   microservices, Kafka event streaming with Debezium CDC, and Kubernetes-native local
-  development via Tilt + Helm + k3d.
+  development via Helm + k3d.
 
   No concrete reference implementations exist on disk right now (server1/server2/web1/mfe1
   were removed). Follow the structural patterns in .claude/skills/backend-server-anatomy/,

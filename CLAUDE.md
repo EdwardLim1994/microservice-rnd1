@@ -14,10 +14,10 @@ Bun + Turborepo monorepo. Run everything from repo root; Turbo fans out to works
 - `bun run gen` — `turbo run gen` (codegen, e.g. GraphQL codegen) then rebuilds `api` specifically
 - `bun run generate` — `turbo gen`, runs the Plop generators under `turbo/generators/` (see below)
 - `bun run supergraph` — builds/composes the Apollo Federation supergraph
-- `bun run k8s:build` — builds workspace Docker images for the local cluster (k3d: no separate docker-env step needed — Tilt's own `docker_build()` calls already `k3d image import` automatically; this script is for building outside Tilt)
+- `bun run k8s:build` — builds workspace Docker images for the local cluster (k3d: `k3d image import` still needed to get a locally-built image into the cluster, since nothing runs that automatically anymore — see "Helm" below)
 - `bun run release:cut` / `release:bump-rc` / `release:promote` / `release:hotfix` / `release:touched-apps` — release flows, all implemented in `packages/script/src/bin/release-manager.ts`
-- `tilt up` from repo root — the primary way to run `apps/servers/`, `apps/web/`, `apps/mfe/` locally. Root `Tiltfile` `include()`s only `apps/Tiltfile`, which in turn includes `apps/docs/Tiltfile`, `apps/servers/Tiltfile`, `apps/web/Tiltfile`, `apps/mfe/Tiltfile`; each workspace's own `Tiltfile` renders its `helm/` chart via Tilt's `helm()` and `docker_build()`s any locally-built images. No server/web/mfe workspace is currently scaffolded, so `apps/servers`, `apps/web`, `apps/mfe` only declare their shared Namespace object (`server-apps`/`apps`) right now — `bun run generate` scaffolds the first one. `services/*` is NOT Tilt-managed (see "services/ (deployed via Terraform, not Tilt)" below) — apply it once with `terraform apply` in `services/terraform` before `tilt up`, so its Jobs (Vault provisioning, DB migrations) are already satisfied. Chart dependencies (e.g. `services/traefik/helm`, `services/authentik/helm`) aren't fetched by Tilt/Terraform — run `helm dependency update <chart-dir>` manually after editing a `Chart.yaml`'s `dependencies:`.
-- `docker compose up` from repo root — largely vestigial at this point. Root `docker-compose.yml` `include:`s only `apps/docker-compose.yml`, which is currently empty; `services/*` has no compose files at all anymore (that migrated fully to Terraform/Helm, see below). Don't rely on this path for local dev — use `tilt up`.
+- No local-dev orchestrator currently wires up `apps/servers/`, `apps/web/`, `apps/mfe/` — each workspace still owns a `helm/` chart + `Dockerfile` (see "Helm" below), but building/deploying them locally is a manual `docker build` + `k3d image import` + `helm install` today. `services/*` is Terraform-applied (see "services/ (deployed via Terraform)" below) — apply it once with `terraform apply` in `services/terraform`, so its Jobs (Vault provisioning, DB migrations) are already satisfied. Chart dependencies (e.g. `services/traefik/helm`, `services/authentik/helm`) aren't fetched by Terraform — run `helm dependency update <chart-dir>` manually after editing a `Chart.yaml`'s `dependencies:`.
+- `docker compose up` from repo root — largely vestigial at this point. Root `docker-compose.yml` `include:`s only `apps/docker-compose.yml`, which is currently empty; `services/*` has no compose files at all anymore (that migrated fully to Terraform/Helm, see below). Don't rely on this path for local dev.
 
 ## Architecture
 
@@ -27,34 +27,34 @@ Bun + Turborepo monorepo. Run everything from repo root; Turbo fans out to works
 - `apps/servers/*` — backend microservices, each a thin composition root over the shared `packages/server` framework, generated via `turbo gen server`. A server with a database extension gets a sibling `apps/servers/<name>-infra` chart (Postgres/Redis/Debezium — see "Per-server infra" below). Currently empty — no servers scaffolded.
 - `apps/mfe/*` — React Module Federation microfrontends (remote role), generated via `turbo gen web`. Currently empty — no remotes scaffolded.
 - `apps/web/*` — Module Federation host / plain (non-MF) web apps, generated via `turbo gen web`. Currently empty — no apps scaffolded.
-- `apps/{docs,mobile}` — docs site and mobile app. `apps/docs/Tiltfile` is a genuine placeholder (empty file).
+- `apps/{docs,mobile}` — docs site and mobile app.
 - `apps/terraform/` — Terraform root for every server's `-infra` chart (Postgres/Redis/Debezium), mirroring `services/terraform`'s pattern. Deploys into two fixed, shared namespaces (`server-infra`, `server-apps`) rather than one namespace pair per server; collisions are avoided by prefixing every object name with the server's own name.
 - `packages/*` — shared libraries: `server` (backend framework), `api` (shared GraphQL/API types, built with rslib), `config` (shared config), `script` (release tooling, CLI in `src/bin/`)
 - `test/e2e/` — API-level end-to-end tests (Vitest), see `test/e2e/README.md`; `test/zap` is a separate OWASP ZAP compose setup, see `test/zap/README.md`
 - `turbo/generators/` — Plop code generators, invoked via `bun run generate`
 
-### services/ (deployed via Terraform, not Tilt)
+### services/ (deployed via Terraform)
 
-`services/*` charts are applied once via `services/terraform` (`helm_release` per chart, `kube_context` defaults to `k3d-dev`) instead of being re-rendered by Tilt on every `tilt up` — a real Helm release is a k8s object like any other, so it survives a k3d cluster stop/start without redeploying. Run `terraform apply` there once per cluster; re-run only when a `services/*/helm` chart actually changes. `services/*` no longer has any `Tiltfile`.
+`services/*` charts are applied once via `services/terraform` (`helm_release` per chart, `kube_context` defaults to `k3d-dev`) — a real Helm release is a k8s object like any other, so it survives a k3d cluster stop/start without redeploying. Run `terraform apply` there once per cluster; re-run only when a `services/*/helm` chart actually changes.
 
-### Tilt + Helm (primary local-dev runtime for apps/servers, apps/web, apps/mfe — none currently scaffolded)
+### Helm (apps/servers, apps/web, apps/mfe — none currently scaffolded)
 
-Every `apps/servers/*`, `apps/web/*`, `apps/mfe/*` workspace owns a `helm/` chart (`Chart.yaml` + `values.yaml` + `templates/`) and a `Tiltfile`, included transitively from the root `Tiltfile` via `apps/Tiltfile`. `turbo gen server` / `turbo gen web` scaffold both automatically for new workspaces (`turbo/generators/templates/*/helm/` + `Tiltfile`), registering the new `Tiltfile` into its parent's include list. `apps/Tiltfile` includes all four of `apps/docs/Tiltfile`, `apps/servers/Tiltfile`, `apps/web/Tiltfile`, `apps/mfe/Tiltfile` — the last three currently just declare a shared Namespace object, since no workspace has been scaffolded under any of them yet.
+Every `apps/servers/*`, `apps/web/*`, `apps/mfe/*` workspace owns a `helm/` chart (`Chart.yaml` + `values.yaml` + `templates/`) and a `Dockerfile`, scaffolded together by `turbo gen server` / `turbo gen web` (`turbo/generators/templates/*/helm/`). There is currently no automated orchestrator for these: build the image (`docker build`), get it into the local cluster (`k3d image import`), and install/upgrade the chart (`helm install`/`helm upgrade`) by hand.
 
-Patterns established during the docker-compose → Tilt/helm migration:
+Patterns established during the docker-compose → Helm migration:
 - Simple single/multi-container infra (Meilisearch, MinIO, Apicurio Registry, Vault, Kafka) — hand-rolled charts, no upstream chart dependency; matches what the old compose file actually ran, nothing more.
 - Infra with a real, trustworthy upstream chart (Traefik, Authentik, Apollo Router, cert-manager) — that chart as a `dependencies:` entry in `Chart.yaml` instead of reinventing its RBAC/CRDs/subcharts. `charts/` (the fetched dependency `.tgz`s) is gitignored; `Chart.lock` is committed. Apollo Router's `router.yaml`/`supergraph.graphql` config lives inline in `values.yaml` under the dependency's own schema, not `.Files.Get` — that chart takes config as values, not mounted files.
-- A locally-built image (any generated server/frontend) — a `Dockerfile` + the workspace's `Tiltfile` calls `docker_build()`, referenced by tag from `helm/templates/*.yaml`.
+- A locally-built image (any generated server/frontend) — a `Dockerfile`, built and imported into the local cluster by hand, referenced by tag from `helm/templates/*.yaml`.
 - One-off provisioning tools (`rover`) — invoked directly (`rover supergraph compose`, see `packages/script/src/bin/compose-supergraph.ts`), not through Docker Compose; the `rover` CLI must be on `PATH` to run `bun run supergraph` locally.
 
-### Per-server infra (`apps/servers/<name>-infra`, Terraform-applied, not Tilt)
+### Per-server infra (`apps/servers/<name>-infra`, Terraform-applied)
 
-`turbo gen driver`'s server extensions each scaffold a piece of an `apps/servers/<name>-infra` chart, deployed once via `apps/terraform` (same `helm_release`-per-chart pattern as `services/terraform`) rather than re-rendered by Tilt on every `tilt up`:
+`turbo gen driver`'s server extensions each scaffold a piece of an `apps/servers/<name>-infra` chart, deployed once via `apps/terraform` (same `helm_release`-per-chart pattern as `services/terraform`):
 - `DatabaseGenerator` — Postgres + a Vault dynamic-credential `CronJob` (`db-provision-job.yaml`, re-mints creds on a schedule comfortably inside the lease TTL, patches the app's `Secret` and rolls its `Deployment`) instead of a static superuser password baked into a `ConfigMap`.
 - `RedisGenerator` — same shape for Redis, via Vault dynamic ACL users.
 - `DebeziumGenerator` — a per-server Debezium Server instance (one process per Postgres database captured), added on top of a Prisma-enabled server.
 
-All `-infra` charts land in one shared `server-infra` namespace, and every app chart lands in one shared `server-apps` namespace (not a dedicated namespace pair per server) — collisions are avoided by prefixing every object name with the server's own name instead. Tilt's own `helm()` has no live cluster access, so each server's own `Tiltfile` shells out to `kubectl get secret ... -n server-infra` to read the already-Terraform-applied `dbPassword`/`redisPassword` and pass them into the app chart via `set=[...]` — `apps/terraform` must be applied (after `services/terraform`, since provisioning auths against `services/vault`) before that server's own `tilt up` works.
+All `-infra` charts land in one shared `server-infra` namespace, and every app chart lands in one shared `server-apps` namespace (not a dedicated namespace pair per server) — collisions are avoided by prefixing every object name with the server's own name instead. `apps/terraform` must be applied (after `services/terraform`, since provisioning auths against `services/vault`) before that server's own app chart is installed.
 
 ### Backend server framework (`packages/server`)
 
@@ -81,15 +81,15 @@ Key pieces (all under `packages/server/src/`):
 ### Code generators (`turbo/generators/`)
 
 Plop-based scaffolding, registered in `turbo/generators/config.ts`:
-- `ServerCodeGenerator` — `turbo gen server` scaffolds a new `apps/servers/<name>` from `templates/server` (including a `helm/` chart + `Tiltfile`), and registers its `Tiltfile` into `apps/servers/Tiltfile`'s include list.
-- `FrontendCodeGenerator` — `turbo gen web` scaffolds `apps/web/<name>` or `apps/mfe/<name>` (including a `helm/` chart + `Tiltfile`), inferring host vs. remote Module Federation role from location, or a plain non-MF app. Also assigns a free dev port and registers the `Tiltfile` include.
+- `ServerCodeGenerator` — `turbo gen server` scaffolds a new `apps/servers/<name>` from `templates/server` (including a `helm/` chart + `Dockerfile`).
+- `FrontendCodeGenerator` — `turbo gen web` scaffolds `apps/web/<name>` or `apps/mfe/<name>` (including a `helm/` chart + `Dockerfile`), inferring host vs. remote Module Federation role from location, or a plain non-MF app. Also assigns a free dev port.
 - `ServerDriverGenerator` (`turbo gen driver`) — adds a protocol driver (gRPC, GraphQL Federation, Kafka, Cron) to an existing server; only offers drivers not already installed.
 - `ServerExtensionGenerator` — three separate generators, each scaffolding its own `apps/servers/<name>-infra` chart piece (see "Per-server infra" above): `turbo gen database`, `turbo gen redis`, `turbo gen debezium` (the last requires the database extension already installed).
-- `helpers.ts` — shared generator utilities: `copyWithSubstitutions` (Handlebars-templated file copy), `appendRootTiltfileInclude`, `wireHelmDeploymentConfigMap`, `findAvailableFrontendPort`.
+- `helpers.ts` — shared generator utilities: `copyWithSubstitutions` (Handlebars-templated file copy), `wireHelmDeploymentConfigMap`, `findAvailableFrontendPort`.
 
 Generator actions register through `plop.setActionType`, which is a single global registry keyed by name (not scoped per generator) — never reuse an action name across generators, it will silently overwrite the earlier registration.
 
-Note: newly-scaffolded servers/frontends get a `helm/` chart + `Tiltfile` generated automatically (see "Tilt + Helm" above), not a `docker-compose.yml`. A server's database/redis/debezium extensions do generate Terraform-applied output (its `-infra` chart, picked up by `apps/terraform`'s `fileset` glob) — that's the one place scaffolding targets Terraform instead of Tilt.
+Note: newly-scaffolded servers/frontends get a `helm/` chart + `Dockerfile` generated automatically (see "Helm" above), not a `docker-compose.yml`. A server's database/redis/debezium extensions do generate Terraform-applied output (its `-infra` chart, picked up by `apps/terraform`'s `fileset` glob).
 
 ---
 

@@ -478,33 +478,6 @@ export function collapseTrailingNewlines(raw: string, count = 1): string {
 }
 
 /**
- * Registers a newly-scaffolded <location>/<name>/Tiltfile in <location>'s own Tiltfile (itself
- * included by the root Tiltfile — see services/Tiltfile for the established pattern), so `tilt
- * up` from repo root actually brings it up. Shared by the "server" and "web" project generators,
- * both of which scaffold their own helm/ chart + Tiltfile but otherwise had no way to wire it in.
- */
-export function appendRootTiltfileInclude(
-	root: string,
-	location: string,
-	name: string,
-): string {
-	const locationTiltfilePath = path.join(root, location, "Tiltfile");
-	if (!fs.existsSync(locationTiltfilePath)) {
-		return `${path.relative(root, locationTiltfilePath)} not found, skipped`;
-	}
-	const line = `include("./${name}/Tiltfile")`;
-	const raw = fs.readFileSync(locationTiltfilePath, "utf-8");
-	if (raw.includes(line)) {
-		return `${path.relative(root, locationTiltfilePath)} already includes ${name}`;
-	}
-	fs.writeFileSync(
-		locationTiltfilePath,
-		`${collapseTrailingNewlines(raw)}${line}\n`,
-	);
-	return `${path.relative(root, locationTiltfilePath)} (+${name})`;
-}
-
-/**
  * Reads one apps/servers/<name>'s .env.sample (new `<envVar>=N` convention) and src/app.ts
  * (demo1/demo2's pre-existing hardcoded `port: N` literal on the matching driver entry) for a
  * port already in use, adding whatever it finds to `usedPorts` — the per-server half of

@@ -104,32 +104,14 @@ export function patchDbForDebezium(
 	// run exactly once, at Postgres's very first boot, on an empty data dir, before the migrate
 	// Job (an external k8s Job, applied and run separately) has any chance to create the
 	// table(s) being published. `CREATE PUBLICATION ... FOR TABLE <table>` against a table that
-	// doesn't exist yet fails outright every time — not a Tilt/ordering problem, initdb is
-	// structurally the wrong place for this. See helm-debezium.yaml.hbs's own initContainer,
+	// doesn't exist yet fails outright every time — not an ordering problem to fix here, initdb
+	// is structurally the wrong place for this. See helm-debezium.yaml.hbs's own initContainer,
 	// which creates the publication after the table is guaranteed to exist.
 
 	fs.writeFileSync(absDbYamlPath, raw);
 	return results.length > 0
 		? `${relToRoot(absDbYamlPath)} (${results.join(", ")})`
 		: `${relToRoot(absDbYamlPath)} already wired for Debezium`;
-}
-
-export function appendDebeziumTiltResource(absTiltfilePath: string, name: string): string {
-	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	if (raw.includes(`${name}-debezium`)) {
-		return `${relToRoot(absTiltfilePath)} already has ${name}-debezium resource`;
-	}
-	// Also depends on "${name}-migrate", not just "${name}-db": this Deployment's own
-	// create-publication initContainer (see helm-debezium.yaml.hbs) needs the table(s) it
-	// publishes to already exist, which only ${name}-migrate guarantees.
-	const snippet =
-		`\nk8s_resource(\n` +
-		`    "${name}-debezium",\n` +
-		`    resource_deps=["${name}-db", "${name}-migrate"],\n` +
-		`    labels=["servers"],\n` +
-		`)\n`;
-	fs.writeFileSync(absTiltfilePath, `${raw.trimEnd()}\n${snippet}`);
-	return `${relToRoot(absTiltfilePath)} (+${name}-debezium)`;
 }
 
 export default class DebeziumGenerator {
@@ -203,18 +185,9 @@ export default class DebeziumGenerator {
 			);
 		});
 
-		plop.setActionType("appendDebeziumTiltfile", (answers) => {
-			const { location } = answers as { location: string };
-			const name = path.basename(location);
-			return appendDebeziumTiltResource(
-				path.join(process.cwd(), location, "Tiltfile"),
-				name,
-			);
-		});
-
 		plop.setGenerator("debezium", {
 			description:
-				"Optionally add a Debezium Server instance (services/debezium's replacement — one process per server, not a shared Kafka Connect cluster) capturing an existing server's own Postgres via pgoutput: adds a debezium.yaml Deployment+ConfigMap, patches its db.yaml for wal_level=logical + a publication init script scoped to the table(s) you pick, and wires the Tiltfile resource — at least one table is required, no more capturing every table by default",
+				"Optionally add a Debezium Server instance (services/debezium's replacement — one process per server, not a shared Kafka Connect cluster) capturing an existing server's own Postgres via pgoutput: adds a debezium.yaml Deployment+ConfigMap, patches its db.yaml for wal_level=logical + a publication init script scoped to the table(s) you pick — at least one table is required, no more capturing every table by default",
 			prompts: [
 				{
 					type: "list",
@@ -263,7 +236,6 @@ export default class DebeziumGenerator {
 			actions: [
 				{ type: "injectDebeziumHelm" },
 				{ type: "patchDbForDebezium" },
-				{ type: "appendDebeziumTiltfile" },
 			],
 		});
 	}

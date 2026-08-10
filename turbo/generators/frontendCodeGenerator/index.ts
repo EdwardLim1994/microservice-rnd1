@@ -1,11 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
-import {
-	appendRootTiltfileInclude,
-	findAvailableFrontendPort,
-	findFrontendWorkspaces,
-} from "../helpers";
+import { findAvailableFrontendPort, findFrontendWorkspaces } from "../helpers";
 import ComponentGenerator from "./ComponentGenerator";
 import HookGenerator from "./HookGenerator";
 import ModuleGenerator from "./ModuleGenerator";
@@ -94,7 +90,7 @@ function copyTemplateDir(
 /**
  * A "web" (Rsbuild) generated project isn't a microfrontend at all, a Module Federation host
  * (consumes remotes, always under apps/web/), or a Module Federation remote (exposes itself to a
- * host, always under apps/mfe/) — see CLAUDE.md's "Tilt + Helm" section for why apps/web and
+ * host, always under apps/mfe/) — see CLAUDE.md's "Helm" section for why apps/web and
  * apps/mfe are the fixed targets rather than an asked-for location.
  */
 export default class FrontendCodeGenerator {
@@ -115,11 +111,6 @@ export default class FrontendCodeGenerator {
 			}
 
 			return `${data.location} (${written.length} files)`;
-		});
-
-		plop.setActionType("appendFrontendTiltfileInclude", (answers) => {
-			const { parentDir, name } = buildTemplateData(answers as Answers);
-			return appendRootTiltfileInclude(process.cwd(), parentDir, name);
 		});
 
 		plop.setGenerator("web", {
@@ -160,7 +151,7 @@ export default class FrontendCodeGenerator {
 					when: (answers: Partial<Answers>) => Boolean(answers.isMicrofrontend),
 				},
 			],
-			actions: [{ type: "scaffoldFrontendProject" }, { type: "appendFrontendTiltfileInclude" }],
+			actions: [{ type: "scaffoldFrontendProject" }],
 		});
 
 		ModuleGenerator.apply(plop, findFrontendWorkspaces(process.cwd()));

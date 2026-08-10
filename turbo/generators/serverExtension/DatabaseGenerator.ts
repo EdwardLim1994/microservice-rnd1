@@ -210,11 +210,11 @@ function appendDatabaseEnvBlock(
 }
 
 /**
- * Scans every apps/servers/* /Tiltfile for a host port-forward already bound to Postgres's
- * container port (5432) and returns the lowest port >= DEFAULT_DB_PORT not already taken —
- * e.g. demo1 has "5101:5432", so a second DB-enabled server gets 5102, not another 5101. This
- * port only matters for host-side `prisma` CLI access — kept as a stable-per-server local dev
- * convention even though the Postgres itself now lives in the separate <name>-infra chart.
+ * Scans every apps/servers/* /.env.sample for a DB_PORT already in use and returns the lowest
+ * port >= DEFAULT_DB_PORT not already taken — e.g. demo1 has DB_PORT=5101, so a second
+ * DB-enabled server gets 5102, not another 5101. This port only matters for host-side `prisma`
+ * CLI access — kept as a stable-per-server local dev convention even though the Postgres itself
+ * now lives in the separate <name>-infra chart.
  */
 function findAvailableDbPort(root: string): number {
 	const serversDir = path.join(root, "apps", "servers");
@@ -223,12 +223,10 @@ function findAvailableDbPort(root: string): number {
 	if (fs.existsSync(serversDir)) {
 		for (const entry of fs.readdirSync(serversDir, { withFileTypes: true })) {
 			if (!entry.isDirectory()) continue;
-			const tiltfilePath = path.join(serversDir, entry.name, "Tiltfile");
-			if (!fs.existsSync(tiltfilePath)) continue;
-			const raw = fs.readFileSync(tiltfilePath, "utf-8");
-			for (const match of raw.matchAll(/"(\d+):5432"/g)) {
-				usedPorts.add(Number(match[1]));
-			}
+			const envSamplePath = path.join(serversDir, entry.name, ".env.sample");
+			if (!fs.existsSync(envSamplePath)) continue;
+			const match = /^DB_PORT=(\d+)/m.exec(fs.readFileSync(envSamplePath, "utf-8"));
+			if (match) usedPorts.add(Number(match[1]));
 		}
 	}
 
@@ -293,11 +291,11 @@ function scaffoldInfraChart(
 }
 
 /**
- * Appends `infraNamespace: server-infra` / `dbPassword: ""` to the app chart's own, already
- * existing helm/values.yaml (created by the base "server" template) — a splice-append, not a
- * fresh `add` action, since that file already exists by the time this generator runs and a
- * `skipIfExists` "add" would silently skip writing these keys at all (confirmed the hard way:
- * this exact gap left a freshly-scaffolded server missing `dbProvision` entirely once already).
+ * Appends `infraNamespace: server-infra` to the app chart's own, already existing
+ * helm/values.yaml (created by the base "server" template) — a splice-append, not a fresh `add`
+ * action, since that file already exists by the time this generator runs and a `skipIfExists`
+ * "add" would silently skip writing this key at all (confirmed the hard way: this exact gap left
+ * a freshly-scaffolded server missing `dbProvision` entirely once already).
  * Idempotent: skips if "infraNamespace:" is already present.
  */
 function appendInfraNamespaceToValues(absValuesPath: string): string {
@@ -312,130 +310,10 @@ function appendInfraNamespaceToValues(absValuesPath: string): string {
 		`# templates reference for it has to be the fully-qualified cross-namespace form\n` +
 		`# (<name>-db.{{ .Values.infraNamespace }}.svc.cluster.local), not the bare in-namespace\n` +
 		`# name that would work if everything shared one chart/namespace.\n` +
-		`infraNamespace: server-infra\n\n` +
-		`# Bootstrap-only password override, empty by default — env.yaml's <name>-secret\n` +
-		`# (DATABASE_URL) falls back to a \`lookup\` of <name>-infra's real password Secret\n` +
-		`# (cross-namespace — Helm's \`lookup\` takes an explicit namespace argument, not just the\n` +
-		`# release's own). Tilt's own helm() has no live cluster access at all, so that \`lookup\`\n` +
-		`# always returns nothing there — this chart's own Tiltfile instead reads the real,\n` +
-		`# Terraform-generated password straight from the (already Terraform-applied) cluster via\n` +
-		`# \`kubectl get secret\` and passes it as this override.\n` +
-		`dbPassword: ""\n`;
+		`infraNamespace: server-infra\n`;
 	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
 	fs.writeFileSync(absValuesPath, `${existing}${separator}${block}`);
-	return `${relToRoot(absValuesPath)} (+infraNamespace, +dbPassword)`;
-}
-
-/**
- * Adds a `sync()` for this server's own generated/ dir (Prisma client output — see
- * schema.prisma.hbs's `output` path) to the main docker_build's `live_update` list, right before
- * `restart_container()` — without it, the "development" stage's live_update never picks up a
- * freshly regenerated Prisma client. Idempotent: skips if a "generated" sync is already there.
- */
-function injectGeneratedSync(absTiltfilePath: string, name: string): string {
-	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	if (raw.includes('/generated"')) {
-		return `${relToRoot(absTiltfilePath)} already syncs generated/`;
-	}
-
-	const marker = "restart_container(),";
-	const markerIndex = raw.indexOf(marker);
-	if (markerIndex === -1) {
-		return `${relToRoot(absTiltfilePath)} has no live_update to extend, skipped`;
-	}
-
-	const lineStart = raw.lastIndexOf("\n", markerIndex) + 1;
-	const indent = raw.slice(lineStart, markerIndex).match(/^\s*/)?.[0] ?? "";
-	const entry = `${indent}sync("apps/servers/${name}/generated", "/app/apps/servers/${name}/generated"),\n`;
-	const next = `${raw.slice(0, lineStart)}${entry}${raw.slice(lineStart)}`;
-
-	fs.writeFileSync(absTiltfilePath, next);
-	return `${relToRoot(absTiltfilePath)} (+generated sync)`;
-}
-
-/**
- * Adds `set=["dbPassword=" + db_password]` to the existing `k8s_yaml(helm("./helm", ...))` call
- * (finds the whole `k8s_yaml(helm(` marker, not just `helm(` — a bare `helm(` also matches
- * inside this same Tiltfile's own prose comments describing Tilt's helm(), which don't have a
- * matching close paren where expected — and splices right before the real call's own closing
- * paren, same bracket-matching approach as helpers.ts's injectDriverEntry).
- * Idempotent: skips if a `set=` argument is already present on that call.
- */
-function injectHelmDbPasswordSet(absTiltfilePath: string): string {
-	const raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	if (raw.includes('set=["dbPassword=')) {
-		return `${relToRoot(absTiltfilePath)} already sets dbPassword`;
-	}
-
-	const marker = "k8s_yaml(helm(";
-	const markerIndex = raw.indexOf(marker);
-	if (markerIndex === -1) {
-		throw new Error(`Could not find "${marker}" in ${absTiltfilePath}`);
-	}
-	const openParenIndex = markerIndex + marker.length - 1;
-	const closeParenIndex = findMatchingBracket(raw, openParenIndex, "(", ")");
-
-	const before = raw.slice(0, closeParenIndex);
-	const trimmedBefore = before.trimEnd();
-	const needsComma =
-		!trimmedBefore.endsWith(",") && !trimmedBefore.endsWith("(");
-	const insertion = `${needsComma ? "," : ""}\n    set=["dbPassword=" + db_password],\n`;
-
-	const next = `${before}${insertion}${raw.slice(closeParenIndex)}`;
-	fs.writeFileSync(absTiltfilePath, next);
-	return `${relToRoot(absTiltfilePath)} (+dbPassword set)`;
-}
-
-/**
- * Adds the `db_password = str(local("kubectl get secret <name>-db-secret -n server-infra ..."))`
- * lookup line right before the `k8s_yaml(helm(` call, plus the migrate image build + its
- * k8s_resource — <name>-infra itself (Postgres/Vault-provisioning) is Terraform-applied, not
- * Tilt-managed, so unlike the old colocated setup there's no "<name>-db"/"<name>-db-provision"
- * k8s_resource() to register here anymore, just the migrate Job that still lives in this app
- * chart.
- */
-function appendDatabaseTiltfile(absTiltfilePath: string, name: string): string {
-	injectGeneratedSync(absTiltfilePath, name);
-	const setResult = injectHelmDbPasswordSet(absTiltfilePath);
-
-	let raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	if (!raw.includes("db_password = ")) {
-		const marker = "k8s_yaml(helm(";
-		const markerIndex = raw.indexOf(marker);
-		if (markerIndex === -1) {
-			throw new Error(`Could not find "${marker}" in ${absTiltfilePath}`);
-		}
-		const lineStart = raw.lastIndexOf("\n", markerIndex) + 1;
-		const lookup =
-			`# postgres/Vault-provisioning moved to ${name}-infra (Terraform-applied once, see\n` +
-			`# apps/terraform) — this chart is just the app Deployment/Service/migrate Job now, and\n` +
-			`# needs ${name}-infra to already exist (run \`terraform apply\` there first).\n` +
-			`#\n` +
-			`# dbPassword: this chart's own env.yaml builds DATABASE_URL by \`lookup\`-ing\n` +
-			`# ${name}-infra's real password Secret — but Tilt's own helm() has no live cluster access\n` +
-			`# at all, so that \`lookup\` always returns nothing here. Unlike a Tilt-only dev password,\n` +
-			`# ${name}-infra's is a Terraform-generated random value, not a Tilt-controlled override.\n` +
-			`# Read it straight from the (already Terraform-applied) cluster instead.\n` +
-			`db_password = str(local(\n` +
-			`    "kubectl get secret ${name}-db-secret -n server-infra -o jsonpath='{.data.password}' | base64 -d",\n` +
-			`    quiet=True,\n` +
-			`)).strip()\n\n`;
-		raw = `${raw.slice(0, lineStart)}${lookup}${raw.slice(lineStart)}`;
-		fs.writeFileSync(absTiltfilePath, raw);
-	}
-
-	if (raw.includes(`${name}-migrate`)) {
-		return `${setResult}; ${relToRoot(absTiltfilePath)} already has migrate resources`;
-	}
-	raw = fs.readFileSync(absTiltfilePath, "utf-8");
-	const snippet =
-		`\ndocker_build("${name}-migrate", "../../..", dockerfile="./Dockerfile", target="migrate")\n\n` +
-		`k8s_resource(\n    "${name}-migrate",\n    labels=["servers"],\n)\n`;
-	fs.writeFileSync(
-		absTiltfilePath,
-		`${collapseTrailingNewlines(raw)}\n${snippet}`,
-	);
-	return `${setResult}; ${relToRoot(absTiltfilePath)} (+${name}-migrate)`;
+	return `${relToRoot(absValuesPath)} (+infraNamespace)`;
 }
 
 /**
@@ -542,7 +420,7 @@ function scaffoldGrafanaDatasourceFile(
 		"      sslmode: disable\n" +
 		"      postgresVersion: 1500\n" +
 		"    secureJsonData:\n" +
-		`      password: ${name}-tilt-local-dev-db-password\n`;
+		`      password: ${name}-placeholder-db-password\n`;
 	fs.writeFileSync(destPath, content);
 	return `${path.relative(root, destPath)} (+${name} Postgres datasource)`;
 }
@@ -577,7 +455,7 @@ function wireGrafanaConfigmap(root: string, name: string): string {
 	}
 	const lookupBlock =
 		`{{- $${secretVarName} := lookup "v1" "Secret" "server-infra" "${name}-db-secret" }}\n` +
-		`{{- $${varName} := "${name}-tilt-local-dev-db-password" }}\n` +
+		`{{- $${varName} := "${name}-placeholder-db-password" }}\n` +
 		`{{- if $${secretVarName} }}\n` +
 		`{{- $${varName} = index $${secretVarName}.data "password" | b64dec }}\n` +
 		"{{- end }}\n";
@@ -727,10 +605,6 @@ export default class DatabaseGenerator {
 			);
 			fs.mkdirSync(path.dirname(destPath), { recursive: true });
 			fs.writeFileSync(destPath, plopApi.renderString(template, { name }));
-			const tiltResult = appendDatabaseTiltfile(
-				path.join(process.cwd(), location, "Tiltfile"),
-				name,
-			);
 			// Same race the Deployment's initContainer (wireDatabaseHelmDeployment, below) already
 			// guards against: on a fresh cluster the migrate Job can exhaust backoffLimit's retries
 			// before Postgres's first-time initdb finishes, landing in BackoffLimitExceeded forever.
@@ -740,7 +614,7 @@ export default class DatabaseGenerator {
 				"postgres:15.3-alpine",
 				`until pg_isready -h ${name}-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done`,
 			);
-			return `${relToRoot(destPath)}; ${tiltResult}; ${waitResult}`;
+			return `${relToRoot(destPath)}; ${waitResult}`;
 		});
 
 		plop.setActionType("injectDatabaseDockerfile", (answers) => {
@@ -819,7 +693,7 @@ export default class DatabaseGenerator {
 
 		plop.setGenerator("database", {
 			description:
-				'Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a sibling <name>-infra chart (Postgres Deployment/Service/Secret + Vault provisioning, Terraform-applied into the shared "server-infra" namespace) + this chart\'s own env.yaml (ConfigMap/Secret/migrate Job, cross-namespace `lookup` into <name>-infra) + Tiltfile wiring + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts (app.ts itself only ever reads DATABASE_URL, so no app-side Vault client code is needed — the old VaultPgAdapter approach; see services/vault/CLAUDE.md for the provisioning story), and wires this Postgres into Grafana as a datasource by default (grafana-datasources.yaml + an inlined, `lookup`-substituted copy in services/monitoring/helm/templates/grafana-configmap.yaml)',
+				'Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a sibling <name>-infra chart (Postgres Deployment/Service/Secret + Vault provisioning, Terraform-applied into the shared "server-infra" namespace) + this chart\'s own env.yaml (ConfigMap/Secret/migrate Job, cross-namespace `lookup` into <name>-infra) + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts (app.ts itself only ever reads DATABASE_URL, so no app-side Vault client code is needed — the old VaultPgAdapter approach; see services/vault/CLAUDE.md for the provisioning story), and wires this Postgres into Grafana as a datasource by default (grafana-datasources.yaml + an inlined, `lookup`-substituted copy in services/monitoring/helm/templates/grafana-configmap.yaml)',
 			prompts: [
 				{
 					type: "list",

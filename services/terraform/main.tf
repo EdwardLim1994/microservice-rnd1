@@ -19,8 +19,8 @@ resource "helm_release" "traefik" {
   wait      = false
 }
 
-# Deploys each services/<name>/helm chart as-is — same chart Tilt renders locally,
-# so there's exactly one copy of each service's manifests to maintain.
+# Deploys each services/<name>/helm chart as-is — one copy of each service's manifests to
+# maintain, applied here and nowhere else.
 locals {
   # vault and ca-distribution are NOT here — see their own dedicated helm_release blocks below.
   services = toset([
@@ -94,7 +94,7 @@ resource "helm_release" "service" {
   # them.
   #
   # values-tailscale.yaml (authentik, monitoring only) layers on top unconditionally in dev —
-  # same as their old Tiltfiles always did, no LAN/tailscale toggle. Points Grafana's OAuth
+  # no LAN/tailscale toggle. Points Grafana's OAuth
   # authUrl/rootUrl at the tailscale tunnel scripts/port-forward.sh opens instead of
   # "authentik.lan"/"grafana.lan", which only resolve on-LAN — off-LAN clients (e.g. a phone or
   # tablet on the tailnet but not the LAN) hit an unreachable host without this.
@@ -127,8 +127,7 @@ resource "helm_release" "service" {
 # before) gave Terraform no ordering between them at all, just parallel apply — vault's hooks
 # could then run before authentik's release had even started, hanging on oidc-provision's own
 # 15min discovery-endpoint poll or failing outright via db-provision's `kubectl rollout status`
-# (no retry loop of its own — see that Job's own header comment). Same race, same fix, as
-# services/vault/Tiltfile's own resource_deps=["vault", "authentik-server", "authentik-worker"].
+# (no retry loop of its own — see that Job's own header comment).
 resource "helm_release" "vault" {
   name      = "vault"
   chart     = "${path.module}/../vault/helm"
@@ -175,9 +174,7 @@ resource "helm_release" "vault" {
 # helm_release.vault specifically. fetch-ca's own initContainer
 # (services/ca-distribution/helm/templates/deployment.yaml) reads `vault read pki/cert/ca`,
 # which 400s ("no default issuer currently configured") until vault's own pki-provision-job.yaml
-# hook has run — which only happens once helm_release.vault above has actually applied. Same
-# race, same fix, as services/ca-distribution/Tiltfile's own
-# resource_deps=["vault-pki-provision"].
+# hook has run — which only happens once helm_release.vault above has actually applied.
 resource "helm_release" "ca-distribution" {
   name      = "ca-distribution"
   chart     = "${path.module}/../ca-distribution/helm"

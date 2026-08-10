@@ -6,7 +6,7 @@
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=EdwardLim1994_microservice-rnd1&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=EdwardLim1994_microservice-rnd1)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=EdwardLim1994_microservice-rnd1&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=EdwardLim1994_microservice-rnd1)
 
-R&D playground for a microservices platform: Apollo Federation GraphQL + gRPC backends, Kafka/Debezium CDC, Vault-issued credentials and mTLS, Module Federation frontends — all running locally on k3d via Tilt + Helm, provisioned once via Terraform.
+R&D playground for a microservices platform: Apollo Federation GraphQL + gRPC backends, Kafka/Debezium CDC, Vault-issued credentials and mTLS, Module Federation frontends — all running locally on k3d via Helm, provisioned once via Terraform.
 
 ## Table of contents
 
@@ -42,7 +42,6 @@ turbo/generators/   Plop scaffolding (`bun run generate`)
 - [Bun](https://bun.sh) `1.3.14` (pinned via `packageManager` in `package.json`)
 - Docker
 - [k3d](https://k3d.io), [kubectl](https://kubernetes.io/docs/tasks/tools/), [Helm](https://helm.sh)
-- [Tilt](https://tilt.dev)
 - [Terraform](https://developer.hashicorp.com/terraform)
 
 ## Installation
@@ -60,16 +59,14 @@ helm dependency update services/<chart>/helm
 
 ## Development
 
-Two Terraform roots provision infra that Tilt itself can't (real Helm releases meant to survive a cluster stop/start, plus Vault-backed provisioning Jobs). Apply them once per cluster, in order — `apps/terraform` provisions each server's Postgres/Redis by authenticating against `services/vault`:
+Two Terraform roots provision infra as real Helm releases meant to survive a cluster stop/start, plus Vault-backed provisioning Jobs. Apply them once per cluster, in order — `apps/terraform` provisions each server's Postgres/Redis by authenticating against `services/vault`:
 
 ```sh
 terraform -chdir=services/terraform apply
 terraform -chdir=apps/terraform apply   # only after any apps/servers/<name>-infra chart exists
-
-tilt up
 ```
 
-`tilt up` includes `apps/servers/*`, `apps/web/*`, `apps/mfe/*`, `apps/docs/*` — no workspace is currently scaffolded under any of them (except `apps/docs`, which has its own separate placeholder), so there's nothing to actually run until `bun run generate` scaffolds a first server/web app. Re-run `terraform apply` in a `services/*` or `apps/terraform` root only when a chart under it actually changes — routine iteration is Tilt's job.
+No workspace is currently scaffolded under `apps/servers/*`, `apps/web/*`, `apps/mfe/*`, so there's nothing to actually run until `bun run generate` scaffolds a first server/web app. Once one exists, there's currently no automated local-dev orchestrator wiring it up — build its image (`docker build`), import it into the cluster (`k3d image import`), and `helm install`/`helm upgrade` its chart by hand. Re-run `terraform apply` in a `services/*` or `apps/terraform` root only when a chart under it actually changes.
 
 Other common commands (see [`CLAUDE.md`](./CLAUDE.md#commands) for the full list):
 
@@ -81,16 +78,15 @@ bun run lint / format / check
 bun run gen              # codegen (e.g. GraphQL) then rebuilds `api`
 bun run generate         # turbo gen — scaffold a server/web app or add a driver/extension
 bun run supergraph       # compose the Apollo Federation supergraph
-bun run k8s:build        # build workspace images outside of Tilt
+bun run k8s:build        # build workspace images for the local cluster
 ```
 
-`docker compose up` is largely vestigial at this point — root `docker-compose.yml` only includes `apps/docker-compose.yml`, which is currently empty, and `services/*` has no compose files left at all (fully migrated to Terraform/Helm). Use `tilt up` instead.
+`docker compose up` is largely vestigial at this point — root `docker-compose.yml` only includes `apps/docker-compose.yml`, which is currently empty, and `services/*` has no compose files left at all (fully migrated to Terraform/Helm).
 
 ## Troubleshooting
 
-- **`tilt up` fails to read a server's DB/Redis password** — that server's `Tiltfile` shells out to `kubectl get secret <name>-db-secret -n server-infra`, which only exists after `terraform -chdir=apps/terraform apply` has run. Apply Terraform first.
 - **`apps/terraform apply` fails with "connection refused" against `vault.infra.svc.cluster.local`** — `services/terraform` hasn't been applied yet, or its Vault release isn't ready. Apply `services/terraform` first; there's no `depends_on` across the two independent Terraform roots.
-- **A `helm()` call in Tilt errors on a missing chart dependency** — run `helm dependency update <chart-dir>` for any chart whose `Chart.yaml` lists `dependencies:` (Traefik, Authentik, Apollo Router, cert-manager); `charts/*.tgz` is gitignored so this doesn't survive a fresh clone.
-- **A locally-built image doesn't reflect a code change** — k3d/Tilt's `docker_build()` auto-imports into the cluster; if a live_update sync seems stuck, check the server's own `Tiltfile` `sync()`/`run()` rules rather than rebuilding the whole image.
+- **A `helm install`/`helm upgrade` errors on a missing chart dependency** — run `helm dependency update <chart-dir>` for any chart whose `Chart.yaml` lists `dependencies:` (Traefik, Authentik, Apollo Router, cert-manager); `charts/*.tgz` is gitignored so this doesn't survive a fresh clone.
+- **A locally-built image doesn't reflect a code change** — rebuild it and re-run `k3d image import`, then `kubectl rollout restart` the Deployment (or `helm upgrade` again).
 - **A DB/Redis credential CronJob doesn't seem to be rotating** — check the `-infra` chart's own `dbProvision`/`redisProvision.schedule` in its `values.yaml`; dev-mode Vault also loses all lease state on every restart, so a freshly restarted Vault needs its next scheduled provisioning run before creds are valid again.
 - **SonarCloud badges above show stale data** — they only update on `push: main` (`ci-sonar-main.yml`); a PR's own analysis is scanned by `ci-verify.yml` but doesn't move the badges until merged.

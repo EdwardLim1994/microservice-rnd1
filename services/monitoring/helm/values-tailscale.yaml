@@ -1,4 +1,4 @@
-# Layered on top of values.yaml (see services/monitoring/Tiltfile) for local dev when Grafana is
+# Layered on top of values.yaml (see services/terraform/main.tf) for local dev when Grafana is
 # reached through scripts/port-forward.sh from another device, not the LAN — "authentik.lan"
 # (values.yaml's default authUrl) isn't reachable from off-LAN, only from a browser that already
 # has LAN access, so the browser-facing login redirect needs to point at the tailscale tunnel

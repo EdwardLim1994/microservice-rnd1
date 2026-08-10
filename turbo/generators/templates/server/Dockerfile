@@ -63,9 +63,9 @@ RUN bun run build
 WORKDIR /app/apps/servers/"${SERVER_NAME}"
 
 # ── development ───────────────────────────────────────────────────────────────
-# Runs index.ts directly via bun (no compile step) — for Tilt live_update: source edits land in
-# the already-running container and bun re-executes them on the next request/restart, instead of
-# waiting on a full `bun build --compile` per change like the "compiled"/"runtime" path below.
+# Runs index.ts directly via bun (no compile step), so source edits synced into the running
+# container re-execute on the next request/restart, instead of waiting on a full
+# `bun build --compile` per change like the "compiled"/"runtime" path below.
 FROM builder AS development
 
 ENTRYPOINT ["bun", "run", "index.ts"]

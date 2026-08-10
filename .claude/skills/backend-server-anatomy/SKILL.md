@@ -15,7 +15,6 @@ as the spec for the next server scaffolded, and update this doc to point at it o
 ```
 apps/servers/{name}-grpc/
 ├── Dockerfile
-├── Tiltfile
 ├── README.md
 ├── .env.sample
 ├── helm/
@@ -83,8 +82,7 @@ apps/servers/{name}-grpc/
 ## Companion infra chart pattern
 
 Any server with the database and/or redis extension gets a sibling `apps/servers/{name}-infra`
-chart, Terraform-applied (not Tilt-rendered) — see root `CLAUDE.md`'s "Per-server infra"
-section for why.
+chart, Terraform-applied — see root `CLAUDE.md`'s "Per-server infra" section for why.
 
 ```
 apps/servers/{name}-infra/helm/
@@ -115,5 +113,4 @@ bun run generate
 # follow prompts to add drivers (grpc, graphql, kafka, cron) and extensions (database, redis, debezium)
 ```
 
-This scaffolds the full structure above (including `helm/` + `Tiltfile`) and registers the new
-`Tiltfile` into `apps/servers/Tiltfile`'s include list automatically.
+This scaffolds the full structure above, including `helm/`.

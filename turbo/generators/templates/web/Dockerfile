@@ -46,8 +46,8 @@ RUN bun run build
 WORKDIR /app/{{ location }}
 
 # ── development ───────────────────────────────────────────────────────────────
-# Runs the rsbuild dev server directly — for Tilt live_update: source edits land in the
-# already-running container and rsbuild hot-reloads them, instead of rebuilding the image.
+# Runs the rsbuild dev server directly, so source edits synced into the running container
+# hot-reload without rebuilding the image.
 FROM builder AS development
 
 EXPOSE 3000

@@ -1,7 +1,7 @@
 {
   "title": "Servers App Overview",
   "uid": "servers-app-overview",
-  "description": "The apps/servers/* app Deployments themselves (server-apps namespace, Tilt-iterated). Their Postgres/Redis/Debezium infra lives in the separate Servers Infra Overview dashboard instead, on purpose — the two tiers don't mix into one grid. Empty rows mean that namespace/chart hasn't been applied yet, not a dashboard error.",
+  "description": "The apps/servers/* app Deployments themselves (server-apps namespace). Their Postgres/Redis/Debezium infra lives in the separate Servers Infra Overview dashboard instead, on purpose — the two tiers don't mix into one grid. Empty rows mean that namespace/chart hasn't been applied yet, not a dashboard error.",
   "editable": true,
   "timezone": "browser",
   "time": { "from": "now-1h", "to": "now" },
@@ -112,7 +112,7 @@
       "gridPos": { "h": 3, "w": 24, "x": 0, "y": 12 },
       "options": {
         "mode": "markdown",
-        "content": "No tiles above? `server-apps` hasn't been Tilt-deployed yet, or nothing there is a Deployment/StatefulSet yet. This isn't a scrape failure — it means kube-state-metrics simply has nothing to report for that namespace."
+        "content": "No tiles above? `server-apps` hasn't been deployed yet, or nothing there is a Deployment/StatefulSet yet. This isn't a scrape failure — it means kube-state-metrics simply has nothing to report for that namespace."
       }
     }
   ]

@@ -1,10 +1,9 @@
-# Every apps/servers/* chart shares this namespace (see apps/servers/Tiltfile's Namespace
-# declaration) — matches how every services/* chart shares "infra". A sibling "server-infra"
-# namespace (Postgres/Redis/etc., Terraform-applied) exists too — see the "database" extension
-# generator for how a server's own infra chart wires into it.
+# Every apps/servers/* chart shares this namespace — matches how every services/* chart shares
+# "infra". A sibling "server-infra" namespace (Postgres/Redis/etc., Terraform-applied) exists too
+# — see the "database" extension generator for how a server's own infra chart wires into it.
 namespace: server-apps
 
-# Dev default: one pod is enough for Tilt-driven local iteration. values-prod.yaml layers on top
-# for a real deploy — matches services/cert-manager-config/helm's values.yaml/values-prod.yaml
-# pattern (`helm upgrade -f values.yaml -f values-prod.yaml`).
+# Dev default: one pod is enough for local iteration. values-prod.yaml layers on top for a real
+# deploy — matches services/cert-manager-config/helm's values.yaml/values-prod.yaml pattern
+# (`helm upgrade -f values.yaml -f values-prod.yaml`).
 replicas: 1

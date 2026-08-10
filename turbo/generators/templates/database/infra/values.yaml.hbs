@@ -1,8 +1,8 @@
 # Shared namespace — every server's infra chart (Postgres/Redis/etc.) lands here, not a
 # dedicated one per server. Collisions between servers are avoided by prefixing every object name
 # with this server's own name ({{ name }}-db, {{ name }}-vault-db-provision, etc.), not by
-# namespace. This chart is deploy-once (Terraform-applied); the app chart is Tilt-iterated. See
-# root-level comment in apps/terraform/main.tf.
+# namespace. This chart is deploy-once (Terraform-applied); the app chart is applied separately.
+# See root-level comment in apps/terraform/main.tf.
 namespace: server-infra
 
 # Where the app chart's own Deployment/Secret live — db-provision-job.yaml patches DATABASE_URL
@@ -13,12 +13,9 @@ namespace: server-infra
 appNamespace: server-apps
 
 # Empty by default — db.yaml's Postgres superuser password falls back to a `lookup` of the
-# already-set value (real `helm install`/Terraform) or a fresh `randAlphaNum` on first install.
-# Tilt's own helm() has no live cluster access at all, so `lookup` always returns nothing there —
-# set this via Tiltfile's set=["dbPassword=..."] to get a value that stays stable across every
-# Tilt reconcile instead of drifting on every single one. The app chart's own values.yaml must be
-# given the exact same override (its own bootstrap Secret construction does the same lookup
-# against THIS chart's Secret, in THIS chart's namespace) — see that chart's values.yaml.
+# already-set value (real `helm install`/`upgrade`) or a fresh `randAlphaNum` on first install.
+# apps/terraform/main.tf sets this to a Terraform-managed `random_password` to keep it stable
+# across that provider's plan-time double-render (see db.yaml.hbs's own comment on this override).
 dbPassword: ""
 
 # See helm/templates/db-provision-job.yaml + helm/files/db-provision-*.sh — the Vault dynamic

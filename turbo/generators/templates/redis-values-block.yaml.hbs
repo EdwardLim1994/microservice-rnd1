@@ -1,10 +1,3 @@
-# Empty by default — redis.yaml's admin password falls back to a `lookup` of the already-set
-# value (real `helm install`/Terraform) or a fresh `randAlphaNum` on first install. Tilt's own
-# helm() has no live cluster access at all, so `lookup` always returns nothing there — set this
-# via Tiltfile's set=["redisPassword=..."] to get a value that stays stable across every Tilt
-# reconcile instead of drifting on every single one.
-redisPassword: ""
-
 # See helm/templates/redis-provision-job.yaml + helm/files/redis-provision.sh — the Vault
 # dynamic Redis ACL user minted for this server's own Deployment. Same shape as dbProvision
 # (if present) — kept as its own block since either extension can be added independently.

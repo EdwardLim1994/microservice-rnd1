@@ -3,7 +3,6 @@ import path from "node:path";
 import type { PlopTypes } from "@turbo/gen";
 import {
 	addNamedImport,
-	collapseTrailingNewlines,
 	findMatchingBracket,
 	wireHelmDeploymentConfigMap,
 	wireHelmInitContainerWait,
@@ -187,32 +186,6 @@ export default class RedisGenerator {
 			},
 		);
 
-		plop.setActionType("appendRedisProvisionTiltfile", (answers) => {
-			const { location } = answers as { location: string };
-			const name = path.basename(location);
-			const absTiltfilePath = path.join(process.cwd(), location, "Tiltfile");
-			const raw = fs.readFileSync(absTiltfilePath, "utf-8");
-			if (raw.includes(`${name}-redis-provision`)) {
-				return `${relToRoot(absTiltfilePath)} already has ${name}-redis-provision resource`;
-			}
-			// "${name}-redis" (redis.yaml's Deployment) has no explicit k8s_resource() call
-			// otherwise, so it'd fall into Tilt's default "unlabeled" UI bucket instead of
-			// grouping with everything else here — give it one too, not just the provision job.
-			// Tilt disambiguates same-named Job+CronJob pairs as "<name>:job"/"<name>:cronjob" —
-			// a plain "${name}-redis-provision" isn't a valid resource name here. Also depends on
-			// "${name}" itself, not just "${name}-redis": redis-provision-main.sh ends with
-			// `kubectl rollout restart/status deployment/${name}` with no retry loop of its own, so
-			// without this the Job can hit "deployment ${name} not found" if it runs before
-			// ${name}'s own Deployment even exists yet and burn through backoffLimit needing a
-			// manual re-trigger.
-			const snippet =
-				`\nk8s_resource(\n    "${name}-redis",\n    labels=["servers"],\n)\n\n` +
-				`k8s_resource(\n    "${name}-redis-provision:job",\n    resource_deps=["${name}-redis", "${name}"],\n    labels=["servers"],\n)\n\n` +
-				`k8s_resource(\n    "${name}-redis-provision:cronjob",\n    resource_deps=["${name}-redis", "${name}"],\n    labels=["servers"],\n)\n`;
-			fs.writeFileSync(absTiltfilePath, `${collapseTrailingNewlines(raw)}\n${snippet}`);
-			return `${relToRoot(absTiltfilePath)} (+${name}-redis-provision)`;
-		});
-
 		plop.setActionType("injectRedisIntoServerApp", (answers) => {
 			const { location } = answers as { location: string };
 			return injectRedisPlugin(
@@ -237,7 +210,6 @@ export default class RedisGenerator {
 			actions: [
 				{ type: "injectRedisHelm" },
 				{ type: "injectRedisProvisionJob" },
-				{ type: "appendRedisProvisionTiltfile" },
 				{ type: "wireRedisHelmDeployment" },
 				{ type: "injectRedisIntoServerApp" },
 			],

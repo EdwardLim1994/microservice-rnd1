@@ -10,8 +10,8 @@ VAULT_TOKEN=$(cat /shared/vault_token)
 # for the cross-namespace RBAC (Role/RoleBinding) that makes this allowed.
 #
 # Skip the patch/rollout entirely if the app chart's own Secret doesn't exist yet (e.g. this
-# infra chart's first apply lands before Tilt's first `tilt up` reconcile — env.yaml, which
-# creates {{ name }}-secret, is app-chart/Tilt-owned, not this chart's) — nothing to patch, and
+# infra chart's first apply lands before the app chart's own first `helm install` — env.yaml,
+# which creates {{ name }}-secret, belongs to the app chart, not this one) — nothing to patch, and
 # these are Vault-leased creds anyway: the CronJob below re-runs on Values.dbProvision.schedule
 # and picks this up as soon as the app chart's own Secret/Deployment do exist, same self-healing
 # story as this file's own header comment already describes for Vault losing lease state.

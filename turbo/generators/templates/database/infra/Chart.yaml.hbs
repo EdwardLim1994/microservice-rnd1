@@ -1,6 +1,6 @@
 apiVersion: v2
 name: {{ name }}-infra
-description: {{ name }}'s deploy-once infra (postgres, Vault provisioning) — split from {{ name }}'s own app chart so it deploys once via Terraform instead of being re-applied on every `tilt up`.
+description: {{ name }}'s deploy-once infra (postgres, Vault provisioning) — split from {{ name }}'s own app chart so it deploys once via Terraform instead of being re-applied on every app-chart deploy.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

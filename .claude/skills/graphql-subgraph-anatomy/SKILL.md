@@ -16,7 +16,6 @@ exists. See `backend-server-anatomy` skill for the sibling gRPC server pattern.
 ```
 apps/servers/{name}-graphql/
 ├── Dockerfile
-├── Tiltfile
 ├── README.md
 ├── .env.sample
 ├── helm/

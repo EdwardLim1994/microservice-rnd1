@@ -5,8 +5,8 @@ import { log } from '../helper/common';
 /**
  * Runs from services/apollo (turbo's cwd for a package script) — composes ./rover.yaml's
  * subgraphs and rewrites ./helm/values.supergraph.yaml, the values file layered on top of
- * helm/values.yaml by the Tiltfile and terraform's helm_release (see values.yaml's own comment).
- * Committed like a lockfile: regenerate and commit the diff, don't hand-edit.
+ * helm/values.yaml by terraform's helm_release (see values.yaml's own comment). Committed like a
+ * lockfile: regenerate and commit the diff, don't hand-edit.
  */
 const composed = execSync(
   'rover supergraph compose --config ./rover.yaml --elv2-license accept',

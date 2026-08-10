@@ -2,12 +2,6 @@
 \{{- $redisPassword := randAlphaNum 32 }}
 \{{- if $redisSecret }}
 \{{- $redisPassword = index $redisSecret.data "password" | b64dec }}
-\{{- else if .Values.redisPassword }}
-# Tilt override (see Tiltfile's set=["redisPassword=..."]) — same reasoning as db.yaml.hbs's own
-# dbPassword override: `lookup` above always returns nothing under Tilt, so without this every
-# reconcile would mint a new random password while the running Redis pod (fixed at its last
-# boot) keeps whatever it already has. A real `helm install`/Terraform never sets this.
-\{{- $redisPassword = .Values.redisPassword }}
 \{{- end }}
 apiVersion: apps/v1
 kind: Deployment

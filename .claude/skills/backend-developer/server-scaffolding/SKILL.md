@@ -31,7 +31,7 @@ bun turbo gen
 → select type: grpc | subgraph | cron
 → enter service name
 ```
-Generator creates: Dockerfile, docker-compose.yml, Helm chart, Tiltfile (if Tilt still in use), `app.ts`, `index.ts`.
+Generator creates: Dockerfile, docker-compose.yml, Helm chart, `app.ts`, `index.ts`.
 
 ### Level 2 — Class Scaffold (ALWAYS use generator — never write manually)
 ```

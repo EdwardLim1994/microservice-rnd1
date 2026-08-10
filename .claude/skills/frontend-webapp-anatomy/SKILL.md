@@ -16,7 +16,6 @@ the next app scaffolded, and update this doc to point at it once one exists.
 ```
 apps/{web|mfe}/{name}/
 ├── Dockerfile
-├── Tiltfile
 ├── nginx.conf                  ← SPA routing config for the built container
 ├── rsbuild.config.ts           ← Rsbuild bundler config (handles Module Federation for mfe/)
 ├── rstest.config.ts            ← Rstest test config
@@ -80,5 +79,5 @@ bun run generate
 ```
 
 Host vs. remote role, and non-MF plain app vs. Module Federation, is inferred from where you
-scaffold (`apps/web/` vs `apps/mfe/`) — the generator also assigns a free dev port and
-registers the new `Tiltfile` include automatically.
+scaffold (`apps/web/` vs `apps/mfe/`) — the generator also assigns a free dev port
+automatically.

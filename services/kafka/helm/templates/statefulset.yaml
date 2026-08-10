@@ -94,8 +94,8 @@ spec:
               fi
               /etc/confluent/docker/run
           # startupProbe, not just a longer initialDelaySeconds on the other two — first boot
-          # under CPU contention (e.g. `tilt up` also running heavy docker builds on the same
-          # small node) has been observed taking minutes, not seconds; readiness/liveness's own
+          # under CPU contention (e.g. other heavy docker builds running on the same small node)
+          # has been observed taking minutes, not seconds; readiness/liveness's own
           # initialDelaySeconds only gets one fixed grace window before the *first* check, and
           # every restart re-enters that same too-short window, producing a permanent restart
           # loop that never reaches Ready. A startupProbe instead retries on its own schedule

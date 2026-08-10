@@ -63,8 +63,7 @@ When a story involves both backend and frontend/mobile work:
 ### Scaffolding Rules
 - NEVER manually create a new server, web app, or MFE from scratch
 - ALWAYS use the Turborepo generator: `bun turbo gen`
-- Generator creates the full structure including Helm chart, Tiltfile, Dockerfile
-- After generating, add the new Tiltfile reference to the parent Tiltfile
+- Generator creates the full structure including Helm chart, Dockerfile
 
 ### Generated Code Rules
 - NEVER edit any file inside `packages/api/src/generated/` or `*/generated/prisma/`

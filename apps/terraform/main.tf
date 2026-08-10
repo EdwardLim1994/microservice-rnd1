@@ -1,6 +1,7 @@
 # Every apps/servers/<name>-infra chart (Postgres/Redis/etc. for that server — see
 # ServerExtensionGenerator) is deployed here, by Terraform, same as services/*. Its app
-# counterpart (apps/servers/<name>) stays Tilt-iterated on every `tilt up` — see both charts' own
+# counterpart (apps/servers/<name>) is deployed separately (currently no automated orchestrator
+# for it — build/deploy manually: `docker build` + `helm install`) — see both charts' own
 # values.yaml "Own namespace, separate from..." comments.
 locals {
   infra_charts = toset([
@@ -36,8 +37,7 @@ resource "kubernetes_namespace" "server_apps" {
 # never match, so the provider sees "inconsistent final plan" and errors out. Pinning these to a
 # fixed value here (same fix services/terraform/main.tf's own helm_release.vault uses for
 # rootToken) makes both renders identical. Terraform-managed `random_password`, not a literal —
-# stored in state, not committed, unlike the Tilt-only literal overrides these charts' own
-# values.yaml comments describe.
+# stored in state, not committed (see db.yaml.hbs's own comment on this override).
 resource "random_password" "db" {
   for_each = local.infra_charts
   length   = 32
@@ -85,30 +85,4 @@ resource "helm_release" "infra" {
   }
 
   depends_on = [kubernetes_namespace.server_apps]
-}
-
-# Closes a real staleness gap: each server's own Tiltfile reads dbPassword/redisPassword via a
-# one-shot `local("kubectl get secret ...")` call (see that Tiltfile's own comment) — Tilt's
-# helm() has no live cluster access, so env.yaml's `lookup` always misses there, and that
-# local() snapshot only re-runs when Tilt itself reloads its config. Nothing tells an
-# already-running `tilt up` session that THIS apply just rotated the password — a long-running
-# session keeps serving its old snapshot until something forces a reload. Touching the Tiltfile
-# does exactly that, automatically, right after the password that actually changed.
-#
-# `input` only changes (triggering the provisioner) when this server's own password actually
-# rotates — not on every apply — so this doesn't cause a needless Tiltfile touch (and the pod
-# restart that follows) when nothing changed.
-resource "terraform_data" "notify_tilt_of_password_rotation" {
-  for_each = local.infra_charts
-
-  input = {
-    db_password    = random_password.db[each.key].result
-    redis_password = random_password.redis[each.key].result
-  }
-
-  provisioner "local-exec" {
-    command = "touch ${path.module}/../servers/${trimsuffix(each.key, "-infra")}/Tiltfile"
-  }
-
-  depends_on = [helm_release.infra]
 }

@@ -6,7 +6,7 @@
 extraIngressHosts:
   - raspberrypi94.tail60240b.ts.net
 
-# Layered on top of values.yaml (see services/authentik/Tiltfile) alongside
+# Layered on top of values.yaml (see services/terraform/main.tf) alongside
 # services/monitoring/helm/values-tailscale.yaml — Grafana's rootUrl there is overridden to the
 # tailscale tunnel scripts/port-forward.sh opens, so Authentik's grafana-provider needs a
 # matching redirect_uri or the OAuth callback fails with "Invalid redirect URI" after login.

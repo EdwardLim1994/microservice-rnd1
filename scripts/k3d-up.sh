@@ -9,12 +9,11 @@ set -euo pipefail
 NAME="${1:-dev}"
 
 # --registry-create: without a registry attached, k3d never writes the "local-registry-hosting"
-# ConfigMap (kube-public, KEP-1755) that Tilt's docker_build() checks to decide whether it can
-# skip a real registry push — with none, Tilt defaults to pushing every image to docker.io, which
-# fails outright (no docker.io credentials/repo access, and "library/*" is a reserved namespace
-# nobody can push to). CLAUDE.md's "no separate docker-env step needed" claim only holds with
-# this flag; confirmed the hard way after every apps/servers/* build failed with
-# "push access denied ... docker.io/library/<name>".
+# ConfigMap (kube-public, KEP-1755) that a locally-built image needs to push to (and a chart's
+# Deployment needs to pull from) without a real registry — with none, `docker push` defaults to
+# docker.io, which fails outright (no docker.io credentials/repo access, and "library/*" is a
+# reserved namespace nobody can push to). Confirmed the hard way after an apps/servers/* build
+# failed with "push access denied ... docker.io/library/<name>".
 k3d cluster create "$NAME" \
   -p "8080:30080@server:0" \
   -p "8443:30443@server:0" \

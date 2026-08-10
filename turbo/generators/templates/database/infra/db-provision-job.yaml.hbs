@@ -4,13 +4,12 @@
 #
 # Cross-namespace: this Job's own ServiceAccount/pod lives in the shared "server-infra" namespace
 # (this chart's own namespace), but the Secret/Deployment it patches live in the shared
-# "server-apps" namespace (the app chart's namespace, Tilt-owned) — a plain same-namespace Role
+# "server-apps" namespace (the app chart's own namespace) — a plain same-namespace Role
 # wouldn't reach it. The Role/RoleBinding below are deliberately created IN .Values.appNamespace
 # (not .Values.namespace like everything else in this chart) with this namespace's ServiceAccount
 # as the RoleBinding's subject — valid k8s RBAC (a RoleBinding's subjects can reference a
 # ServiceAccount in any namespace) and doesn't need the app namespace to exist yet at plan-time
-# beyond apply-time (see apps/terraform/main.tf, which creates both namespaces upfront
-# specifically so this ordering never bites regardless of whether Terraform or Tilt runs first).
+# beyond apply-time (see apps/terraform/main.tf, which creates both namespaces upfront).
 #
 # ServiceAccount/Role/RoleBinding are named "{{ name }}-vault-db-provision", not a plain
 # "vault-db-provision" shared by every server — since every server's infra chart lands in the
