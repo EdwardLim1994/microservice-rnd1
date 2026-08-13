@@ -1,7 +1,0 @@
-# See helm/templates/redis-provision-job.yaml + helm/files/redis-provision.sh — the Vault
-# dynamic Redis ACL user minted for this server's own Deployment. Same shape as dbProvision
-# (if present) — kept as its own block since either extension can be added independently.
-redisProvision:
-  schedule: "0 */6 * * *"
-  defaultTtl: "24h"
-  maxTtl: "720h"

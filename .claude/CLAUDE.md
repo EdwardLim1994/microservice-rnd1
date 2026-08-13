@@ -75,7 +75,7 @@ When a story involves both backend and frontend/mobile work:
 - Internal comms: gRPC only — never call another service's GraphQL endpoint internally
 - Async events: Kafka + Debezium CDC
 - Auth: Authentik OIDC (AuthentikAuthInterceptor on all gRPC services)
-- Secrets: HashiCorp Vault (never hardcode secrets, never commit .env files)
+- Secrets: split by kind. DB/Redis credentials are static, Terraform-managed (`set_sensitive`, never a plain value in a committed chart file) — HashiCorp Vault and Infisical were both evaluated as a dynamic-credential provisioner for these and dropped (Vault's dynamic-credential lifecycle proved unreliable in practice; Infisical's self-hosted tier gates the same dynamic-secrets feature, and OIDC login to its UI, behind a paid Enterprise license). App-level secrets (API keys, JWT signing keys, third-party creds) go through `services/openbao` (a Linux Foundation, MPL-2.0 fork of Vault — dynamic secrets free in core, unlike Infisical) via `OpenBaoPlugin`'s KV v2 + Kubernetes auth, wired by the optional `turbo gen secrets` extension — deliberately scoped to app secrets only, never DB/Redis. Never commit .env files.
 - Observability: OTEL → Alloy → Loki/Tempo/Prometheus → Grafana (always instrument new services)
 
 ### Reference Implementations

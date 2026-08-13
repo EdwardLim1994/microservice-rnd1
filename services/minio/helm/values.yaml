@@ -14,5 +14,7 @@ oidcClientSecret: miniooidcclientsecret
 
 # See templates/secret.yaml's own comments for what these are and why they're LAN-hostname
 # literals, not in-cluster Service DNS.
-oidcConfigUrl: "http://authentik.lan:8080/application/o/minio/.well-known/openid-configuration"
+tailscaleHostname: ""  # set via values-tailscale.yaml (Terraform templatefile); empty = no tailscale hostAlias entry
+
+oidcConfigUrl: "https://authentik.lan:8443/application/o/minio/.well-known/openid-configuration"
 redirectUri: "https://minio.lan:8443/oauth_callback"

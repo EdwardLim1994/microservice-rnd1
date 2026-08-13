@@ -69,12 +69,12 @@ spec:
 
 ---
 # The Redis "default" superuser's own password — read by the redis container above (requirepass)
-# and by redis-provision-job.yaml's vault write database/config/... (admin creds Vault uses to
-# mint leaf ACL users). Randomly generated on first `helm install` and kept stable across every
-# later `helm upgrade` via the `lookup`/`randAlphaNum` block at the top of this file — same
-# reasoning as helm-db.yaml.hbs's {{ name }}-db-secret. Only works against a real cluster:
-# `helm template`/`--dry-run` always see `lookup` return nothing, so those always take the
-# "generate new" branch instead — expected, not a bug.
+# and reused directly below as the app's own REDIS_URL (static, no separate ACL user). Randomly
+# generated on first `helm install` and kept stable across every later `helm upgrade` via the
+# `lookup`/`randAlphaNum` block at the top of this file — same reasoning as helm-db.yaml.hbs's
+# {{ name }}-db-secret. Only works against a real cluster: `helm template`/`--dry-run` always see
+# `lookup` return nothing, so those always take the "generate new" branch instead — expected, not
+# a bug.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -85,10 +85,8 @@ data:
   password: \{{ $redisPassword | b64enc }}
 
 ---
-# REDIS_URL for the app's own Deployment (envFrom secretRef) — starts out pointing at the admin
-# creds so the app can still boot before redis-provision-job.yaml's post-install hook has run
-# once; that hook immediately overwrites this key with a Vault-minted leaf ACL user's creds and
-# rolls the Deployment. See redis-provision-job.yaml for the whole rotation story.
+# REDIS_URL for the app's own Deployment (envFrom secretRef) — the same static admin password
+# above, permanently (no separate ACL user, no rotation).
 apiVersion: v1
 kind: Secret
 metadata:

@@ -1,3 +1,0 @@
-# Layered on top of values.yaml for any non-dev apply (services/terraform's
-# `environment != "dev"` — sit, uat, staging, prod).
-devMode: false

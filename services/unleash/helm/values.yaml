@@ -7,7 +7,7 @@ image: unleashorg/unleash-server:8.1.0
 # same situation: internal Service only, reach it with `kubectl port-forward` when needed).
 # Revisit if the admin UI needs LAN/browser access.
 
-# dev mode: bitnami's bundled Postgres has no TLS listener by default — same story as vault/
+# dev mode: bitnami's bundled Postgres has no TLS listener by default — same story as
 # authentik's own dev default. values-nondev.yaml flips this once the bundled Postgres actually
 # offers TLS.
 databaseSsl: false

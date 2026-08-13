@@ -1,11 +1,9 @@
-# Must match services/minio/helm/values.yaml's oidcClientSecret,
-# services/monitoring/helm/values.yaml's grafanaOidcClientSecret, and
-# services/vault/helm/values.yaml's oidcClientSecret — separate Helm releases, no shared values,
-# so these are duplicated by hand like every other cross-chart dev secret here (authentiksecretkey,
-# vaultroottoken, ...).
+# Must match services/minio/helm/values.yaml's oidcClientSecret and
+# services/monitoring/helm/values.yaml's grafanaOidcClientSecret — separate Helm releases, no
+# shared values, so these are duplicated by hand like every other cross-chart dev secret here
+# (authentiksecretkey, ...).
 minioOidcClientSecret: miniooidcclientsecret
 grafanaOidcClientSecret: grafanaoidcclientsecret
-vaultOidcClientSecret: vaultoidcclientsecret
 
 # Every host grafana-provider must accept an OAuth callback from — Grafana's own redirect_uri is
 # always "<rootUrl>/login/generic_oauth" (not user configurable), one entry per host
@@ -35,16 +33,6 @@ minioRedirectUris:
   # path, not actually requested by MinIO anymore.
   - https://minio.lan:8443/oauth_callback
 
-# Same story as grafanaRedirectUris above, for services/vault/helm's oidc/role/default
-# allowed_redirect_uris — services/vault/helm/values.yaml's own oidcRedirectUris must list the
-# exact same hosts (Vault enforces its own allow-list independently of Authentik's).
-vaultRedirectUris:
-  - http://vault.localhost/ui/vault/auth/oidc/oidc/callback
-  - http://vault.lan/ui/vault/auth/oidc/oidc/callback
-  - http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback
-  - https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
-  - https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
-
 authentik:
   # akadmin's login — only takes effect on the very first bootstrap (an already-provisioned
   # install, like this one originally was, needs its password set by hand once via
@@ -55,7 +43,12 @@ authentik:
         value: authentikadmin
       - name: AUTHENTIK_BOOTSTRAP_EMAIL
         value: akadmin@authentik.local
-  # Registers minio/grafana/vault as native OIDC apps on boot — see
+      # Trust X-Forwarded-Proto: https from Traefik so Authentik generates HTTPS URLs in
+      # OAuth discovery docs and sets Secure cookies. Without this, login flows over :8443
+      # break because Authentik sees all traffic as HTTP.
+      - name: AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS
+        value: "0.0.0.0/0"
+  # Registers minio/grafana as native OIDC apps on boot — see
   # templates/proxy-blueprint-configmap.yaml. The configmap name must match the release's
   # rendered name exactly (Helm doesn't template values.yaml itself).
   blueprints:
@@ -68,7 +61,7 @@ authentik:
     postgresql:
       password: authentikpostgrespassword
   # Chart defaults to no bundled DB (expects external Postgres) — enable the bundled
-  # one, matching this repo's other dev infra (vault/kafka run in-cluster too).
+  # one, matching this repo's other dev infra (kafka runs in-cluster too).
   postgresql:
     enabled: true
     auth:

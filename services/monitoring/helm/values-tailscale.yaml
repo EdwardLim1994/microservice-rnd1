@@ -14,5 +14,5 @@
 # APPS map — update both together if that map ever changes. The hostname itself is this specific
 # tailnet node's DNSName (`tailscale status --self --json`), stable unless the device is renamed.
 grafana:
-  rootUrl: https://raspberrypi94.tail60240b.ts.net:8085/
-  authUrl: https://raspberrypi94.tail60240b.ts.net:8080/application/o/authorize/
+  rootUrl: https://${tailscale_hostname}:8085/
+  authUrl: https://${tailscale_hostname}:8080/application/o/authorize/

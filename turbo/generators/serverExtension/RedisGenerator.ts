@@ -28,33 +28,6 @@ function findServersEligibleForRedis(root: string, serverWorkspaces: string[]) {
 }
 
 /**
- * Ensures helm/values.yaml has a `redisProvision:` block (schedule/defaultTtl/maxTtl for
- * redis-provision-job.yaml.hbs's CronJob) — creates the file fresh if the database extension
- * hasn't already made one, otherwise appends the block to it. Idempotent: skips if
- * `redisProvision:` is already present.
- */
-function ensureRedisValuesBlock(absHelmDir: string): string {
-	const valuesPath = path.join(absHelmDir, "values.yaml");
-	const block = fs.readFileSync(
-		path.join(TEMPLATES_DIR, "redis-values-block.yaml.hbs"),
-		"utf-8",
-	);
-
-	if (!fs.existsSync(valuesPath)) {
-		fs.writeFileSync(valuesPath, block);
-		return `${relToRoot(valuesPath)} (created, +redisProvision)`;
-	}
-
-	const existing = fs.readFileSync(valuesPath, "utf-8");
-	if (existing.includes("redisProvision:")) {
-		return `${relToRoot(valuesPath)} already has redisProvision`;
-	}
-	const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
-	fs.writeFileSync(valuesPath, `${existing}${separator}\n${block}`);
-	return `${relToRoot(valuesPath)} (+redisProvision)`;
-}
-
-/**
  * Adds RedisPlugin to the `.plugins([...])` array in app.ts — same "find marker, locate its
  * matching close bracket, splice before it" approach as helpers.ts's injectDriverEntry, but
  * targeting `.plugins([` specifically since ServerApp.plugins() always takes a bare array (no
@@ -116,9 +89,9 @@ export default class RedisGenerator {
 				"templates",
 				"deployment.yaml",
 			);
-			// secretRef, not configMapRef — REDIS_URL lives in <name>-redis-secret (holds
-			// Vault-minted ACL user creds, rotated in place by redis-provision-job.yaml), there's
-			// no non-secret redis env left to put in a ConfigMap.
+			// secretRef, not configMapRef — REDIS_URL lives in <name>-redis-secret (a real
+			// credential, static, see redis.yaml.hbs), there's no non-secret redis env left to
+			// put in a ConfigMap.
 			const secretResult = wireHelmDeploymentConfigMap(
 				deploymentPath,
 				`${name}-redis-secret`,
@@ -135,57 +108,6 @@ export default class RedisGenerator {
 			return `${secretResult}; ${waitResult}`;
 		});
 
-		// Vault-backed dynamic Redis ACL creds for the app's own Deployment (see
-		// redis-provision-job.yaml.hbs) — a post-install/post-upgrade hook Job plus a recurring
-		// CronJob, exactly like the database extension's db-provision-job.yaml.hbs, but its own
-		// ServiceAccount/Role so this works whether or not that extension is also present.
-		plop.setActionType(
-			"injectRedisProvisionJob",
-			(answers, _config, plopApi) => {
-				const { location } = answers as { location: string };
-				const name = path.basename(location);
-				const helmDir = path.join(process.cwd(), location, "helm");
-
-				const jobTemplate = fs.readFileSync(
-					path.join(TEMPLATES_DIR, "redis-provision-job.yaml.hbs"),
-					"utf-8",
-				);
-				const jobDestPath = path.join(
-					helmDir,
-					"templates",
-					"redis-provision-job.yaml",
-				);
-
-				// Two scripts, not one — the Job/CronJob split into a vault-CLI initContainer
-				// and a kubectl-only main container (neither image has both toolsets).
-				const initDestPath = path.join(helmDir, "files", "redis-provision-init.sh");
-				const mainDestPath = path.join(helmDir, "files", "redis-provision-main.sh");
-
-				if (
-					fs.existsSync(jobDestPath) ||
-					fs.existsSync(initDestPath) ||
-					fs.existsSync(mainDestPath)
-				) {
-					return `${relToRoot(jobDestPath)} already exists`;
-				}
-				fs.writeFileSync(jobDestPath, plopApi.renderString(jobTemplate, { name }));
-				fs.mkdirSync(path.dirname(initDestPath), { recursive: true });
-				for (const [templateName, destPath] of [
-					["redis-provision-init.sh.hbs", initDestPath],
-					["redis-provision-main.sh.hbs", mainDestPath],
-				] as const) {
-					const template = fs.readFileSync(
-						path.join(TEMPLATES_DIR, templateName),
-						"utf-8",
-					);
-					fs.writeFileSync(destPath, plopApi.renderString(template, { name }));
-				}
-
-				const valuesResult = ensureRedisValuesBlock(helmDir);
-				return `${relToRoot(jobDestPath)}, ${relToRoot(initDestPath)}, ${relToRoot(mainDestPath)}, ${valuesResult} (+${name}-redis-provision Job/CronJob)`;
-			},
-		);
-
 		plop.setActionType("injectRedisIntoServerApp", (answers) => {
 			const { location } = answers as { location: string };
 			return injectRedisPlugin(
@@ -195,7 +117,7 @@ export default class RedisGenerator {
 
 		plop.setGenerator("redis", {
 			description:
-				"Optionally add Redis to an existing server: a <name>-redis helm chart (Deployment/Service, requirepass auth, no PVC — dev cache), a <name>-redis-provision Job/CronJob that mints Vault-backed dynamic Redis ACL creds into <name>-redis-secret by default, envFrom wiring into deployment.yaml, and RedisPlugin registered in app.ts's .plugins([...]) — RedisPlugin itself only ever reads REDIS_URL, so no app-side Vault client code is needed; see services/vault/CLAUDE.md for the provisioning story",
+				"Optionally add Redis to an existing server: a <name>-redis helm chart (Deployment/Service/Secret, requirepass auth, no PVC — dev cache), envFrom wiring into deployment.yaml, and RedisPlugin registered in app.ts's .plugins([...]) — RedisPlugin itself only ever reads REDIS_URL, a static credential with no separate provisioning step",
 			prompts: [
 				{
 					type: "list",
@@ -209,7 +131,6 @@ export default class RedisGenerator {
 			],
 			actions: [
 				{ type: "injectRedisHelm" },
-				{ type: "injectRedisProvisionJob" },
 				{ type: "wireRedisHelmDeployment" },
 				{ type: "injectRedisIntoServerApp" },
 			],

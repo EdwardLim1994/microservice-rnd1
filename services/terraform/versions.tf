@@ -30,9 +30,16 @@ provider "helm" {
   # workflow, not an edge case — without this flag, `terraform apply` silently no-ops on a
   # template-only edit (e.g. a Deployment's env/annotations) even though the values are
   # unchanged, and the running cluster keeps the stale manifest.
-  experiments {
-    manifest = true
-  }
+  #
+  # TEMPORARILY DISABLED: this flag's own predictive re-render (used to diff templates against
+  # unchanged values) hits a known hashicorp/terraform-provider-helm bug — "Provider produced
+  # inconsistent final plan" — on authentik/unleash's bundled postgresql subcharts, reproducing
+  # on every retry. Only matters for detecting template-only edits on an existing release; a
+  # from-scratch `create` has no prior manifest to diff against, so it's dead weight here too.
+  # Re-enable once every environment's first apply has completed.
+  # experiments {
+  #   manifest = true
+  # }
 }
 
 provider "kubernetes" {

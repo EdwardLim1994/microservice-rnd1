@@ -18,5 +18,6 @@
 # https:// URL here would attempt a TLS handshake against a plain-HTTP port and fail outright
 # (this is almost certainly why the login option went missing rather than just redirecting
 # wrong: MinIO silently drops OIDC entirely if the discovery fetch itself errors).
-oidcConfigUrl: "http://raspberrypi94.tail60240b.ts.net:8080/application/o/minio/.well-known/openid-configuration"
-redirectUri: "https://raspberrypi94.tail60240b.ts.net:8095/oauth_callback"
+tailscaleHostname: "${tailscale_hostname}"
+oidcConfigUrl: "https://${tailscale_hostname}:8443/application/o/minio/.well-known/openid-configuration"
+redirectUri: "https://${tailscale_hostname}:8095/oauth_callback"

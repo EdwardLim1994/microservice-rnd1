@@ -24,18 +24,6 @@ scrape_configs:
     static_configs:
       - targets: ["kafka.infra.svc.cluster.local:9308"]
 
-  # Vault's built-in /v1/sys/metrics, always on (no telemetry stanza needed) but token-gated —
-  # see prometheus-statefulset.yaml's vault-token volume mount for where the bearer token
-  # actually comes from (services/vault's own root-token Secret, not duplicated here).
-  - job_name: vault
-    metrics_path: /v1/sys/metrics
-    params:
-      format: ["prometheus"]
-    authorization:
-      credentials_file: /etc/prometheus/secrets/vault/token
-    static_configs:
-      - targets: ["vault.infra.svc.cluster.local:8200"]
-
   # Meilisearch's experimental /metrics (services/meilisearch/helm's MEILI_EXPERIMENTAL_METRICS),
   # gated behind an API key — the master key qualifies, see prometheus-statefulset.yaml's
   # meilisearch-token volume mount.

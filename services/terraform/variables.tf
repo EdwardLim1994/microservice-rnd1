@@ -16,6 +16,36 @@ variable "namespace" {
   default     = "infra"
 }
 
+# cert-manager's CRDs + webhook (ValidatingWebhookConfiguration) are cluster-scoped — when
+# several namespace-isolated environments (e.g. sit/uat/staging share one cluster with namespace
+# physical cluster/kube_context, only one of them can actually own the cert-manager controller;
+# a second helm_release.cert-manager on the same cluster fails ("CRD exists and cannot be
+# imported"/webhook name collision). cert-manager-config (the per-namespace selfSigned Issuer)
+# still applies every time — only the shared controller is gated.
+# Irrelevant (leave default true) when each environment actually has its own separate cluster,
+# the normal case this repo's kube_context/namespace split is designed for.
+variable "install_cert_manager" {
+  description = "Install the shared cert-manager controller/CRDs. Set false for every environment after the first when multiple environments share one physical cluster."
+  type        = bool
+  default     = true
+}
+
+variable "tailscale" {
+  description = "Apply values-tailscale.yaml overrides for authentik/minio/monitoring — needed whenever the cluster is accessed via Tailscale (off-LAN), regardless of environment."
+  type        = bool
+  default     = true
+}
+
+variable "tailscale_hostname" {
+  description = "Tailscale MagicDNS hostname of this machine (e.g. raspberrypi94.tail60240b.ts.net). Used as the redirect/auth host in values-tailscale.yaml. Required when tailscale = true."
+  type        = string
+  default     = ""
+  validation {
+    condition     = !var.tailscale || var.tailscale_hostname != ""
+    error_message = "tailscale_hostname must be set when tailscale = true."
+  }
+}
+
 variable "environment" {
   description = "\"dev\" (minikube — dev-mode secrets baked into each chart's values.yaml) or one of the real clusters \"sit\"/\"uat\"/\"staging\"/\"prod\" (each chart's own values-nondev.yaml, where one exists, layers on top as a shared override — nothing today differs between the four real clusters, so they share one file)."
   type        = string
@@ -37,7 +67,7 @@ variable "authentik_secret_key" {
 }
 
 variable "authentik_postgres_password" {
-  description = "Password for authentik-postgresql's \"authentik\" bootstrap user (non-dev only) — Vault takes over day-to-day DB auth after services/vault's db-provision-job runs, this is only the seed value Bitnami's postgresql chart creates the user with."
+  description = "Password for authentik-postgresql's \"authentik\" bootstrap user (non-dev only) — this is the DB credential in full, static for the life of the deploy (no dynamic-credential provisioner rotates it)."
   type        = string
   default     = ""
   sensitive   = true

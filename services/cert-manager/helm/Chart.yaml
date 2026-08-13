@@ -1,6 +1,6 @@
 apiVersion: v2
 name: cert-manager
-description: cert-manager — issues/renews TLS certs for Traefik from Vault's pki_int engine
+description: cert-manager — issues/renews TLS certs for Traefik via a self-signed Issuer (see services/cert-manager-config)
 type: application
 version: 0.1.0
 appVersion: "v1.16.2"

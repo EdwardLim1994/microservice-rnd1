@@ -74,15 +74,10 @@ spec:
               mountPath: /etc/prometheus/config
             - name: data
               mountPath: /prometheus
-            # vault job (prometheus.yml) needs a bearer token to read /v1/sys/metrics — mounts
-            # services/vault's own root-token Secret directly (same "infra" namespace) rather
-            # than duplicating it, so a rotated token is picked up on next pod restart with no
-            # separate credential to keep in sync.
-            - name: vault-token
-              mountPath: /etc/prometheus/secrets/vault
-              readOnly: true
-            # meilisearch job needs a bearer token to read /metrics — same reasoning as above,
-            # mounts services/meilisearch's own master-key Secret directly.
+            # meilisearch job needs a bearer token to read /metrics — mounts
+            # services/meilisearch's own master-key Secret directly (same "infra" namespace)
+            # rather than duplicating it, so a rotated token is picked up on next pod restart with
+            # no separate credential to keep in sync.
             - name: meilisearch-token
               mountPath: /etc/prometheus/secrets/meilisearch
               readOnly: true
@@ -108,12 +103,6 @@ spec:
         - name: config
           configMap:
             name: prometheus-config
-        - name: vault-token
-          secret:
-            secretName: vault-secret
-            items:
-              - key: VAULT_DEV_ROOT_TOKEN_ID
-                path: token
         - name: meilisearch-token
           secret:
             secretName: meilisearch-secret

@@ -16,5 +16,11 @@ export {
 } from './LoggerPlugin';
 export { MeilisearchPlugin } from './MeilisearchPlugin';
 export { MinioPlugin } from './MinioPlugin';
+export {
+  OpenBaoApiError,
+  OpenBaoClient,
+  type OpenBaoClientConfig,
+  OpenBaoPlugin,
+} from './OpenBaoPlugin';
 export { OtelPlugin, type OtelPluginConfig } from './OtelPlugin';
 export { RedisPlugin } from './RedisPlugin';

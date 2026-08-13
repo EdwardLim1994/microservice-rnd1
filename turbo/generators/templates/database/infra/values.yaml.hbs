@@ -17,14 +17,3 @@ appNamespace: server-apps
 # apps/terraform/main.tf sets this to a Terraform-managed `random_password` to keep it stable
 # across that provider's plan-time double-render (see db.yaml.hbs's own comment on this override).
 dbPassword: ""
-
-# See helm/templates/db-provision-job.yaml + helm/files/db-provision-*.sh — the Vault dynamic
-# Postgres role minted for the app's own Deployment.
-dbProvision:
-  # How often the CronJob re-mints creds. Keep this comfortably inside defaultTtl (a 6h poll
-  # against a 24h TTL means several missed runs in a row before a lease is ever actually at risk
-  # of expiring) — this is what keeps a long-running pod's DB credential from expiring out from
-  # under it in both dev and prod (dev-mode Vault also loses all lease state on every restart).
-  schedule: "0 */6 * * *"
-  defaultTtl: "24h"
-  maxTtl: "720h"

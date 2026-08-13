@@ -18,27 +18,41 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
-      # Lets the container resolve "authentik.lan" (see secret.yaml's
-      # MINIO_IDENTITY_OPENID_CONFIG_URL, which points at port 8080 to match the browser-facing
-      # `kubectl port-forward ... 8080:80` — Authentik echoes back whatever authority the request
-      # arrived on, so the discovery fetch needs ":8080" too) to the traefik-web-8080 Service (see
-      # services/traefik/helm/templates/web-8080-service.yaml) — not a real Service name CoreDNS
-      # knows about, and *.localhost/*.lan can't be relied on to resolve to anything but loopback
-      # (or nothing) from inside the pod's own network namespace.
-      #
-      # The tailscale tunnel hostname (values-tailscale.yaml's oidcConfigUrl) needs the exact
-      # same treatment for the exact same reason — a pod has no Tailscale client of its own, so
-      # nothing would otherwise resolve raspberrypi94.tail60240b.ts.net at all, let alone route
-      # it back to Traefik. Aliased to the same ClusterIP: what matters for Authentik's "echo the
-      # request's own authority" behavior is only the Host header string the discovery fetch
-      # sends, not which real network path got it there. Harmless to always list both — an
-      # unused hostAlias resolves to nothing anyone asks for in plain-LAN mode.
-      {{- $traefikSvc := lookup "v1" "Service" "infra" "traefik-web-8080" }}
+      # Two separate hostAlias entries — different Traefik services because the two oidcConfigUrl
+      # variants use different ports/schemes:
+      # - authentik.lan:8443 (HTTPS, values.yaml default) → traefik-websecure-8443 ClusterIP
+      # - raspberrypi94....:8080 (HTTP, values-tailscale.yaml override) → traefik-web-8080 ClusterIP
+      # Splitting them keeps each hostname on the right entrypoint; a single shared alias would
+      # break whichever scheme's port isn't served by that one ClusterIP.
+      {{- $traefikHttpsSvc := lookup "v1" "Service" .Values.namespace "traefik-websecure-8443" }}
       hostAliases:
-        - ip: {{ if $traefikSvc }}{{ $traefikSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
+        - ip: {{ if $traefikHttpsSvc }}{{ $traefikHttpsSvc.spec.clusterIP }}{{ else }}127.0.0.1{{ end }}
           hostnames:
             - authentik.lan
-            - raspberrypi94.tail60240b.ts.net
+            {{- if .Values.tailscaleHostname }}
+            - {{ .Values.tailscaleHostname }}
+            {{- end }}
+      initContainers:
+        # Authentik's OIDC discovery endpoint must be reachable before MinIO starts — MinIO fetches
+        # it exactly once at startup and never retries, so a connection refused (Traefik not ready
+        # yet) silently disables SSO for the pod's entire lifetime. Same pattern as
+        # services/authentik/helm/values.yaml's wait-for-authentik-postgresql initContainer.
+        - name: wait-for-authentik-oidc
+          image: "{{ .Values.image }}"
+          env:
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/cluster-ca/ca.crt
+          command:
+            - sh
+            - -c
+            - |
+              until curl -sfk --max-time 5 "{{ .Values.oidcConfigUrl }}" > /dev/null; do
+                sleep 5
+              done
+          volumeMounts:
+            - name: cluster-ca
+              mountPath: /etc/ssl/cluster-ca
+              readOnly: true
       containers:
         - name: minio
           image: "{{ .Values.image }}"
@@ -56,6 +70,11 @@ spec:
               containerPort: 9000
             - name: console
               containerPort: 9001
+          env:
+            # SSL_CERT_FILE tells Go's crypto/x509 to trust the cluster's self-signed CA so
+            # MinIO can fetch oidcConfigUrl via HTTPS without a certificate error.
+            - name: SSL_CERT_FILE
+              value: /etc/ssl/cluster-ca/ca.crt
           envFrom:
             - secretRef:
                 name: minio-secret
@@ -74,6 +93,17 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: cluster-ca
+              mountPath: /etc/ssl/cluster-ca
+              readOnly: true
+      volumes:
+        - name: cluster-ca
+          secret:
+            secretName: traefik-default-tls
+            optional: true  # cert-manager-config deploys after minio; missing secret = empty mount, not a pod block
+            items:
+              - key: ca.crt
+                path: ca.crt
   volumeClaimTemplates:
     - metadata:
         name: data

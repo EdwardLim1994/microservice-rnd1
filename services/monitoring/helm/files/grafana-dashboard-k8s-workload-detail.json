@@ -113,7 +113,7 @@
     {
       "type": "table",
       "title": "up{job=~\".*$app.*\"} — matching app-level Prometheus jobs, if any",
-      "description": "Catches services with their own dedicated scrape job (e.g. server1-grpc-health, kafka, vault) whose job name happens to contain this service's name.",
+      "description": "Catches services with their own dedicated scrape job (e.g. kafka, meilisearch) whose job name happens to contain this service's name.",
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 18 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "up{job=~\".*$app.*\"}", "format": "table", "instant": true, "refId": "A" }],

@@ -236,11 +236,13 @@ function findAvailableDbPort(root: string): number {
 }
 
 /**
- * Scaffolds the sibling `<name>-infra` chart (Chart.yaml, values.yaml, templates/db.yaml,
- * templates/db-provision-job.yaml, files/db-provision-*.sh) next to `<name>`'s own app chart —
- * Postgres (and any future Redis/etc.) for every server lives in the shared "server-infra"
- * namespace, Terraform-applied (see apps/terraform/main.tf, which auto-discovers any
- * apps/servers/*-infra/helm/Chart.yaml — no registration needed here beyond creating the files).
+ * Scaffolds the sibling `<name>-infra` chart (Chart.yaml, values.yaml, templates/db.yaml)
+ * next to `<name>`'s own app chart — Postgres (and any future Redis/etc.) for every server lives
+ * in the shared "server-infra" namespace, Terraform-applied (see apps/terraform/main.tf, which
+ * auto-discovers any apps/servers/*-infra/helm/Chart.yaml — no registration needed here beyond
+ * creating the files). The app chart's own env.yaml (see injectDatabaseEnvYaml below) reads this
+ * chart's static superuser password straight via a cross-namespace Helm `lookup` — no separate
+ * provisioning Job needed to get the credential from one namespace to the other.
  */
 function scaffoldInfraChart(
 	root: string,
@@ -265,7 +267,6 @@ function scaffoldInfraChart(
 		);
 
 	fs.mkdirSync(path.join(infraDir, "templates"), { recursive: true });
-	fs.mkdirSync(path.join(infraDir, "files"), { recursive: true });
 	fs.writeFileSync(path.join(infraDir, "Chart.yaml"), render("Chart.yaml.hbs"));
 	fs.writeFileSync(
 		path.join(infraDir, "values.yaml"),
@@ -275,18 +276,6 @@ function scaffoldInfraChart(
 		path.join(infraDir, "templates", "db.yaml"),
 		render("db.yaml.hbs"),
 	);
-	fs.writeFileSync(
-		path.join(infraDir, "templates", "db-provision-job.yaml"),
-		render("db-provision-job.yaml.hbs"),
-	);
-	fs.writeFileSync(
-		path.join(infraDir, "files", "db-provision-init.sh"),
-		render("db-provision-init.sh.hbs"),
-	);
-	fs.writeFileSync(
-		path.join(infraDir, "files", "db-provision-main.sh"),
-		render("db-provision-main.sh.hbs"),
-	);
 	return `${path.relative(root, infraDir)} (+${name}-infra chart)`;
 }
 
@@ -294,8 +283,7 @@ function scaffoldInfraChart(
  * Appends `infraNamespace: server-infra` to the app chart's own, already existing
  * helm/values.yaml (created by the base "server" template) — a splice-append, not a fresh `add`
  * action, since that file already exists by the time this generator runs and a `skipIfExists`
- * "add" would silently skip writing this key at all (confirmed the hard way: this exact gap left
- * a freshly-scaffolded server missing `dbProvision` entirely once already).
+ * "add" would silently skip writing this key at all.
  * Idempotent: skips if "infraNamespace:" is already present.
  */
 function appendInfraNamespaceToValues(absValuesPath: string): string {
@@ -566,8 +554,8 @@ export default class DatabaseGenerator {
 			return results.length > 0 ? results.join("; ") : "no .env files updated";
 		});
 
-		// Scaffolds the sibling <name>-infra chart (Postgres + Vault provisioning), and appends
-		// this app chart's own infraNamespace/dbPassword to its already-existing values.yaml.
+		// Scaffolds the sibling <name>-infra chart (Postgres), and appends this app chart's own
+		// infraNamespace/dbPassword to its already-existing values.yaml.
 		plop.setActionType(
 			"scaffoldDatabaseInfraChart",
 			(answers, _config, plopApi) => {
@@ -672,9 +660,10 @@ export default class DatabaseGenerator {
 				deploymentPath,
 				`${name}-env`,
 			);
-			// DATABASE_URL lives in <name>-secret, not the <name>-env ConfigMap above — it holds
-			// Vault-minted credentials (see infra/db-provision-job.yaml.hbs), rotated in place by
-			// that Job/CronJob without this Deployment's envFrom ever changing.
+			// DATABASE_URL lives in <name>-secret, not the <name>-env ConfigMap above — it holds a
+			// real credential (a static password, cross-namespace `lookup`'d from <name>-infra's
+			// own Secret at render time — see env.yaml.hbs) and belongs in a Secret, not a
+			// ConfigMap.
 			const secretResult = wireHelmDeploymentConfigMap(
 				deploymentPath,
 				`${name}-secret`,
@@ -693,7 +682,7 @@ export default class DatabaseGenerator {
 
 		plop.setGenerator("database", {
 			description:
-				'Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a sibling <name>-infra chart (Postgres Deployment/Service/Secret + Vault provisioning, Terraform-applied into the shared "server-infra" namespace) + this chart\'s own env.yaml (ConfigMap/Secret/migrate Job, cross-namespace `lookup` into <name>-infra) + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts (app.ts itself only ever reads DATABASE_URL, so no app-side Vault client code is needed — the old VaultPgAdapter approach; see services/vault/CLAUDE.md for the provisioning story), and wires this Postgres into Grafana as a datasource by default (grafana-datasources.yaml + an inlined, `lookup`-substituted copy in services/monitoring/helm/templates/grafana-configmap.yaml)',
+				'Add Prisma/Postgres support to an existing server: package.json deps, prisma.config.ts, schema.prisma, .env(.sample), a sibling <name>-infra chart (Postgres Deployment/Service/Secret, Terraform-applied into the shared "server-infra" namespace) + this chart\'s own env.yaml (ConfigMap/Secret/migrate Job, cross-namespace `lookup` into <name>-infra for a static credential, no dynamic-credential provisioner) + Dockerfile migrate stage, wires .database(PrismaClient, new PgAdapter(databaseUrl)) into app.ts (app.ts itself only ever reads DATABASE_URL, no adapter-level indirection needed), and wires this Postgres into Grafana as a datasource by default (grafana-datasources.yaml + an inlined, `lookup`-substituted copy in services/monitoring/helm/templates/grafana-configmap.yaml)',
 			prompts: [
 				{
 					type: "list",

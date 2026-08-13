@@ -1,3 +1,0 @@
-namespace: infra
-nginxImage: nginx:1.27-alpine
-vaultImage: hashicorp/vault:1.18

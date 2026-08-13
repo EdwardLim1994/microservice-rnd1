@@ -4,6 +4,37 @@ resource "kubernetes_namespace" "infra" {
   }
 }
 
+# Runs `helm dependency update` for every chart that wraps an upstream dependency. Triggers only
+# when a Chart.yaml changes — stable on repeated applies when charts are unchanged.
+resource "terraform_data" "helm_dep_update" {
+  triggers_replace = [
+    filemd5("${path.module}/../traefik/helm/Chart.yaml"),
+    filemd5("${path.module}/../authentik/helm/Chart.yaml"),
+    filemd5("${path.module}/../openbao/helm/Chart.yaml"),
+    filemd5("${path.module}/../cert-manager/helm/Chart.yaml"),
+    filemd5("${path.module}/../unleash/helm/Chart.yaml"),
+    filemd5("${path.module}/../apollo/helm/Chart.yaml"),
+  ]
+
+  provisioner "local-exec" {
+    interpreter = ["powershell", "-Command"]
+    command     = <<-EOT
+      $charts = @(
+        "${path.module}/../traefik/helm",
+        "${path.module}/../authentik/helm",
+        "${path.module}/../openbao/helm",
+        "${path.module}/../cert-manager/helm",
+        "${path.module}/../unleash/helm",
+        "${path.module}/../apollo/helm"
+      )
+      foreach ($chart in $charts) {
+        helm dependency update $chart
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      }
+    EOT
+  }
+}
+
 # traefik installs separately (not in the for_each below) so the rest of the services can
 # depend_on it — minio/monitoring's charts look up services/traefik/helm/templates/
 # web-8080-service.yaml's ClusterIP via Helm's `lookup` at template-render time (to bake
@@ -17,12 +48,12 @@ resource "helm_release" "traefik" {
   chart     = "${path.module}/../traefik/helm"
   namespace = kubernetes_namespace.infra.metadata[0].name
   wait      = false
+  depends_on = [terraform_data.helm_dep_update]
 }
 
 # Deploys each services/<name>/helm chart as-is — one copy of each service's manifests to
 # maintain, applied here and nowhere else.
 locals {
-  # vault and ca-distribution are NOT here — see their own dedicated helm_release blocks below.
   services = toset([
     "apicurio-registry",
     "authentik",
@@ -42,21 +73,27 @@ locals {
     authentik = {
       "minioOidcClientSecret"                      = random_password.minio_oidc_client_secret.result
       "grafanaOidcClientSecret"                    = random_password.grafana_oidc_client_secret.result
-      "vaultOidcClientSecret"                      = random_password.vault_oidc_client_secret.result
       "authentik.authentik.secret_key"             = var.authentik_secret_key
       "authentik.authentik.postgresql.password"    = var.authentik_postgres_password
       "authentik.postgresql.auth.password"         = var.authentik_postgres_password
       "authentik.postgresql.auth.postgresPassword" = var.authentik_postgres_password
-      "authentik.global.env[0].value"              = var.authentik_bootstrap_password
+      # Helm doesn't merge list overrides element-wise — overriding a single index/field of a
+      # list that the chart's own values.yaml also populates (global.env, here) replaces the
+      # *entire* list with only what's given via --set, silently dropping every other field
+      # (including "name", which the Deployment's env entries require) and every other list
+      # element. Every field of every element has to be repeated here for the same reason.
+      "authentik.global.env[0].name"               = "AUTHENTIK_BOOTSTRAP_PASSWORD"
+      "authentik.global.env[0].value"               = var.authentik_bootstrap_password
+      "authentik.global.env[1].name"               = "AUTHENTIK_BOOTSTRAP_EMAIL"
+      "authentik.global.env[1].value"              = "akadmin@authentik.local"
+      "authentik.global.env[2].name"               = "AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS"
+      "authentik.global.env[2].value"              = "0.0.0.0/0"
     }
     minio = {
       "oidcClientSecret" = random_password.minio_oidc_client_secret.result
     }
     monitoring = {
       "grafana.oidcClientSecret" = random_password.grafana_oidc_client_secret.result
-    }
-    vault = {
-      "oidcClientSecret" = random_password.vault_oidc_client_secret.result
     }
   }
 }
@@ -69,10 +106,6 @@ resource "random_password" "minio_oidc_client_secret" {
   special = false
 }
 resource "random_password" "grafana_oidc_client_secret" {
-  length  = 32
-  special = false
-}
-resource "random_password" "vault_oidc_client_secret" {
   length  = 32
   special = false
 }
@@ -102,8 +135,10 @@ resource "helm_release" "service" {
   # "authentik.lan"/"grafana.lan", which only resolve on-LAN — off-LAN clients (e.g. a phone or
   # tablet on the tailnet but not the LAN) hit an unreachable host without this.
   values = concat(
-    var.environment == "dev" && fileexists("${path.module}/../${each.key}/helm/values-tailscale.yaml")
-    ? [file("${path.module}/../${each.key}/helm/values-tailscale.yaml")]
+    var.tailscale && fileexists("${path.module}/../${each.key}/helm/values-tailscale.yaml")
+    ? [templatefile("${path.module}/../${each.key}/helm/values-tailscale.yaml", {
+        tailscale_hostname = var.tailscale_hostname
+      })]
     : [],
     var.environment != "dev" && fileexists("${path.module}/../${each.key}/helm/values-nondev.yaml")
     ? [file("${path.module}/../${each.key}/helm/values-nondev.yaml")]
@@ -119,72 +154,42 @@ resource "helm_release" "service" {
     }
   }
 
+  # Every chart's own values.yaml hardcodes `namespace: infra` as a plain value (not templated
+  # off the release's own --namespace), used for cross-references baked into its templates (e.g.
+  # ServiceAccount annotations, `http://authentik-server.<namespace>.svc` DNS names) — the `namespace =`
+  # argument above only controls which k8s Namespace object the release's own resources land in,
+  # it does NOT flow into that value. Without this override, every helm_release here still
+  # cross-references the literal "infra" namespace regardless of var.namespace, breaking anything
+  # other than the single-namespace default (surfaces as "no matches for kind Certificate" /
+  # wrong-namespace DNS lookups on a second namespace/cluster deploy).
+  set {
+    name  = "namespace"
+    value = kubernetes_namespace.infra.metadata[0].name
+  }
+
   depends_on = [helm_release.traefik]
 }
 
-# Not in the for_each above, unlike before — pulled out so it can depends_on
-# helm_release.service["authentik"] specifically. vault's own db-provision-job.yaml/
-# oidc-provision-job.yaml post-install hooks (which a real `helm_release` always blocks on,
-# wait=false or not — see the for_each block's own comment) roll/poll authentik-server +
-# authentik-worker, which have to exist first. Being co-members of the same for_each (as
-# before) gave Terraform no ordering between them at all, just parallel apply — vault's hooks
-# could then run before authentik's release had even started, hanging on oidc-provision's own
-# 15min discovery-endpoint poll or failing outright via db-provision's `kubectl rollout status`
-# (no retry loop of its own — see that Job's own header comment).
-resource "helm_release" "vault" {
-  name      = "vault"
-  chart     = "${path.module}/../vault/helm"
+# Not in the for_each above — services/openbao/helm is a dependency-chart wrapper (see its own
+# Chart.yaml), not a hand-rolled chart with a hardcoded `namespace: infra` value the way every
+# for_each member above needs overridden; `namespace = ` below is enough on its own, no `set`
+# block needed. KV v2 store for apps/servers/*'s own app-level secrets only — never used for
+# Postgres/Redis credentials, which stay static (see var.authentik_postgres_password and
+# apps/terraform's own random_password.db/redis) after this repo's earlier Vault removal.
+resource "helm_release" "openbao" {
+  name      = "openbao"
+  chart     = "${path.module}/../openbao/helm"
   namespace = kubernetes_namespace.infra.metadata[0].name
   wait      = false
-  # Default 300s isn't enough for oidc-provision-job.yaml on a from-scratch cluster — see above.
-  timeout = 900
+  timeout   = 300
 
-  # values-tailscale.yaml layering same as the for_each "service" block's own comment — needed
-  # here too since vault's own oidc/role/default allowed_redirect_uris (values.yaml's
-  # oidcRedirectUris) needs the tailnet host added for off-LAN devices.
-  values = concat(
-    var.environment == "dev" && fileexists("${path.module}/../vault/helm/values-tailscale.yaml")
-    ? [file("${path.module}/../vault/helm/values-tailscale.yaml")]
-    : [],
-    var.environment != "dev" && fileexists("${path.module}/../vault/helm/values-nondev.yaml")
-    ? [file("${path.module}/../vault/helm/values-nondev.yaml")]
+  values = (
+    var.environment != "dev" && fileexists("${path.module}/../openbao/helm/values-nondev.yaml")
+    ? [file("${path.module}/../openbao/helm/values-nondev.yaml")]
     : []
   )
 
-  # k8s-auth-provision-job.yaml's dev-mode branch bootstraps with the literal `.Values.rootToken`
-  # (not a live read of the Secret) — matches vault-secret's own value only if rootToken is
-  # something other than its "vaultroottoken" default, which is what makes secret.yaml skip
-  # randomizing it (see that file's own comment). Only matters in dev — values-nondev.yaml
-  # sets devMode: false on every real cluster, and that job's non-dev branch never reads
-  # rootToken at all. Ignored (and harmless) there for the same reason.
-  set {
-    name  = "rootToken"
-    value = "terraform-local-dev-vault-token"
-  }
-
-  dynamic "set_sensitive" {
-    for_each = var.environment != "dev" ? local.oidc_secret_overrides.vault : {}
-    content {
-      name  = set_sensitive.key
-      value = set_sensitive.value
-    }
-  }
-
-  depends_on = [helm_release.traefik, helm_release.service["authentik"]]
-}
-
-# Not in the for_each above, same reason as vault: pulled out so it can depends_on
-# helm_release.vault specifically. fetch-ca's own initContainer
-# (services/ca-distribution/helm/templates/deployment.yaml) reads `vault read pki/cert/ca`,
-# which 400s ("no default issuer currently configured") until vault's own pki-provision-job.yaml
-# hook has run — which only happens once helm_release.vault above has actually applied.
-resource "helm_release" "ca-distribution" {
-  name      = "ca-distribution"
-  chart     = "${path.module}/../ca-distribution/helm"
-  namespace = kubernetes_namespace.infra.metadata[0].name
-  wait      = false
-
-  depends_on = [helm_release.vault]
+  depends_on = [helm_release.traefik]
 }
 
 # Not in the for_each above. cert-manager itself, and its Issuer/Certificate config, are two
@@ -193,6 +198,8 @@ resource "helm_release" "ca-distribution" {
 # kind yet), which is exactly the "no matches for kind Certificate/Issuer" error this used to hit
 # as one release. Two terraform-sequenced releases guarantee a real apply boundary in between.
 resource "helm_release" "cert-manager" {
+  count = var.install_cert_manager ? 1 : 0
+
   name      = "cert-manager"
   chart     = "${path.module}/../cert-manager/helm"
   namespace = kubernetes_namespace.infra.metadata[0].name
@@ -202,11 +209,11 @@ resource "helm_release" "cert-manager" {
   depends_on = [helm_release.service]
 }
 
-# services/vault's pki-provision-job.yaml sets up the pki_int role this chart's Issuer signs
-# against — needs vault's release to have already run its hooks, not just exist. wait=true above
-# (not the repo's usual wait=false) is what actually closes the CRD race for this one: it forces
-# terraform to block until cert-manager's CRDs+webhook are ready before this release ever
-# applies.
+# cert-manager-config's Issuer is a plain cert-manager selfSigned type (no external PKI, no auth)
+# — only needs cert-manager's own CRDs/webhook to exist first, hence depends_on cert-manager
+# specifically. wait=true above (not the repo's usual wait=false) is what actually closes the CRD
+# race for this one: it forces terraform to block until cert-manager's CRDs+webhook are ready
+# before this release ever applies.
 resource "helm_release" "cert-manager-config" {
   name      = "cert-manager-config"
   chart     = "${path.module}/../cert-manager-config/helm"
@@ -214,19 +221,13 @@ resource "helm_release" "cert-manager-config" {
   wait      = false
   timeout   = 300
 
-  # Non-dev Issuer authenticates to vault via Kubernetes auth instead of the dev root token —
-  # see cert-manager-config/helm/templates/issuer.yaml.
-  values = (
-    var.environment != "dev" && fileexists("${path.module}/../cert-manager-config/helm/values-nondev.yaml")
-    ? [file("${path.module}/../cert-manager-config/helm/values-nondev.yaml")]
-    : []
-  )
+  # Same "namespace" value override as helm_release.service's own — see that block's comment.
+  set {
+    name  = "namespace"
+    value = kubernetes_namespace.infra.metadata[0].name
+  }
 
-  # helm_release.vault explicitly, not just implied via helm_release.service — vault is no
-  # longer a member of that for_each (see its own dedicated helm_release block above), so this
-  # chart's own Issuer needing the pki_int role from vault's pki-provision-job.yaml hook (see
-  # this resource's header comment) would otherwise have no ordering against vault at all.
-  depends_on = [helm_release.cert-manager, helm_release.service, helm_release.vault]
+  depends_on = [helm_release.cert-manager, helm_release.service]
 }
 
 # Not in the for_each above — services/apollo/helm/values.supergraph.yaml is still the
@@ -241,4 +242,6 @@ resource "helm_release" "apollo" {
   values = [
     file("${path.module}/../apollo/helm/values.supergraph.yaml"),
   ]
+
+  depends_on = [terraform_data.helm_dep_update]
 }

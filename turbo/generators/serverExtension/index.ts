@@ -7,6 +7,7 @@ import {
 import DatabaseGenerator from "./DatabaseGenerator";
 import DebeziumGenerator from "./DebeziumGenerator";
 import RedisGenerator from "./RedisGenerator";
+import SecretsGenerator from "./SecretsGenerator";
 
 export default class ServerExtensionGenerator {
 	private constructor(plop: PlopTypes.NodePlopAPI) {
@@ -18,6 +19,7 @@ export default class ServerExtensionGenerator {
 		DatabaseGenerator.apply(plop, serverWorkspacesWithoutPrisma);
 		DebeziumGenerator.apply(plop, prismaServerWorkspaces);
 		RedisGenerator.apply(plop, findServerWorkspaces(process.cwd()));
+		SecretsGenerator.apply(plop, findServerWorkspaces(process.cwd()));
 	}
 
 	public static apply(plop: PlopTypes.NodePlopAPI) {

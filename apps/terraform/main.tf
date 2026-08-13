@@ -15,9 +15,7 @@ locals {
 # convention (see each chart's own values.yaml "namespace"/"appNamespace"/"infraNamespace"
 # comments) — a resource collision between two servers' infra charts is avoided by prefixing every
 # object name with that server's own name (server1-grpc-db, server2-grpc-db-secret, etc.), not by
-# giving each server its own namespace anymore. The one exception is the Vault-provisioning
-# ServiceAccount/Role/RoleBinding trio, which is also per-server-prefixed now (see
-# services/vault/helm/templates/k8s-auth-provision-job.yaml's bound_service_account_names="*").
+# giving each server its own namespace anymore.
 resource "kubernetes_namespace" "server_infra" {
   metadata {
     name = "server-infra"
@@ -35,9 +33,10 @@ resource "kubernetes_namespace" "server_apps" {
 # experiments.manifest=true (see versions.tf) — that renders the chart a *second* time, at plan
 # time, to compute the manifest Terraform diffs against; two independent randAlphaNum renders
 # never match, so the provider sees "inconsistent final plan" and errors out. Pinning these to a
-# fixed value here (same fix services/terraform/main.tf's own helm_release.vault uses for
-# rootToken) makes both renders identical. Terraform-managed `random_password`, not a literal —
-# stored in state, not committed (see db.yaml.hbs's own comment on this override).
+# fixed value here makes both renders identical. Terraform-managed `random_password`, not a
+# literal — stored in state, not committed (see db.yaml.hbs's own comment on this override).
+# This is also the DB/Redis credential in full — static for the life of the deploy, same as
+# services/terraform's own authentik_postgres_password, no dynamic-credential provisioner.
 resource "random_password" "db" {
   for_each = local.infra_charts
   length   = 32
@@ -49,16 +48,10 @@ resource "random_password" "redis" {
   special  = false
 }
 
-# Requires services/terraform to have already been applied — each <name>-infra chart's
-# db-provision-job.yaml/redis-provision-job.yaml authenticate against services/vault
-# (http://vault.infra.svc.cluster.local:8200) via the "db-provision" Kubernetes-auth role
-# services/vault/helm/templates/k8s-auth-provision-job.yaml sets up (bound_service_account_names
-# = "*" now — every server's own <name>-vault-db-provision/<name>-vault-redis-provision
-# ServiceAccount authenticates as this same role, since bound_service_account_namespaces is
-# already "*" too and per-server-prefixed SA names are what avoid the k8s-level naming collision
-# these two now-shared namespaces would otherwise cause). No explicit `depends_on` across these
-# two independent terraform roots is possible — if this fails with "connection refused" against
-# vault.infra.svc.cluster.local, run services/terraform first.
+# No dependency on services/terraform having been applied first — every <name>-infra chart's
+# Postgres credential is static (this file's own random_password.db above), read same-namespace
+# by the Postgres container itself and cross-namespace `lookup`'d by the app chart's own env.yaml
+# (see db.yaml.hbs) — no external provisioner to authenticate against.
 resource "helm_release" "infra" {
   for_each = local.infra_charts
 

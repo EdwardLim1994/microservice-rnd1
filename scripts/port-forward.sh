@@ -15,8 +15,14 @@ set -euo pipefail
 # tailnet https port -> "namespace svc/name remote-port local-port"
 declare -A APPS=(
   [8080]="infra svc/authentik-server 80 18081"
+  # 8443 carries the HTTPS-scheme discovery URL that MinIO fetches (see services/minio/helm/values-tailscale.yaml's
+  # oidcConfigUrl comment) — same backend as 8080, separate port so the browser resolves the correct scheme+port
+  # from Authentik's OIDC discovery doc (Authentik builds absolute URLs from the incoming Host header, so fetching
+  # via port 8443 causes it to emit https://...:8443/... auth URLs, not http://...:8080/... which Tailscale
+  # serve rejects with 400 Bad Request because it only accepts TLS connections).
+  [8443]="infra svc/authentik-server 80 18091"
   [8085]="infra svc/grafana 3000 18082"
-  [8090]="infra svc/vault 8200 18083"
+  [8090]="infra svc/openbao 8200 18083"
   [8095]="infra svc/minio 9001 18084"
   # Router serves both the GraphQL API and its interactive Sandbox playground at the same
   # path (/graphql) — content-negotiated on the request's Accept header, browser gets the UI.
@@ -25,6 +31,9 @@ declare -A APPS=(
   # Meilisearch serves its own web UI (index/document browser) at "/" on the same port as its
   # HTTP API — no separate dashboard port to forward.
   [8115]="infra svc/meilisearch 7700 18088"
+  # Unleash and Apicurio Registry have no Ingress — port-forward only.
+  [8120]="infra svc/unleash 4242 18089"
+  [8125]="infra svc/apicurio-registry 8080 18090"
   # apps/web and apps/mfe charts, not services/* — remote port is each one's rsbuild dev-server
   # port (see their own rsbuild.config.ts) when running the Dockerfile's "development" target
   # locally. No apps/web or apps/mfe workspace currently scaffolded — add its own

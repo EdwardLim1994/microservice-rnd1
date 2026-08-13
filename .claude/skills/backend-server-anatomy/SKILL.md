@@ -23,7 +23,8 @@ apps/servers/{name}-grpc/
 │   ├── values-prod.yaml
 │   └── templates/
 │       ├── deployment.yaml
-│       └── env.yaml
+│       ├── env.yaml
+│       └── redis.yaml          ← only if redis extension installed (Deployment/Service/Secret, same chart)
 ├── index.ts                    ← entry point, calls src/app.ts
 ├── package.json                ← scripts: dev, gen, postinstall (prisma generate, if DB)
 ├── prisma.config.ts            ← only present when the database extension is installed
@@ -81,25 +82,25 @@ apps/servers/{name}-grpc/
 
 ## Companion infra chart pattern
 
-Any server with the database and/or redis extension gets a sibling `apps/servers/{name}-infra`
-chart, Terraform-applied — see root `CLAUDE.md`'s "Per-server infra" section for why.
+A server with the database extension gets a sibling `apps/servers/{name}-infra` chart (Postgres
+only — Redis lives directly in the app chart itself, see the folder structure above), Terraform-
+applied — see root `CLAUDE.md`'s "Per-server infra" section for why.
 
 ```
 apps/servers/{name}-infra/helm/
 ├── Chart.yaml
 ├── values.yaml
-├── files/
-│   ├── db-provision-init.sh
-│   ├── db-provision-main.sh
-│   ├── redis-provision-init.sh    ← only if redis extension installed
-│   └── redis-provision-main.sh
 └── templates/
-    ├── db.yaml                 ← PostgreSQL StatefulSet
-    ├── db-provision-job.yaml   ← mints Vault dynamic creds, patches app Secret, rolls Deployment
-    ├── redis.yaml              ← only if redis extension installed
-    ├── redis-provision-job.yaml
+    ├── db.yaml                 ← PostgreSQL Deployment/Service/Secret, static superuser password
     └── debezium.yaml           ← only if debezium extension installed
 ```
+
+The app chart's own `env.yaml` reads that static password cross-namespace via a Helm `lookup` at
+render time (no provisioning Job, no rotation — same static-credential pattern Redis uses too,
+just without the cross-namespace step since Redis's Deployment/Secret share the app chart's own
+namespace). A per-deploy Vault-minted dynamic credential was evaluated and dropped in favor of
+this — see root `CLAUDE.md`'s `services/*` note on why Vault (and Infisical, evaluated as a
+replacement) were both removed from this repo.
 
 All `-infra` charts land in the one shared `server-infra` namespace (see
 `apps/terraform/main.tf`); collisions are avoided by prefixing every object name with the
@@ -110,7 +111,7 @@ server's own name, not by a per-server namespace.
 ```bash
 bun run generate
 # select: server
-# follow prompts to add drivers (grpc, graphql, kafka, cron) and extensions (database, redis, debezium)
+# follow prompts to add drivers (grpc, graphql, kafka, cron) and extensions (database, redis, debezium, secrets)
 ```
 
 This scaffolds the full structure above, including `helm/`.

@@ -82,8 +82,8 @@ metadata:
     app: {{ name }}-db
 spec:
   # ClusterIP — the app chart's own Deployment/migrate Job (a different namespace now, see
-  # {{ name }}'s own values.yaml infraNamespace), and Vault (services/vault, its own database
-  # secrets engine config) all reach this cross-namespace via its fully-qualified DNS name.
+  # {{ name }}'s own values.yaml infraNamespace) reaches this cross-namespace via its
+  # fully-qualified DNS name.
   type: ClusterIP
   selector:
     app: {{ name }}-db
@@ -93,9 +93,10 @@ spec:
       targetPort: postgres
 
 ---
-# The Postgres superuser's own password — read by the postgres container above and by
-# db-provision-job.yaml's vault write database/config/... (admin creds Vault uses to mint leaf
-# roles). Randomly generated on first `helm install` (see the `lookup`/`randAlphaNum` block at
+# The Postgres superuser's own password — read by the postgres container above and copied
+# straight into the app chart's own DATABASE_URL by db-provision-job.yaml (same static
+# credential, no separate role). Randomly generated on first `helm install` (see the
+# `lookup`/`randAlphaNum` block at
 # the top of this file) and kept stable across every later `helm upgrade` — `lookup` reads this
 # same Secret's already-set password back instead of minting a fresh one on every render, which
 # would otherwise silently break Postgres/Vault's already-established credential each upgrade.

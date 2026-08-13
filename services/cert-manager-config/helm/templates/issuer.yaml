@@ -3,32 +3,13 @@
 # case to support and ClusterIssuer's extra `--cluster-resource-namespace` wiring would be dead
 # weight.
 #
-# dev mode: auth reuses vault-secret's existing root token (see services/vault/helm/templates/
-# secret.yaml) — vault runs in dev mode and already hands that same root token to
-# oidc-provision-job.yaml, so this doesn't lower the existing trust bar.
-#
-# prod mode (devMode: false): least-privilege Kubernetes-auth role instead — see
-# services/vault/helm/templates/k8s-auth-provision-job.yaml's "cert-manager-issuer" role/policy
-# (sign-only, nothing else) and serviceaccount.yaml's static token Secret this authenticates with.
+# cert-manager's own built-in selfSigned type — Vault's PKI-backed Issuer (root+intermediate CA,
+# Kubernetes-auth/root-token plumbing to reach it) was removed along with the rest of Vault; this
+# needs no auth at all, and dev/non-dev no longer differ.
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: vault-issuer
+  name: selfsigned-issuer
   namespace: {{ .Values.namespace }}
 spec:
-  vault:
-    server: http://vault.{{ .Values.namespace }}.svc:8200
-    path: pki_int/sign/traefik-tls-role
-    auth:
-      {{- if .Values.devMode }}
-      tokenSecretRef:
-        name: vault-secret
-        key: VAULT_DEV_ROOT_TOKEN_ID
-      {{- else }}
-      kubernetes:
-        role: cert-manager-issuer
-        mountPath: /v1/auth/kubernetes
-        secretRef:
-          name: cert-manager-issuer-token
-          key: token
-      {{- end }}
+  selfSigned: {}

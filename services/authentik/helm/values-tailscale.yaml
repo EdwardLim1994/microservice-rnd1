@@ -1,10 +1,10 @@
 # Registers the tailnet hostname as a real Traefik route to authentik-server — see
 # templates/ingress.yaml's own comment. Without this, every request below that resolves this
-# hostname via a hostAliases entry (vault/minio's own statefulset.yaml) still
+# hostname via a hostAliases entry (minio's own statefulset.yaml) still
 # 404s at Traefik: a hostAliases-resolved connection alone only gets it as far as the ClusterIP,
 # not past Traefik's own Host-based routing.
 extraIngressHosts:
-  - raspberrypi94.tail60240b.ts.net
+  - ${tailscale_hostname}
 
 # Layered on top of values.yaml (see services/terraform/main.tf) alongside
 # services/monitoring/helm/values-tailscale.yaml — Grafana's rootUrl there is overridden to the
@@ -19,7 +19,7 @@ grafanaRedirectUris:
   - http://grafana.lan:8080/login/generic_oauth
   - https://grafana.lan:8443/login/generic_oauth
   # Must match services/monitoring/helm/values-tailscale.yaml's grafana.rootUrl exactly.
-  - https://raspberrypi94.tail60240b.ts.net:8085/login/generic_oauth
+  - https://${tailscale_hostname}:8085/login/generic_oauth
 
 # Must match services/minio/helm/values-tailscale.yaml's redirectUri exactly. Port 8095 —
 # scripts/port-forward.sh's own APPS map.
@@ -28,15 +28,4 @@ minioRedirectUris:
   - http://minio.lan/oauth_callback
   - http://minio.lan:8080/oauth_callback
   - https://minio.lan:8443/oauth_callback
-  - https://raspberrypi94.tail60240b.ts.net:8095/oauth_callback
-
-# Must match services/vault/helm/values-tailscale.yaml's oidcRedirectUris exactly (Vault enforces
-# its own allow-list independently of Authentik's). Port 8090 — scripts/port-forward.sh's own
-# APPS map.
-vaultRedirectUris:
-  - http://vault.localhost/ui/vault/auth/oidc/oidc/callback
-  - http://vault.lan/ui/vault/auth/oidc/oidc/callback
-  - http://vault.lan:8080/ui/vault/auth/oidc/oidc/callback
-  - https://vault.lan:8443/ui/vault/auth/oidc/oidc/callback
-  - https://vault.localhost:8443/ui/vault/auth/oidc/oidc/callback
-  - https://raspberrypi94.tail60240b.ts.net:8090/ui/vault/auth/oidc/oidc/callback
+  - https://${tailscale_hostname}:8095/oauth_callback
