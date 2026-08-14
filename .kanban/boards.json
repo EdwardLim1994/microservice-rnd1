@@ -1,366 +1,624 @@
-{
-  "meta": {
-    "nextId": 40,
-    "activeSprint": null,
-    "proposedMilestone": {
-      "name": "v0.1.0",
-      "goal": "Ship hr-leave-payroll-platform epic (KAN-1) end-to-end through the SDLC pipeline",
-      "estimatedDuration": "10 working days (first-pass estimate, see sprint-plan.md)",
-      "storyIds": ["KAN-2", "KAN-3", "KAN-4", "KAN-5", "KAN-6"],
-      "status": "awaiting /kickoff approval"
-    }
-  },
-  "cards": [
-    {
-      "id": "KAN-1",
-      "type": "epic",
-      "title": "[Epic] HR Employee Management, Leave & Payroll Platform",
-      "body": "## Problem Statement\nHR Admin (sole super-admin) needs to manage employee records (details, monthly payroll rate, supervisor assignment — supervisor is itself an employee) and run a leave workflow where an employee's leave routes to their supervisor, and a supervisor's own leave routes to HR Admin. Registration is manual by HR Admin; on success the system emails a generated password to the employee's personal (non-company) email, login via Authentik (email+password only). Leave types are fixed (annual, sick, unpaid) with per-employee balance tracking; leave beyond entitlement auto-converts to unpaid. Payroll auto-generates monthly via cron: monthly rate minus unpaid-leave deduction, rendered as a simple PDF stored in MinIO. Every logged-in user sees an in-app notification icon for: new leave request (supervisor), leave decision (employee), payroll generated (employee).\n\n## Business Value\nProof-of-concept feature run end-to-end through the SDLC agent pipeline, to validate the agents can manage a project autonomously with minimal human supervision. Not a compliance-driven business requirement — bias toward simplicity throughout.\n\n## Scope\n- Employee registration & profile (incl. payroll rate, supervisor link)\n- Authentik-based login (email + generated password)\n- Leave request/approval workflow with fixed leave types + balance tracking\n- Monthly automated payroll generation (PDF to MinIO)\n- In-app notifications\n\n## Out of Scope\n- Payroll disbursement / bank integration\n- Attendance / timesheet tracking\n- Performance reviews\n- Configurable leave types\n- Extra regulatory/encryption controls beyond repo defaults\n- Roles beyond HR Admin / Supervisor / Employee\n- Email/push notifications (in-app only for v1)\n\n## Acceptance Criteria\n- HR Admin can CRUD employee records with payroll rate + supervisor\n- New employee receives generated-password email, can log in via Authentik\n- Employee submits leave; supervisor approves/rejects; supervisor's own leave goes to HR Admin\n- Leave balances tracked per type; over-entitlement auto-converts to unpaid\n- Payroll auto-generated monthly per employee, PDF stored in MinIO, reflects unpaid-leave deductions\n- All users see in-app notifications for the three defined events\n\n## Dependencies\nAll net-new — no existing servers to extend. New servers required: employee, leave, payroll (exact split decided at architecture/planning stage).",
-      "labels": ["type: epic", "priority: TBD"],
-      "status": "backlog",
-      "links": []
-    },
-    {
-      "id": "KAN-2",
-      "type": "story",
-      "title": "[Story] Employee Registration & Profile Management",
-      "body": "## User Story\nAs HR Admin, I want to register an employee's details, monthly payroll rate, and supervisor, so that the employee exists in the system with correct reporting hierarchy and can be paid and take leave.\n\n## Acceptance Criteria\n- [ ] Given valid employee details + selected supervisor, when HR Admin submits registration, then an employee record is created, an Authentik account is provisioned, and a one-time success dialog shows HR Admin the employee's personal email + generated password (mocked credential delivery for v0.1.0 — no real email sent, ADR-3).\n- [ ] Given a supervisor field referencing another employee, when registration completes, then the self-referencing supervisor hierarchy is stored correctly.\n- [ ] Given a duplicate personal email, when HR Admin submits, then registration is rejected with a clear error.\n- [ ] Given HR Admin edits an existing employee's payroll rate or supervisor, when saved, then the change is persisted and reflected in future leave/payroll calculations.\n\n## Security AC (Stage 2 — Security Engineer)\n- [ ] Given unauthenticated request, when hitting employee create/edit endpoints, then rejected 401 — HR Admin only, enforced server-side not just UI.\n- [ ] Given non-HR-Admin authenticated user, when attempting employee create/edit, then rejected 403 (RBAC, prevents privilege-escalation via direct API call).\n- [ ] Given payroll rate/supervisor payload, when submitted, then server-side validated (type/range) — not trusted from client.\n- [ ] Given a registration error, when returned to caller, then no PII or internal detail leaked in error body.\n- [ ] Given generated password, when issued, then meets minimum complexity; delivery is mocked via a one-time HR Admin-facing dialog for v0.1.0 (ADR-3) — accepted trade-off: HR Admin transiently sees the employee's plaintext password, password is never logged or persisted client-side beyond the dialog.\n- [ ] Given employee record created/edited, when action completes, then audit log entry recorded (actor, timestamp, diff) — repudiation control.\n\n**Compliance (PDPA Malaysia — Must Ship, non-negotiable):**\n- [ ] Given employee PII (name, personal email, payroll rate) at rest, when stored, then field/DB-level encryption applied.\n- [ ] Given employee PII, when accessed, then access restricted to HR Admin (and the employee's own record) — no broad read access.\n\nSign-off: `security: conditional` — cleared provided PDPA baseline (encryption at rest + access restriction + audit log) ships in v1; deeper PDPA workflows (data subject requests, retention automation) explicitly deferred, flagged for Stage 7 escalation since Edward scoped \"no extra regulatory controls\" but compliance override makes PDPA baseline non-negotiable.\n\n## Test Strategy (QA)\nTypes: unit (validation, duplicate-email check), component integration (DB + Authentik provisioning call), e2e (register → credential dialog → login round-trip with #KAN-3). Greenfield — no regression-impact-matrix needed.\n\n## Accessibility AC (Stage 4 — UI/UX, WCAG 2.1 AA)\n- [ ] Given the registration/edit form, when navigated via keyboard only, then every field and the submit button are reachable in a logical tab order with visible focus indicators.\n- [ ] Given a field validation error, when it appears, then it is programmatically associated to its input via `aria-describedby` (not color/icon alone).\n- [ ] Given the employee list table, when read by a screen reader, then column headers are announced with each cell (`scope`/`th` semantics).\n\n## Dependencies\nNone — foundation story.\n\n## Notes\nEmployee entity is the base for leave and payroll. Supervisor is a nullable self-referencing FK (HR Admin has no supervisor). HR Admin is a fixed super-admin role, not a separate registerable entity.",
-      "labels": ["type: story", "priority: TBD", "security: conditional"],
-      "status": "backlog",
-      "links": ["Part of #KAN-1"]
-    },
-    {
-      "id": "KAN-3",
-      "type": "story",
-      "title": "[Story] Authentik Login for Employees",
-      "body": "## User Story\nAs an Employee (including Supervisor and HR Admin), I want to log in with my email and generated password via Authentik, so that I can access the portal appropriate to my role.\n\n## Acceptance Criteria\n- [ ] Given valid Authentik-provisioned credentials, when a user logs in, then a session is established and a role-appropriate portal view is shown (HR Admin / Supervisor / Employee).\n- [ ] Given invalid credentials, when login is attempted, then access is denied with a clear error.\n\n## Security AC (Stage 2 — Security Engineer)\n- [ ] Given repeated failed login attempts, when threshold exceeded, then Authentik lockout/rate-limit applies (confirm native policy enabled, not custom-built).\n- [ ] Given a valid session, when a token is issued, then it's scoped to the user's role and carries a standard expiry (no indefinite sessions).\n- [ ] Given a login failure, when an error is returned, then the message is generic (no user-enumeration distinguishing \"unknown email\" from \"wrong password\").\n\nCompliance: NIST 800-63 authentication baseline — satisfied by existing `AuthentikPlugin`/OIDC integration, no new control needed.\n\nSign-off: `security: cleared` — relies on already-hardened Authentik integration.\n\n## Test Strategy (QA)\nTypes: component integration (auth flow against Authentik), e2e (login → role-based view). Greenfield.\n\n## Accessibility AC (Stage 4 — UI/UX, WCAG 2.1 AA)\n- [ ] Given the Authentik-hosted login form, when navigated via keyboard, then email/password fields and submit are reachable in order with visible focus (Authentik default theme — verify it meets AA, else customise).\n- [ ] Given a login error, when shown, then it is announced to screen readers (live region), not only visually displayed.\n\n## Dependencies\n- Depends on: #KAN-2 — employee record + Authentik account must exist first.\n\n## Notes\nAuthentik OIDC per repo architecture axiom. Password change/reset flow out of scope unless flagged later.",
-      "labels": ["type: story", "priority: TBD", "security: cleared"],
-      "status": "backlog",
-      "links": ["Part of #KAN-1"]
-    },
-    {
-      "id": "KAN-4",
-      "type": "story",
-      "title": "[Story] Leave Request, Approval & Balance Tracking",
-      "body": "## User Story\nAs an Employee, I want to submit a leave request (annual/sick/unpaid) so that my supervisor can review it; as a Supervisor, I want my own leave reviewed by HR Admin instead of my own supervisor.\n\n## Acceptance Criteria\n- [ ] Given an employee submits a leave request with type + dates, when their supervisor reviews it, then the supervisor can approve or reject.\n- [ ] Given a supervisor submits their own leave request, when HR Admin reviews it, then HR Admin can approve or reject.\n- [ ] Given an employee has a fixed annual/sick leave entitlement, when a request is submitted, then the remaining balance is checked and displayed.\n- [ ] Given approved leave exceeds the employee's remaining annual/sick balance, when calculated, then the excess days are recorded as unpaid leave.\n\n## Security AC (Stage 2 — Security Engineer)\n- [ ] Given an employee, when attempting to approve/reject their own leave request, then rejected 403 (self-approval blocked).\n- [ ] Given a supervisor, when attempting to approve/reject leave for someone not their direct report, then rejected 403 (authorization scoped to actual hierarchy, checked server-side).\n- [ ] Given a supervisor's own leave request, when submitted, then it is routed only to HR Admin (never to the supervisor's own supervisor or self).\n- [ ] Given a leave request payload, when submitted, then balance/date values are validated server-side (reject negative days, backdated abuse) — not trusted from client.\n\nCompliance: leave data shares the employee PII store — same PDPA baseline as #KAN-2 (encryption at rest, access restriction, audit log on approve/reject).\n\nSign-off: `security: conditional` — cleared provided authorization checks are server-side (not UI-only) and PDPA baseline from #KAN-2 covers this data too.\n\n## Test Strategy (QA)\nTypes: unit (balance calc, unpaid conversion), component integration (approval routing incl. supervisor→HR Admin branch), e2e (submit → approve → balance updated). Regression: none (greenfield), but touches #KAN-2's employee/supervisor data — verify hierarchy edits in #KAN-2 don't orphan in-flight leave requests.\n\n## Accessibility AC (Stage 4 — UI/UX, WCAG 2.1 AA)\n- [ ] Given the leave request form's date pickers, when operated via keyboard, then dates are selectable without a mouse.\n- [ ] Given the approval queue's Approve/Reject buttons, when reached via keyboard, then both are actionable and clearly labelled (not icon-only without accessible name).\n- [ ] Given a request's status (pending/approved/rejected), when displayed, then status is conveyed by text/icon, not colour alone.\n\n## Dependencies\n- Depends on: #KAN-2 — employee + supervisor link required.\n- Depends on: #KAN-3 — login/session required to submit or review.\n\n## Notes\nLeave types fixed for v1: annual, sick, unpaid. Unpaid-leave totals feed payroll deduction calculation (#KAN-5).",
-      "labels": ["type: story", "priority: TBD", "security: conditional"],
-      "status": "backlog",
-      "links": ["Part of #KAN-1"]
-    },
-    {
-      "id": "KAN-5",
-      "type": "story",
-      "title": "[Story] Monthly Automated Payroll Generation",
-      "body": "## User Story\nAs HR Admin, I want payroll auto-generated monthly per employee (monthly rate minus unpaid-leave deduction) as a PDF stored in MinIO, so that payroll records exist without manual calculation.\n\n## Acceptance Criteria\n- [ ] Given a month-end cron trigger, when the payroll job runs, then each employee's payroll = monthly rate − (unpaid leave days that month × daily rate).\n- [ ] Given payroll is calculated for an employee, when generation completes, then a simple-format PDF is generated and saved to MinIO.\n- [ ] Given payroll generation succeeds for an employee, when complete, then a notification event is emitted (see #KAN-6).\n\n## Security AC (Stage 2 — Security Engineer)\n- [ ] Given a payroll PDF in MinIO, when accessed, then access is restricted to HR Admin and the specific employee it belongs to (no public bucket, authz-checked retrieval — never a bare public URL).\n- [ ] Given the payroll cron job, when it runs, then it uses least-privilege, Vault-issued service credentials (not a static superuser).\n- [ ] Given the payroll job re-runs for a month already generated, when triggered, then it is idempotent (no duplicate PDF / double deduction).\n\nCompliance: payroll = financial PII → PDPA baseline (same as #KAN-2) plus MinIO server-side encryption at rest — Must Ship.\n\nSign-off: `security: conditional` — cleared provided PDF access is authz-checked (not a public/guessable MinIO URL) and SSE is enabled on the bucket.\n\n## Test Strategy (QA)\nTypes: unit (payroll calc incl. unpaid deduction), component integration (cron trigger → PDF → MinIO), e2e (month-end run → employee notified). Regression: none (greenfield), but consumes #KAN-4's unpaid-leave data — verify late-approved leave doesn't silently skip that month's calc.\n\n## Accessibility AC (Stage 4 — UI/UX, WCAG 2.1 AA)\n- [ ] Given the payslip list, when navigated via keyboard, then each row's download action is reachable and labelled with the specific month (not a generic \"download\" repeated with no context).\n\n## Dependencies\n- Depends on: #KAN-2 — employee payroll rate required.\n- Depends on: #KAN-4 — unpaid leave days required for deduction calc.\n\n## Notes\nCron-driven (CronDriver pattern, packages/server). New payroll server. PDF format kept simple, implementation discretion.",
-      "labels": ["type: story", "priority: TBD", "security: conditional"],
-      "status": "backlog",
-      "links": ["Part of #KAN-1"]
-    },
-    {
-      "id": "KAN-6",
-      "type": "story",
-      "title": "[Story] In-App Notifications",
-      "body": "## User Story\nAs any logged-in user, I want a notification icon showing relevant events, so that I stay informed without manually checking.\n\n## Acceptance Criteria\n- [ ] Given an employee submits a leave request, when their supervisor next logs in (or is active), then the supervisor sees a \"new leave request\" notification.\n- [ ] Given a leave request is approved or rejected, when the requesting employee next logs in (or is active), then they see a decision notification.\n- [ ] Given monthly payroll is generated successfully, when the employee next logs in (or is active), then they see a \"payroll generated\" notification.\n\n## Security AC (Stage 2 — Security Engineer)\n- [ ] Given a user requests their notifications, when fetched, then only that user's own notifications are returned (no IDOR via sequential/guessable IDs).\n\nCompliance: none beyond baseline — no new PII class introduced.\n\nSign-off: `security: cleared`.\n\n## Test Strategy (QA)\nTypes: unit (notification fan-out on event), component integration (event → notification record), frontend interaction (icon badge/read state). Greenfield.\n\n## Accessibility AC (Stage 4 — UI/UX, WCAG 2.1 AA)\n- [ ] Given the unread notification count changes, when updated, then it is announced via an ARIA live region, not visual-only.\n- [ ] Given the notification bell, when reached via keyboard, then Enter/Space opens the dropdown and Escape closes it, with focus returned to the bell on close.\n\n## Dependencies\n- Depends on: #KAN-3 — requires session/login.\n- Depends on: #KAN-4 — leave events source.\n- Depends on: #KAN-5 — payroll events source.\n\n## Notes\nIn-app only for v1 — no email/push. Icon shown across portal regardless of role.",
-      "labels": ["type: story", "priority: TBD", "security: cleared"],
-      "status": "backlog",
-      "links": ["Part of #KAN-1"]
-    },
-    {
-      "id": "KAN-7",
-      "type": "feature",
-      "title": "[Feature] Employee Registration & Profile",
-      "body": "Branch: feat/KAN-7 from us/KAN-2. Scope: `employee` service (grpc+subgraph) + `hr-portal` registration/edit UI. Breakdown: tasks.md §1. AC: story KAN-2's AC + security AC + accessibility AC.",
-      "labels": ["type: feature", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-2"]
-    },
-    {
-      "id": "KAN-8",
-      "type": "feature",
-      "title": "[Feature] Authentik Login",
-      "body": "Branch: feat/KAN-8 from us/KAN-3. Scope: `hr-portal` login wrapper + role-based routing against existing AuthentikPlugin pattern. Breakdown: tasks.md §2. AC: story KAN-3's AC + security AC + accessibility AC.",
-      "labels": ["type: feature", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-3"]
-    },
-    {
-      "id": "KAN-9",
-      "type": "feature",
-      "title": "[Feature] Leave Request, Approval & Balance",
-      "body": "Branch: feat/KAN-9 from us/KAN-4. Scope: `leave` service (grpc+subgraph) + `hr-portal` My Leave/Request/Approval Queue UI. Breakdown: tasks.md §3. AC: story KAN-4's AC + security AC + accessibility AC.",
-      "labels": ["type: feature", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-4"]
-    },
-    {
-      "id": "KAN-10",
-      "type": "feature",
-      "title": "[Feature] Monthly Payroll Generation",
-      "body": "Branch: feat/KAN-10 from us/KAN-5. Scope: `payroll` service (cron+grpc+subgraph) + `hr-portal` My Payslips UI. Breakdown: tasks.md §4. AC: story KAN-5's AC + security AC + accessibility AC.",
-      "labels": ["type: feature", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-5"]
-    },
-    {
-      "id": "KAN-11",
-      "type": "feature",
-      "title": "[Feature] In-App Notifications",
-      "body": "Branch: feat/KAN-11 from us/KAN-6. Scope: `notification` service (Kafka consumer+subgraph) + `hr-portal` header notification bell. Breakdown: tasks.md §5. AC: story KAN-6's AC + security AC + accessibility AC.",
-      "labels": ["type: feature", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-6"]
-    },
-    {
-      "id": "KAN-12",
-      "type": "api",
-      "title": "[API] employee proto + GraphQL contracts",
-      "body": "Branch: api/KAN-12 from feat/KAN-7. MUST merge before task/KAN-13, task/KAN-14. Author `contracts/proto/services/employee/employee.proto` + `contracts/graphql/employee/` per design.md. Data Engineer reviews for compatibility, then runs api-type-generation. Ref: tasks.md 1.1-1.2.",
-      "labels": ["type: api", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-7"]
-    },
-    {
-      "id": "KAN-13",
-      "type": "task",
-      "title": "[Task] employee-grpc: CRUD + Authentik provisioning + credential email",
-      "body": "Branch: task/KAN-13 from feat/KAN-7. Depends on: api/KAN-12 merged. Backend Developer. Implement per specs/employee-management/spec.md. Ref: tasks.md 1.3-1.7. Note: credential-email provider unresolved (ADR-3) — implement behind swappable interface.",
-      "labels": ["type: task", "priority: TBD", "area: backend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-7"]
-    },
-    {
-      "id": "KAN-14",
-      "type": "task",
-      "title": "[Task] hr-portal: Employee List/Register/Edit screens",
-      "body": "Branch: task/KAN-14 from feat/KAN-7. Depends on: api/KAN-12 merged, task/KAN-13 merged (backend-first sequencing). Frontend Developer. First screens in first-ever `apps/web/hr-portal` (scaffold via turbo gen web if not already done by an earlier task). Per interaction-specification.md/component-requirements.md. Ref: tasks.md 1.8-1.9.",
-      "labels": ["type: task", "priority: TBD", "area: frontend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-7"]
-    },
-    {
-      "id": "KAN-15",
-      "type": "qa",
-      "title": "[QA] Employee registration test suite",
-      "body": "Branch: qa/KAN-15 from feat/KAN-7. Unit + component integration + e2e (spans KAN-3 login). Ref: tasks.md 1.10-1.12, test-cases/integration/service-integration-cases.md §KAN-2, test-cases/e2e/critical-paths.md #1.",
-      "labels": ["type: qa", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-7"]
-    },
-    {
-      "id": "KAN-16",
-      "type": "security",
-      "title": "[Security] Employee RBAC + PDPA baseline verification",
-      "body": "Branch: security/KAN-16 from feat/KAN-7. Verify HR-Admin-only RBAC, server-side validation, audit logging, PDPA baseline (encryption at rest, error scrubbing) per specs/employee-management/spec.md. Apply sign-off label to KAN-2 on completion. Ref: tasks.md 1.13.",
-      "labels": ["type: security", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-7"]
-    },
-    {
-      "id": "KAN-17",
-      "type": "task",
-      "title": "[Task] Authentik login wiring + login screen",
-      "body": "Branch: task/KAN-17 from feat/KAN-8. Depends on: KAN-13 (employee/Authentik account provisioning) merged. Backend+Frontend (small enough not to split). Ref: tasks.md 2.1-2.2. No new api/ branch needed — reuses employee's Authentik integration, no new contract.",
-      "labels": ["type: task", "priority: TBD", "area: backend", "area: frontend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-8"]
-    },
-    {
-      "id": "KAN-18",
-      "type": "qa",
-      "title": "[QA] Login test suite",
-      "body": "Branch: qa/KAN-18 from feat/KAN-8. Component integration + e2e. Ref: tasks.md 2.3-2.4, test-cases/e2e/critical-paths.md #1.",
-      "labels": ["type: qa", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-8"]
-    },
-    {
-      "id": "KAN-19",
-      "type": "security",
-      "title": "[Security] Auth flow verification",
-      "body": "Branch: security/KAN-19 from feat/KAN-8. Verify Authentik lockout/rate-limit enabled, generic error messages. Apply sign-off label to KAN-3. Ref: tasks.md 2.5.",
-      "labels": ["type: security", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-8"]
-    },
-    {
-      "id": "KAN-20",
-      "type": "api",
-      "title": "[API] leave proto + GraphQL contracts",
-      "body": "Branch: api/KAN-20 from feat/KAN-9. MUST merge before task/KAN-21, task/KAN-22. Author `contracts/proto/services/leave/leave.proto` + `contracts/graphql/leave/` per design.md. Ref: tasks.md 3.1.",
-      "labels": ["type: api", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-9"]
-    },
-    {
-      "id": "KAN-21",
-      "type": "task",
-      "title": "[Task] leave-grpc + leave-subgraph: submit/review/balance",
-      "body": "Branch: task/KAN-21 from feat/KAN-9. Depends on: api/KAN-20 merged, employee-grpc's GetSupervisorChain (KAN-13) available. Backend Developer. Implement per specs/leave-management/spec.md. Ref: tasks.md 3.2-3.4.",
-      "labels": ["type: task", "priority: TBD", "area: backend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-9"]
-    },
-    {
-      "id": "KAN-22",
-      "type": "task",
-      "title": "[Task] hr-portal: My Leave / Request form / Approval Queue",
-      "body": "Branch: task/KAN-22 from feat/KAN-9. Depends on: api/KAN-20 merged, task/KAN-21 merged. Frontend Developer. Ref: tasks.md 3.5.",
-      "labels": ["type: task", "priority: TBD", "area: frontend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-9"]
-    },
-    {
-      "id": "KAN-23",
-      "type": "qa",
-      "title": "[QA] Leave workflow test suite",
-      "body": "Branch: qa/KAN-23 from feat/KAN-9. Unit + integration (routing/authorization) + e2e. Ref: tasks.md 3.6-3.8, test-cases/integration/service-integration-cases.md §KAN-4, test-cases/e2e/critical-paths.md #2-4, #6.",
-      "labels": ["type: qa", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-9"]
-    },
-    {
-      "id": "KAN-24",
-      "type": "security",
-      "title": "[Security] Leave authorization verification",
-      "body": "Branch: security/KAN-24 from feat/KAN-9. Verify self-approval + out-of-hierarchy approval blocked server-side, PDPA baseline carried over. Apply sign-off label to KAN-4. Ref: tasks.md 3.9.",
-      "labels": ["type: security", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-9"]
-    },
-    {
-      "id": "KAN-25",
-      "type": "devops",
-      "title": "[DevOps] leave + leave-infra scaffold (Postgres + Debezium)",
-      "body": "Branch: devops/KAN-25 from us/KAN-4 (story-level). `turbo gen server` for `leave`, `turbo gen database` + `turbo gen debezium` for `leave-infra`. Unblocks api/KAN-20. Ref: tasks.md 3.2, ADR-2.",
-      "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-4"]
-    },
-    {
-      "id": "KAN-26",
-      "type": "api",
-      "title": "[API] payroll proto + GraphQL contracts",
-      "body": "Branch: api/KAN-26 from feat/KAN-10. MUST merge before task/KAN-27, task/KAN-28. Author `contracts/proto/services/payroll/payroll.proto` (GetPayrollRecords) + `contracts/graphql/payroll/`. Ref: tasks.md 4.1.",
-      "labels": ["type: api", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-10"]
-    },
-    {
-      "id": "KAN-27",
-      "type": "task",
-      "title": "[Task] payroll-cron + PDF/MinIO + payroll-grpc/subgraph",
-      "body": "Branch: task/KAN-27 from feat/KAN-10. Depends on: api/KAN-26 merged, employee-grpc's GetEmployeeRate (KAN-13) and leave-grpc's GetUnpaidLeaveDays (KAN-21) available. Backend Developer. Implement per specs/payroll-generation/spec.md, incl. idempotency on (employee_id, year_month). Ref: tasks.md 4.2-4.5.",
-      "labels": ["type: task", "priority: TBD", "area: backend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-10"]
-    },
-    {
-      "id": "KAN-28",
-      "type": "task",
-      "title": "[Task] hr-portal: My Payslips screen",
-      "body": "Branch: task/KAN-28 from feat/KAN-10. Depends on: api/KAN-26 merged, task/KAN-27 merged. Frontend Developer. Ref: tasks.md 4.6.",
-      "labels": ["type: task", "priority: TBD", "area: frontend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-10"]
-    },
-    {
-      "id": "KAN-29",
-      "type": "qa",
-      "title": "[QA] Payroll generation test suite",
-      "body": "Branch: qa/KAN-29 from feat/KAN-10. Unit (calc/idempotency) + integration (cron→PDF→MinIO) + e2e. Ref: tasks.md 4.7-4.9, test-cases/integration/service-integration-cases.md §KAN-5, test-cases/e2e/critical-paths.md #5.",
-      "labels": ["type: qa", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-10"]
-    },
-    {
-      "id": "KAN-30",
-      "type": "security",
-      "title": "[Security] Payroll access + credential verification",
-      "body": "Branch: security/KAN-30 from feat/KAN-10. Verify PDF access restricted to owner/HR Admin, least-privilege Vault cron credentials, MinIO SSE enabled. Apply sign-off label to KAN-5. Ref: tasks.md 4.10.",
-      "labels": ["type: security", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-10"]
-    },
-    {
-      "id": "KAN-31",
-      "type": "devops",
-      "title": "[DevOps] payroll + payroll-infra scaffold (Postgres + Debezium)",
-      "body": "Branch: devops/KAN-31 from us/KAN-5 (story-level). `turbo gen server` for `payroll`, `turbo gen database` + `turbo gen debezium` for `payroll-infra`, `turbo gen cron` driver. Unblocks api/KAN-26. Ref: tasks.md 4.2, ADR-2.",
-      "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-5"]
-    },
-    {
-      "id": "KAN-32",
-      "type": "api",
-      "title": "[API] notification GraphQL contract",
-      "body": "Branch: api/KAN-32 from feat/KAN-11. MUST merge before task/KAN-33, task/KAN-34. Author `contracts/graphql/notification/` (query myNotifications, mutations markRead/markAllRead). No proto needed (no synchronous callers). Ref: tasks.md 5.1.",
-      "labels": ["type: api", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-11"]
-    },
-    {
-      "id": "KAN-33",
-      "type": "task",
-      "title": "[Task] notification-consumer (KafkaDriver) + notification-subgraph",
-      "body": "Branch: task/KAN-33 from feat/KAN-11. Depends on: api/KAN-32 merged, leave-infra's Debezium (KAN-25) and payroll-infra's Debezium (KAN-31) publishing to Kafka. Backend Developer. Implement per specs/in-app-notifications/spec.md. Ref: tasks.md 5.2-5.4.",
-      "labels": ["type: task", "priority: TBD", "area: backend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-11"]
-    },
-    {
-      "id": "KAN-34",
-      "type": "task",
-      "title": "[Task] hr-portal: notification bell + dropdown (shared header)",
-      "body": "Branch: task/KAN-34 from feat/KAN-11. Depends on: api/KAN-32 merged, task/KAN-33 merged. Frontend Developer. Mounted once in shared portal header layout. Ref: tasks.md 5.5.",
-      "labels": ["type: task", "priority: TBD", "area: frontend"],
-      "status": "backlog",
-      "links": ["Part of #KAN-11"]
-    },
-    {
-      "id": "KAN-35",
-      "type": "qa",
-      "title": "[QA] Notification test suite",
-      "body": "Branch: qa/KAN-35 from feat/KAN-11. Unit + integration (CDC event → row) + frontend interaction (Vitest+RTL+MSW). Ref: tasks.md 5.6-5.8, test-cases/integration/service-integration-cases.md §KAN-6.",
-      "labels": ["type: qa", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-11"]
-    },
-    {
-      "id": "KAN-36",
-      "type": "security",
-      "title": "[Security] Notification IDOR verification",
-      "body": "Branch: security/KAN-36 from feat/KAN-11. Verify own-notifications-only reads. Apply sign-off label to KAN-6. Ref: tasks.md 5.9.",
-      "labels": ["type: security", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-11"]
-    },
-    {
-      "id": "KAN-37",
-      "type": "devops",
-      "title": "[DevOps] notification + notification-infra scaffold + Kafka topic wiring",
-      "body": "Branch: devops/KAN-37 from us/KAN-6 (story-level). `turbo gen server` for `notification`, `turbo gen database` for `notification-infra`, `turbo gen driver` (Kafka) for consumer. Data Engineer provisions consumption of `leave.leave_request` + `payroll.payroll_record` topics. Unblocks api/KAN-32. Ref: tasks.md 5.2.",
-      "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-6"]
-    },
-    {
-      "id": "KAN-38",
-      "type": "devops",
-      "title": "[DevOps] employee + employee-infra scaffold (Postgres)",
-      "body": "Branch: devops/KAN-38 from us/KAN-2 (story-level). `turbo gen server` for `employee`, `turbo gen database` for `employee-infra`. No Debezium needed (nothing consumes employee CDC in this epic). Unblocks api/KAN-12. Ref: tasks.md 1.3.",
-      "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-2"]
-    },
-    {
-      "id": "KAN-39",
-      "type": "devops",
-      "title": "[DevOps] apps/terraform apply — all 4 new -infra charts",
-      "body": "Branch: devops/KAN-39 from release/v0.1.0 (release-level). Apply `apps/terraform` for employee-infra, leave-infra, payroll-infra, notification-infra after `services/terraform` (Vault dependency). Ref: tasks.md 6.1, dependency-graph.md.",
-      "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
-      "links": ["Part of #KAN-1"]
-    }
-  ]
+﻿{
+    "meta":  {
+                 "nextId":  40,
+                 "activeSprint":  "v0.1.0",
+                 "proposedMilestone":  {
+                                           "name":  "v0.1.0",
+                                           "goal":  "Ship hr-leave-payroll-platform epic (KAN-1) end-to-end through the SDLC pipeline",
+                                           "estimatedDuration":  "10 working days (first-pass estimate, see sprint-plan.md)",
+                                           "storyIds":  [
+                                                            "KAN-2",
+                                                            "KAN-3",
+                                                            "KAN-4",
+                                                            "KAN-5",
+                                                            "KAN-6"
+                                                        ],
+                                           "status":  "active"
+                                       }
+             },
+    "cards":  [
+                  {
+                      "id":  "KAN-1",
+                      "type":  "epic",
+                      "title":  "[Epic] HR Employee Management, Leave \u0026 Payroll Platform",
+                      "body":  "## Problem Statement\nHR Admin (sole super-admin) needs to manage employee records (details, monthly payroll rate, supervisor assignment â€” supervisor is itself an employee) and run a leave workflow where an employee\u0027s leave routes to their supervisor, and a supervisor\u0027s own leave routes to HR Admin. Registration is manual by HR Admin; on success the system emails a generated password to the employee\u0027s personal (non-company) email, login via Authentik (email+password only). Leave types are fixed (annual, sick, unpaid) with per-employee balance tracking; leave beyond entitlement auto-converts to unpaid. Payroll auto-generates monthly via cron: monthly rate minus unpaid-leave deduction, rendered as a simple PDF stored in MinIO. Every logged-in user sees an in-app notification icon for: new leave request (supervisor), leave decision (employee), payroll generated (employee).\n\n## Business Value\nProof-of-concept feature run end-to-end through the SDLC agent pipeline, to validate the agents can manage a project autonomously with minimal human supervision. Not a compliance-driven business requirement â€” bias toward simplicity throughout.\n\n## Scope\n- Employee registration \u0026 profile (incl. payroll rate, supervisor link)\n- Authentik-based login (email + generated password)\n- Leave request/approval workflow with fixed leave types + balance tracking\n- Monthly automated payroll generation (PDF to MinIO)\n- In-app notifications\n\n## Out of Scope\n- Payroll disbursement / bank integration\n- Attendance / timesheet tracking\n- Performance reviews\n- Configurable leave types\n- Extra regulatory/encryption controls beyond repo defaults\n- Roles beyond HR Admin / Supervisor / Employee\n- Email/push notifications (in-app only for v1)\n\n## Acceptance Criteria\n- HR Admin can CRUD employee records with payroll rate + supervisor\n- New employee receives generated-password email, can log in via Authentik\n- Employee submits leave; supervisor approves/rejects; supervisor\u0027s own leave goes to HR Admin\n- Leave balances tracked per type; over-entitlement auto-converts to unpaid\n- Payroll auto-generated monthly per employee, PDF stored in MinIO, reflects unpaid-leave deductions\n- All users see in-app notifications for the three defined events\n\n## Dependencies\nAll net-new â€” no existing servers to extend. New servers required: employee, leave, payroll (exact split decided at architecture/planning stage).",
+                      "labels":  [
+                                     "type: epic",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-2",
+                      "type":  "story",
+                      "title":  "[Story] Employee Registration \u0026 Profile Management",
+                      "body":  "## User Story\nAs HR Admin, I want to register an employee\u0027s details, monthly payroll rate, and supervisor, so that the employee exists in the system with correct reporting hierarchy and can be paid and take leave.\n\n## Acceptance Criteria\n- [ ] Given valid employee details + selected supervisor, when HR Admin submits registration, then an employee record is created, an Authentik account is provisioned, and a one-time success dialog shows HR Admin the employee\u0027s personal email + generated password (mocked credential delivery for v0.1.0 â€” no real email sent, ADR-3).\n- [ ] Given a supervisor field referencing another employee, when registration completes, then the self-referencing supervisor hierarchy is stored correctly.\n- [ ] Given a duplicate personal email, when HR Admin submits, then registration is rejected with a clear error.\n- [ ] Given HR Admin edits an existing employee\u0027s payroll rate or supervisor, when saved, then the change is persisted and reflected in future leave/payroll calculations.\n\n## Security AC (Stage 2 â€” Security Engineer)\n- [ ] Given unauthenticated request, when hitting employee create/edit endpoints, then rejected 401 â€” HR Admin only, enforced server-side not just UI.\n- [ ] Given non-HR-Admin authenticated user, when attempting employee create/edit, then rejected 403 (RBAC, prevents privilege-escalation via direct API call).\n- [ ] Given payroll rate/supervisor payload, when submitted, then server-side validated (type/range) â€” not trusted from client.\n- [ ] Given a registration error, when returned to caller, then no PII or internal detail leaked in error body.\n- [ ] Given generated password, when issued, then meets minimum complexity; delivery is mocked via a one-time HR Admin-facing dialog for v0.1.0 (ADR-3) â€” accepted trade-off: HR Admin transiently sees the employee\u0027s plaintext password, password is never logged or persisted client-side beyond the dialog.\n- [ ] Given employee record created/edited, when action completes, then audit log entry recorded (actor, timestamp, diff) â€” repudiation control.\n\n**Compliance (PDPA Malaysia â€” Must Ship, non-negotiable):**\n- [ ] Given employee PII (name, personal email, payroll rate) at rest, when stored, then field/DB-level encryption applied.\n- [ ] Given employee PII, when accessed, then access restricted to HR Admin (and the employee\u0027s own record) â€” no broad read access.\n\nSign-off: `security: conditional` â€” cleared provided PDPA baseline (encryption at rest + access restriction + audit log) ships in v1; deeper PDPA workflows (data subject requests, retention automation) explicitly deferred, flagged for Stage 7 escalation since Edward scoped \"no extra regulatory controls\" but compliance override makes PDPA baseline non-negotiable.\n\n## Test Strategy (QA)\nTypes: unit (validation, duplicate-email check), component integration (DB + Authentik provisioning call), e2e (register â†’ credential dialog â†’ login round-trip with #KAN-3). Greenfield â€” no regression-impact-matrix needed.\n\n## Accessibility AC (Stage 4 â€” UI/UX, WCAG 2.1 AA)\n- [ ] Given the registration/edit form, when navigated via keyboard only, then every field and the submit button are reachable in a logical tab order with visible focus indicators.\n- [ ] Given a field validation error, when it appears, then it is programmatically associated to its input via `aria-describedby` (not color/icon alone).\n- [ ] Given the employee list table, when read by a screen reader, then column headers are announced with each cell (`scope`/`th` semantics).\n\n## Dependencies\nNone â€” foundation story.\n\n## Notes\nEmployee entity is the base for leave and payroll. Supervisor is a nullable self-referencing FK (HR Admin has no supervisor). HR Admin is a fixed super-admin role, not a separate registerable entity.",
+                      "labels":  [
+                                     "type: story",
+                                     "priority: TBD",
+                                     "security: conditional"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-1"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-3",
+                      "type":  "story",
+                      "title":  "[Story] Authentik Login for Employees",
+                      "body":  "## User Story\nAs an Employee (including Supervisor and HR Admin), I want to log in with my email and generated password via Authentik, so that I can access the portal appropriate to my role.\n\n## Acceptance Criteria\n- [ ] Given valid Authentik-provisioned credentials, when a user logs in, then a session is established and a role-appropriate portal view is shown (HR Admin / Supervisor / Employee).\n- [ ] Given invalid credentials, when login is attempted, then access is denied with a clear error.\n\n## Security AC (Stage 2 â€” Security Engineer)\n- [ ] Given repeated failed login attempts, when threshold exceeded, then Authentik lockout/rate-limit applies (confirm native policy enabled, not custom-built).\n- [ ] Given a valid session, when a token is issued, then it\u0027s scoped to the user\u0027s role and carries a standard expiry (no indefinite sessions).\n- [ ] Given a login failure, when an error is returned, then the message is generic (no user-enumeration distinguishing \"unknown email\" from \"wrong password\").\n\nCompliance: NIST 800-63 authentication baseline â€” satisfied by existing `AuthentikPlugin`/OIDC integration, no new control needed.\n\nSign-off: `security: cleared` â€” relies on already-hardened Authentik integration.\n\n## Test Strategy (QA)\nTypes: component integration (auth flow against Authentik), e2e (login â†’ role-based view). Greenfield.\n\n## Accessibility AC (Stage 4 â€” UI/UX, WCAG 2.1 AA)\n- [ ] Given the Authentik-hosted login form, when navigated via keyboard, then email/password fields and submit are reachable in order with visible focus (Authentik default theme â€” verify it meets AA, else customise).\n- [ ] Given a login error, when shown, then it is announced to screen readers (live region), not only visually displayed.\n\n## Dependencies\n- Depends on: #KAN-2 â€” employee record + Authentik account must exist first.\n\n## Notes\nAuthentik OIDC per repo architecture axiom. Password change/reset flow out of scope unless flagged later.",
+                      "labels":  [
+                                     "type: story",
+                                     "priority: TBD",
+                                     "security: cleared"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-1"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-4",
+                      "type":  "story",
+                      "title":  "[Story] Leave Request, Approval \u0026 Balance Tracking",
+                      "body":  "## User Story\nAs an Employee, I want to submit a leave request (annual/sick/unpaid) so that my supervisor can review it; as a Supervisor, I want my own leave reviewed by HR Admin instead of my own supervisor.\n\n## Acceptance Criteria\n- [ ] Given an employee submits a leave request with type + dates, when their supervisor reviews it, then the supervisor can approve or reject.\n- [ ] Given a supervisor submits their own leave request, when HR Admin reviews it, then HR Admin can approve or reject.\n- [ ] Given an employee has a fixed annual/sick leave entitlement, when a request is submitted, then the remaining balance is checked and displayed.\n- [ ] Given approved leave exceeds the employee\u0027s remaining annual/sick balance, when calculated, then the excess days are recorded as unpaid leave.\n\n## Security AC (Stage 2 â€” Security Engineer)\n- [ ] Given an employee, when attempting to approve/reject their own leave request, then rejected 403 (self-approval blocked).\n- [ ] Given a supervisor, when attempting to approve/reject leave for someone not their direct report, then rejected 403 (authorization scoped to actual hierarchy, checked server-side).\n- [ ] Given a supervisor\u0027s own leave request, when submitted, then it is routed only to HR Admin (never to the supervisor\u0027s own supervisor or self).\n- [ ] Given a leave request payload, when submitted, then balance/date values are validated server-side (reject negative days, backdated abuse) â€” not trusted from client.\n\nCompliance: leave data shares the employee PII store â€” same PDPA baseline as #KAN-2 (encryption at rest, access restriction, audit log on approve/reject).\n\nSign-off: `security: conditional` â€” cleared provided authorization checks are server-side (not UI-only) and PDPA baseline from #KAN-2 covers this data too.\n\n## Test Strategy (QA)\nTypes: unit (balance calc, unpaid conversion), component integration (approval routing incl. supervisorâ†’HR Admin branch), e2e (submit â†’ approve â†’ balance updated). Regression: none (greenfield), but touches #KAN-2\u0027s employee/supervisor data â€” verify hierarchy edits in #KAN-2 don\u0027t orphan in-flight leave requests.\n\n## Accessibility AC (Stage 4 â€” UI/UX, WCAG 2.1 AA)\n- [ ] Given the leave request form\u0027s date pickers, when operated via keyboard, then dates are selectable without a mouse.\n- [ ] Given the approval queue\u0027s Approve/Reject buttons, when reached via keyboard, then both are actionable and clearly labelled (not icon-only without accessible name).\n- [ ] Given a request\u0027s status (pending/approved/rejected), when displayed, then status is conveyed by text/icon, not colour alone.\n\n## Dependencies\n- Depends on: #KAN-2 â€” employee + supervisor link required.\n- Depends on: #KAN-3 â€” login/session required to submit or review.\n\n## Notes\nLeave types fixed for v1: annual, sick, unpaid. Unpaid-leave totals feed payroll deduction calculation (#KAN-5).",
+                      "labels":  [
+                                     "type: story",
+                                     "priority: TBD",
+                                     "security: conditional"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-1"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-5",
+                      "type":  "story",
+                      "title":  "[Story] Monthly Automated Payroll Generation",
+                      "body":  "## User Story\nAs HR Admin, I want payroll auto-generated monthly per employee (monthly rate minus unpaid-leave deduction) as a PDF stored in MinIO, so that payroll records exist without manual calculation.\n\n## Acceptance Criteria\n- [ ] Given a month-end cron trigger, when the payroll job runs, then each employee\u0027s payroll = monthly rate âˆ’ (unpaid leave days that month Ã— daily rate).\n- [ ] Given payroll is calculated for an employee, when generation completes, then a simple-format PDF is generated and saved to MinIO.\n- [ ] Given payroll generation succeeds for an employee, when complete, then a notification event is emitted (see #KAN-6).\n\n## Security AC (Stage 2 â€” Security Engineer)\n- [ ] Given a payroll PDF in MinIO, when accessed, then access is restricted to HR Admin and the specific employee it belongs to (no public bucket, authz-checked retrieval â€” never a bare public URL).\n- [ ] Given the payroll cron job, when it runs, then it uses least-privilege, Vault-issued service credentials (not a static superuser).\n- [ ] Given the payroll job re-runs for a month already generated, when triggered, then it is idempotent (no duplicate PDF / double deduction).\n\nCompliance: payroll = financial PII â†’ PDPA baseline (same as #KAN-2) plus MinIO server-side encryption at rest â€” Must Ship.\n\nSign-off: `security: conditional` â€” cleared provided PDF access is authz-checked (not a public/guessable MinIO URL) and SSE is enabled on the bucket.\n\n## Test Strategy (QA)\nTypes: unit (payroll calc incl. unpaid deduction), component integration (cron trigger â†’ PDF â†’ MinIO), e2e (month-end run â†’ employee notified). Regression: none (greenfield), but consumes #KAN-4\u0027s unpaid-leave data â€” verify late-approved leave doesn\u0027t silently skip that month\u0027s calc.\n\n## Accessibility AC (Stage 4 â€” UI/UX, WCAG 2.1 AA)\n- [ ] Given the payslip list, when navigated via keyboard, then each row\u0027s download action is reachable and labelled with the specific month (not a generic \"download\" repeated with no context).\n\n## Dependencies\n- Depends on: #KAN-2 â€” employee payroll rate required.\n- Depends on: #KAN-4 â€” unpaid leave days required for deduction calc.\n\n## Notes\nCron-driven (CronDriver pattern, packages/server). New payroll server. PDF format kept simple, implementation discretion.",
+                      "labels":  [
+                                     "type: story",
+                                     "priority: TBD",
+                                     "security: conditional"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-1"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-6",
+                      "type":  "story",
+                      "title":  "[Story] In-App Notifications",
+                      "body":  "## User Story\nAs any logged-in user, I want a notification icon showing relevant events, so that I stay informed without manually checking.\n\n## Acceptance Criteria\n- [ ] Given an employee submits a leave request, when their supervisor next logs in (or is active), then the supervisor sees a \"new leave request\" notification.\n- [ ] Given a leave request is approved or rejected, when the requesting employee next logs in (or is active), then they see a decision notification.\n- [ ] Given monthly payroll is generated successfully, when the employee next logs in (or is active), then they see a \"payroll generated\" notification.\n\n## Security AC (Stage 2 â€” Security Engineer)\n- [ ] Given a user requests their notifications, when fetched, then only that user\u0027s own notifications are returned (no IDOR via sequential/guessable IDs).\n\nCompliance: none beyond baseline â€” no new PII class introduced.\n\nSign-off: `security: cleared`.\n\n## Test Strategy (QA)\nTypes: unit (notification fan-out on event), component integration (event â†’ notification record), frontend interaction (icon badge/read state). Greenfield.\n\n## Accessibility AC (Stage 4 â€” UI/UX, WCAG 2.1 AA)\n- [ ] Given the unread notification count changes, when updated, then it is announced via an ARIA live region, not visual-only.\n- [ ] Given the notification bell, when reached via keyboard, then Enter/Space opens the dropdown and Escape closes it, with focus returned to the bell on close.\n\n## Dependencies\n- Depends on: #KAN-3 â€” requires session/login.\n- Depends on: #KAN-4 â€” leave events source.\n- Depends on: #KAN-5 â€” payroll events source.\n\n## Notes\nIn-app only for v1 â€” no email/push. Icon shown across portal regardless of role.",
+                      "labels":  [
+                                     "type: story",
+                                     "priority: TBD",
+                                     "security: cleared"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-1"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-7",
+                      "type":  "feature",
+                      "title":  "[Feature] Employee Registration \u0026 Profile",
+                      "body":  "Branch: feat/KAN-7 from us/KAN-2. Scope: `employee` service (grpc+subgraph) + `hr-portal` registration/edit UI. Breakdown: tasks.md Â§1. AC: story KAN-2\u0027s AC + security AC + accessibility AC.",
+                      "labels":  [
+                                     "type: feature",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-2"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-8",
+                      "type":  "feature",
+                      "title":  "[Feature] Authentik Login",
+                      "body":  "Branch: feat/KAN-8 from us/KAN-3. Scope: `hr-portal` login wrapper + role-based routing against existing AuthentikPlugin pattern. Breakdown: tasks.md Â§2. AC: story KAN-3\u0027s AC + security AC + accessibility AC.",
+                      "labels":  [
+                                     "type: feature",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-3"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-9",
+                      "type":  "feature",
+                      "title":  "[Feature] Leave Request, Approval \u0026 Balance",
+                      "body":  "Branch: feat/KAN-9 from us/KAN-4. Scope: `leave` service (grpc+subgraph) + `hr-portal` My Leave/Request/Approval Queue UI. Breakdown: tasks.md Â§3. AC: story KAN-4\u0027s AC + security AC + accessibility AC.",
+                      "labels":  [
+                                     "type: feature",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-4"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-10",
+                      "type":  "feature",
+                      "title":  "[Feature] Monthly Payroll Generation",
+                      "body":  "Branch: feat/KAN-10 from us/KAN-5. Scope: `payroll` service (cron+grpc+subgraph) + `hr-portal` My Payslips UI. Breakdown: tasks.md Â§4. AC: story KAN-5\u0027s AC + security AC + accessibility AC.",
+                      "labels":  [
+                                     "type: feature",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-5"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-11",
+                      "type":  "feature",
+                      "title":  "[Feature] In-App Notifications",
+                      "body":  "Branch: feat/KAN-11 from us/KAN-6. Scope: `notification` service (Kafka consumer+subgraph) + `hr-portal` header notification bell. Breakdown: tasks.md Â§5. AC: story KAN-6\u0027s AC + security AC + accessibility AC.",
+                      "labels":  [
+                                     "type: feature",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-6"
+                                ],
+                      "assignee":  "PM"
+                  },
+                  {
+                      "id":  "KAN-12",
+                      "type":  "api",
+                      "title":  "[API] employee proto + GraphQL contracts",
+                      "body":  "Branch: api/KAN-12 from feat/KAN-7. MUST merge before task/KAN-13, task/KAN-14. Author `contracts/proto/services/employee/employee.proto` + `contracts/graphql/employee/` per design.md. Data Engineer reviews for compatibility, then runs api-type-generation. Ref: tasks.md 1.1-1.2.",
+                      "labels":  [
+                                     "type: api",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-7"
+                                ],
+                      "assignee":  "Data Engineer"
+                  },
+                  {
+                      "id":  "KAN-13",
+                      "type":  "task",
+                      "title":  "[Task] employee-grpc: CRUD + Authentik provisioning + credential email",
+                      "body":  "Branch: task/KAN-13 from feat/KAN-7. Depends on: api/KAN-12 merged. Backend Developer. Implement per specs/employee-management/spec.md. Ref: tasks.md 1.3-1.7. Note: credential-email provider unresolved (ADR-3) â€” implement behind swappable interface.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: backend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-7"
+                                ],
+                      "assignee":  "Backend Developer"
+                  },
+                  {
+                      "id":  "KAN-14",
+                      "type":  "task",
+                      "title":  "[Task] hr-portal: Employee List/Register/Edit screens",
+                      "body":  "Branch: task/KAN-14 from feat/KAN-7. Depends on: api/KAN-12 merged, task/KAN-13 merged (backend-first sequencing). Frontend Developer. First screens in first-ever `apps/web/hr-portal` (scaffold via turbo gen web if not already done by an earlier task). Per interaction-specification.md/component-requirements.md. Ref: tasks.md 1.8-1.9.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: frontend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-7"
+                                ],
+                      "assignee":  "Frontend Developer"
+                  },
+                  {
+                      "id":  "KAN-15",
+                      "type":  "qa",
+                      "title":  "[QA] Employee registration test suite",
+                      "body":  "Branch: qa/KAN-15 from feat/KAN-7. Unit + component integration + e2e (spans KAN-3 login). Ref: tasks.md 1.10-1.12, test-cases/integration/service-integration-cases.md Â§KAN-2, test-cases/e2e/critical-paths.md #1.",
+                      "labels":  [
+                                     "type: qa",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-7"
+                                ],
+                      "assignee":  "QA Engineer"
+                  },
+                  {
+                      "id":  "KAN-16",
+                      "type":  "security",
+                      "title":  "[Security] Employee RBAC + PDPA baseline verification",
+                      "body":  "Branch: security/KAN-16 from feat/KAN-7. Verify HR-Admin-only RBAC, server-side validation, audit logging, PDPA baseline (encryption at rest, error scrubbing) per specs/employee-management/spec.md. Apply sign-off label to KAN-2 on completion. Ref: tasks.md 1.13.",
+                      "labels":  [
+                                     "type: security",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-7"
+                                ],
+                      "assignee":  "Security Engineer"
+                  },
+                  {
+                      "id":  "KAN-17",
+                      "type":  "task",
+                      "title":  "[Task] Authentik login wiring + login screen",
+                      "body":  "Branch: task/KAN-17 from feat/KAN-8. Depends on: KAN-13 (employee/Authentik account provisioning) merged. Backend+Frontend (small enough not to split). Ref: tasks.md 2.1-2.2. No new api/ branch needed â€” reuses employee\u0027s Authentik integration, no new contract.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: backend",
+                                     "area: frontend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-8"
+                                ],
+                      "assignee":  "Backend Developer, Frontend Developer"
+                  },
+                  {
+                      "id":  "KAN-18",
+                      "type":  "qa",
+                      "title":  "[QA] Login test suite",
+                      "body":  "Branch: qa/KAN-18 from feat/KAN-8. Component integration + e2e. Ref: tasks.md 2.3-2.4, test-cases/e2e/critical-paths.md #1.",
+                      "labels":  [
+                                     "type: qa",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-8"
+                                ],
+                      "assignee":  "QA Engineer"
+                  },
+                  {
+                      "id":  "KAN-19",
+                      "type":  "security",
+                      "title":  "[Security] Auth flow verification",
+                      "body":  "Branch: security/KAN-19 from feat/KAN-8. Verify Authentik lockout/rate-limit enabled, generic error messages. Apply sign-off label to KAN-3. Ref: tasks.md 2.5.",
+                      "labels":  [
+                                     "type: security",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-8"
+                                ],
+                      "assignee":  "Security Engineer"
+                  },
+                  {
+                      "id":  "KAN-20",
+                      "type":  "api",
+                      "title":  "[API] leave proto + GraphQL contracts",
+                      "body":  "Branch: api/KAN-20 from feat/KAN-9. MUST merge before task/KAN-21, task/KAN-22. Author `contracts/proto/services/leave/leave.proto` + `contracts/graphql/leave/` per design.md. Ref: tasks.md 3.1.",
+                      "labels":  [
+                                     "type: api",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-9"
+                                ],
+                      "assignee":  "Data Engineer"
+                  },
+                  {
+                      "id":  "KAN-21",
+                      "type":  "task",
+                      "title":  "[Task] leave-grpc + leave-subgraph: submit/review/balance",
+                      "body":  "Branch: task/KAN-21 from feat/KAN-9. Depends on: api/KAN-20 merged, employee-grpc\u0027s GetSupervisorChain (KAN-13) available. Backend Developer. Implement per specs/leave-management/spec.md. Ref: tasks.md 3.2-3.4.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: backend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-9"
+                                ],
+                      "assignee":  "Backend Developer"
+                  },
+                  {
+                      "id":  "KAN-22",
+                      "type":  "task",
+                      "title":  "[Task] hr-portal: My Leave / Request form / Approval Queue",
+                      "body":  "Branch: task/KAN-22 from feat/KAN-9. Depends on: api/KAN-20 merged, task/KAN-21 merged. Frontend Developer. Ref: tasks.md 3.5.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: frontend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-9"
+                                ],
+                      "assignee":  "Frontend Developer"
+                  },
+                  {
+                      "id":  "KAN-23",
+                      "type":  "qa",
+                      "title":  "[QA] Leave workflow test suite",
+                      "body":  "Branch: qa/KAN-23 from feat/KAN-9. Unit + integration (routing/authorization) + e2e. Ref: tasks.md 3.6-3.8, test-cases/integration/service-integration-cases.md Â§KAN-4, test-cases/e2e/critical-paths.md #2-4, #6.",
+                      "labels":  [
+                                     "type: qa",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-9"
+                                ],
+                      "assignee":  "QA Engineer"
+                  },
+                  {
+                      "id":  "KAN-24",
+                      "type":  "security",
+                      "title":  "[Security] Leave authorization verification",
+                      "body":  "Branch: security/KAN-24 from feat/KAN-9. Verify self-approval + out-of-hierarchy approval blocked server-side, PDPA baseline carried over. Apply sign-off label to KAN-4. Ref: tasks.md 3.9.",
+                      "labels":  [
+                                     "type: security",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-9"
+                                ],
+                      "assignee":  "Security Engineer"
+                  },
+                  {
+                      "id":  "KAN-25",
+                      "type":  "devops",
+                      "title":  "[DevOps] leave + leave-infra scaffold (Postgres + Debezium)",
+                      "body":  "Branch: devops/KAN-25 from us/KAN-4 (story-level). `turbo gen server` for `leave`, `turbo gen database` + `turbo gen debezium` for `leave-infra`. Unblocks api/KAN-20. Ref: tasks.md 3.2, ADR-2.",
+                      "labels":  [
+                                     "type: devops",
+                                     "priority: TBD",
+                                     "status: in-progress"
+                                 ],
+                      "status":  "in-progress",
+                      "links":  [
+                                    "Part of #KAN-4"
+                                ],
+                      "assignee":  "DevOps Engineer"
+                  },
+                  {
+                      "id":  "KAN-26",
+                      "type":  "api",
+                      "title":  "[API] payroll proto + GraphQL contracts",
+                      "body":  "Branch: api/KAN-26 from feat/KAN-10. MUST merge before task/KAN-27, task/KAN-28. Author `contracts/proto/services/payroll/payroll.proto` (GetPayrollRecords) + `contracts/graphql/payroll/`. Ref: tasks.md 4.1.",
+                      "labels":  [
+                                     "type: api",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-10"
+                                ],
+                      "assignee":  "Data Engineer"
+                  },
+                  {
+                      "id":  "KAN-27",
+                      "type":  "task",
+                      "title":  "[Task] payroll-cron + PDF/MinIO + payroll-grpc/subgraph",
+                      "body":  "Branch: task/KAN-27 from feat/KAN-10. Depends on: api/KAN-26 merged, employee-grpc\u0027s GetEmployeeRate (KAN-13) and leave-grpc\u0027s GetUnpaidLeaveDays (KAN-21) available. Backend Developer. Implement per specs/payroll-generation/spec.md, incl. idempotency on (employee_id, year_month). Ref: tasks.md 4.2-4.5.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: backend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-10"
+                                ],
+                      "assignee":  "Backend Developer"
+                  },
+                  {
+                      "id":  "KAN-28",
+                      "type":  "task",
+                      "title":  "[Task] hr-portal: My Payslips screen",
+                      "body":  "Branch: task/KAN-28 from feat/KAN-10. Depends on: api/KAN-26 merged, task/KAN-27 merged. Frontend Developer. Ref: tasks.md 4.6.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: frontend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-10"
+                                ],
+                      "assignee":  "Frontend Developer"
+                  },
+                  {
+                      "id":  "KAN-29",
+                      "type":  "qa",
+                      "title":  "[QA] Payroll generation test suite",
+                      "body":  "Branch: qa/KAN-29 from feat/KAN-10. Unit (calc/idempotency) + integration (cronâ†’PDFâ†’MinIO) + e2e. Ref: tasks.md 4.7-4.9, test-cases/integration/service-integration-cases.md Â§KAN-5, test-cases/e2e/critical-paths.md #5.",
+                      "labels":  [
+                                     "type: qa",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-10"
+                                ],
+                      "assignee":  "QA Engineer"
+                  },
+                  {
+                      "id":  "KAN-30",
+                      "type":  "security",
+                      "title":  "[Security] Payroll access + credential verification",
+                      "body":  "Branch: security/KAN-30 from feat/KAN-10. Verify PDF access restricted to owner/HR Admin, least-privilege Vault cron credentials, MinIO SSE enabled. Apply sign-off label to KAN-5. Ref: tasks.md 4.10.",
+                      "labels":  [
+                                     "type: security",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-10"
+                                ],
+                      "assignee":  "Security Engineer"
+                  },
+                  {
+                      "id":  "KAN-31",
+                      "type":  "devops",
+                      "title":  "[DevOps] payroll + payroll-infra scaffold (Postgres + Debezium)",
+                      "body":  "Branch: devops/KAN-31 from us/KAN-5 (story-level). `turbo gen server` for `payroll`, `turbo gen database` + `turbo gen debezium` for `payroll-infra`, `turbo gen cron` driver. Unblocks api/KAN-26. Ref: tasks.md 4.2, ADR-2.",
+                      "labels":  [
+                                     "type: devops",
+                                     "priority: TBD",
+                                     "status: in-progress"
+                                 ],
+                      "status":  "in-progress",
+                      "links":  [
+                                    "Part of #KAN-5"
+                                ],
+                      "assignee":  "DevOps Engineer"
+                  },
+                  {
+                      "id":  "KAN-32",
+                      "type":  "api",
+                      "title":  "[API] notification GraphQL contract",
+                      "body":  "Branch: api/KAN-32 from feat/KAN-11. MUST merge before task/KAN-33, task/KAN-34. Author `contracts/graphql/notification/` (query myNotifications, mutations markRead/markAllRead). No proto needed (no synchronous callers). Ref: tasks.md 5.1.",
+                      "labels":  [
+                                     "type: api",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-11"
+                                ],
+                      "assignee":  "Data Engineer"
+                  },
+                  {
+                      "id":  "KAN-33",
+                      "type":  "task",
+                      "title":  "[Task] notification-consumer (KafkaDriver) + notification-subgraph",
+                      "body":  "Branch: task/KAN-33 from feat/KAN-11. Depends on: api/KAN-32 merged, leave-infra\u0027s Debezium (KAN-25) and payroll-infra\u0027s Debezium (KAN-31) publishing to Kafka. Backend Developer. Implement per specs/in-app-notifications/spec.md. Ref: tasks.md 5.2-5.4.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: backend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-11"
+                                ],
+                      "assignee":  "Backend Developer"
+                  },
+                  {
+                      "id":  "KAN-34",
+                      "type":  "task",
+                      "title":  "[Task] hr-portal: notification bell + dropdown (shared header)",
+                      "body":  "Branch: task/KAN-34 from feat/KAN-11. Depends on: api/KAN-32 merged, task/KAN-33 merged. Frontend Developer. Mounted once in shared portal header layout. Ref: tasks.md 5.5.",
+                      "labels":  [
+                                     "type: task",
+                                     "priority: TBD",
+                                     "area: frontend"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-11"
+                                ],
+                      "assignee":  "Frontend Developer"
+                  },
+                  {
+                      "id":  "KAN-35",
+                      "type":  "qa",
+                      "title":  "[QA] Notification test suite",
+                      "body":  "Branch: qa/KAN-35 from feat/KAN-11. Unit + integration (CDC event â†’ row) + frontend interaction (Vitest+RTL+MSW). Ref: tasks.md 5.6-5.8, test-cases/integration/service-integration-cases.md Â§KAN-6.",
+                      "labels":  [
+                                     "type: qa",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-11"
+                                ],
+                      "assignee":  "QA Engineer"
+                  },
+                  {
+                      "id":  "KAN-36",
+                      "type":  "security",
+                      "title":  "[Security] Notification IDOR verification",
+                      "body":  "Branch: security/KAN-36 from feat/KAN-11. Verify own-notifications-only reads. Apply sign-off label to KAN-6. Ref: tasks.md 5.9.",
+                      "labels":  [
+                                     "type: security",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-11"
+                                ],
+                      "assignee":  "Security Engineer"
+                  },
+                  {
+                      "id":  "KAN-37",
+                      "type":  "devops",
+                      "title":  "[DevOps] notification + notification-infra scaffold + Kafka topic wiring",
+                      "body":  "Branch: devops/KAN-37 from us/KAN-6 (story-level). `turbo gen server` for `notification`, `turbo gen database` for `notification-infra`, `turbo gen driver` (Kafka) for consumer. Data Engineer provisions consumption of `leave.leave_request` + `payroll.payroll_record` topics. Unblocks api/KAN-32. Ref: tasks.md 5.2.",
+                      "labels":  [
+                                     "type: devops",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-6"
+                                ],
+                      "assignee":  "DevOps Engineer"
+                  },
+                  {
+                      "id":  "KAN-38",
+                      "type":  "devops",
+                      "title":  "[DevOps] employee + employee-infra scaffold (Postgres)",
+                      "body":  "Branch: devops/KAN-38 from us/KAN-2 (story-level). `turbo gen server` for `employee`, `turbo gen database` for `employee-infra`. No Debezium needed (nothing consumes employee CDC in this epic). Unblocks api/KAN-12. Ref: tasks.md 1.3.",
+                      "labels":  [
+                                     "type: devops",
+                                     "priority: TBD",
+                                     "status: in-progress"
+                                 ],
+                      "status":  "in-progress",
+                      "links":  [
+                                    "Part of #KAN-2"
+                                ],
+                      "assignee":  "DevOps Engineer"
+                  },
+                  {
+                      "id":  "KAN-39",
+                      "type":  "devops",
+                      "title":  "[DevOps] apps/terraform apply â€” all 4 new -infra charts",
+                      "body":  "Branch: devops/KAN-39 from release/v0.1.0 (release-level). Apply `apps/terraform` for employee-infra, leave-infra, payroll-infra, notification-infra after `services/terraform` (Vault dependency). Ref: tasks.md 6.1, dependency-graph.md.",
+                      "labels":  [
+                                     "type: devops",
+                                     "priority: TBD"
+                                 ],
+                      "status":  "backlog",
+                      "links":  [
+                                    "Part of #KAN-1"
+                                ],
+                      "assignee":  "DevOps Engineer"
+                  }
+              ]
 }
