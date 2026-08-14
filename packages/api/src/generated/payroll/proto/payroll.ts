@@ -5,26 +5,26 @@
 // source: payroll.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
 import {
   type CallOptions,
   type ChannelCredentials,
-  Client,
+  type Client,
   type ClientOptions,
   type ClientUnaryCall,
   type handleUnaryCall,
-  makeGenericClientConstructor,
   type Metadata,
+  makeGenericClientConstructor,
   type ServiceError,
   type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { Timestamp } from "./google/protobuf/timestamp";
-import { messageTypeRegistry } from "./typeRegistry";
+} from '@grpc/grpc-js';
+import { Timestamp } from './google/protobuf/timestamp';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "payroll";
+export const protobufPackage = 'payroll';
 
 export interface PayrollRecord {
-  $type: "payroll.PayrollRecord";
+  $type: 'payroll.PayrollRecord';
   id: string;
   employeeId: string;
   year: number;
@@ -40,7 +40,7 @@ export interface PayrollRecord {
 }
 
 export interface GetPayrollRecordsRequest {
-  $type: "payroll.GetPayrollRecordsRequest";
+  $type: 'payroll.GetPayrollRecordsRequest';
   employeeId: string;
   year?: number | undefined;
   page?: number | undefined;
@@ -48,29 +48,29 @@ export interface GetPayrollRecordsRequest {
 }
 
 export interface GetPayrollRecordsResponse {
-  $type: "payroll.GetPayrollRecordsResponse";
+  $type: 'payroll.GetPayrollRecordsResponse';
   records: PayrollRecord[];
   total: number;
 }
 
 export interface GetPayrollPdfUrlRequest {
-  $type: "payroll.GetPayrollPdfUrlRequest";
+  $type: 'payroll.GetPayrollPdfUrlRequest';
   payrollRecordId: string;
   /** Caller's employee id — used for access control (own record or HR Admin) */
   requestorId: string;
 }
 
 export interface GetPayrollPdfUrlResponse {
-  $type: "payroll.GetPayrollPdfUrlResponse";
+  $type: 'payroll.GetPayrollPdfUrlResponse';
   /** Pre-signed MinIO URL, short-lived */
   url: string;
 }
 
 function createBasePayrollRecord(): PayrollRecord {
   return {
-    $type: "payroll.PayrollRecord",
-    id: "",
-    employeeId: "",
+    $type: 'payroll.PayrollRecord',
+    id: '',
+    employeeId: '',
     year: 0,
     month: 0,
     monthlyRate: 0,
@@ -78,275 +78,297 @@ function createBasePayrollRecord(): PayrollRecord {
     dailyRate: 0,
     deduction: 0,
     netAmount: 0,
-    pdfKey: "",
+    pdfKey: '',
     generatedAt: undefined,
   };
 }
 
-export const PayrollRecord: MessageFns<PayrollRecord, "payroll.PayrollRecord"> = {
-  $type: "payroll.PayrollRecord" as const,
+export const PayrollRecord: MessageFns<PayrollRecord, 'payroll.PayrollRecord'> =
+  {
+    $type: 'payroll.PayrollRecord' as const,
 
-  encode(message: PayrollRecord, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
-      writer.uint32(10).string(message.id);
-    }
-    if (message.employeeId !== "") {
-      writer.uint32(18).string(message.employeeId);
-    }
-    if (message.year !== 0) {
-      writer.uint32(24).int32(message.year);
-    }
-    if (message.month !== 0) {
-      writer.uint32(32).int32(message.month);
-    }
-    if (message.monthlyRate !== 0) {
-      writer.uint32(41).double(message.monthlyRate);
-    }
-    if (message.unpaidDays !== 0) {
-      writer.uint32(48).int32(message.unpaidDays);
-    }
-    if (message.dailyRate !== 0) {
-      writer.uint32(57).double(message.dailyRate);
-    }
-    if (message.deduction !== 0) {
-      writer.uint32(65).double(message.deduction);
-    }
-    if (message.netAmount !== 0) {
-      writer.uint32(73).double(message.netAmount);
-    }
-    if (message.pdfKey !== "") {
-      writer.uint32(82).string(message.pdfKey);
-    }
-    if (message.generatedAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.generatedAt), writer.uint32(90).fork()).join();
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): PayrollRecord {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    const end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBasePayrollRecord();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.id = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.employeeId = reader.string();
-          continue;
-        }
-        case 3: {
-          if (tag !== 24) {
-            break;
-          }
-
-          message.year = reader.int32();
-          continue;
-        }
-        case 4: {
-          if (tag !== 32) {
-            break;
-          }
-
-          message.month = reader.int32();
-          continue;
-        }
-        case 5: {
-          if (tag !== 41) {
-            break;
-          }
-
-          message.monthlyRate = reader.double();
-          continue;
-        }
-        case 6: {
-          if (tag !== 48) {
-            break;
-          }
-
-          message.unpaidDays = reader.int32();
-          continue;
-        }
-        case 7: {
-          if (tag !== 57) {
-            break;
-          }
-
-          message.dailyRate = reader.double();
-          continue;
-        }
-        case 8: {
-          if (tag !== 65) {
-            break;
-          }
-
-          message.deduction = reader.double();
-          continue;
-        }
-        case 9: {
-          if (tag !== 73) {
-            break;
-          }
-
-          message.netAmount = reader.double();
-          continue;
-        }
-        case 10: {
-          if (tag !== 82) {
-            break;
-          }
-
-          message.pdfKey = reader.string();
-          continue;
-        }
-        case 11: {
-          if (tag !== 90) {
-            break;
-          }
-
-          message.generatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
-          continue;
-        }
+    encode(
+      message: PayrollRecord,
+      writer: BinaryWriter = new BinaryWriter(),
+    ): BinaryWriter {
+      if (message.id !== '') {
+        writer.uint32(10).string(message.id);
       }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
+      if (message.employeeId !== '') {
+        writer.uint32(18).string(message.employeeId);
       }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
+      if (message.year !== 0) {
+        writer.uint32(24).int32(message.year);
+      }
+      if (message.month !== 0) {
+        writer.uint32(32).int32(message.month);
+      }
+      if (message.monthlyRate !== 0) {
+        writer.uint32(41).double(message.monthlyRate);
+      }
+      if (message.unpaidDays !== 0) {
+        writer.uint32(48).int32(message.unpaidDays);
+      }
+      if (message.dailyRate !== 0) {
+        writer.uint32(57).double(message.dailyRate);
+      }
+      if (message.deduction !== 0) {
+        writer.uint32(65).double(message.deduction);
+      }
+      if (message.netAmount !== 0) {
+        writer.uint32(73).double(message.netAmount);
+      }
+      if (message.pdfKey !== '') {
+        writer.uint32(82).string(message.pdfKey);
+      }
+      if (message.generatedAt !== undefined) {
+        Timestamp.encode(
+          toTimestamp(message.generatedAt),
+          writer.uint32(90).fork(),
+        ).join();
+      }
+      return writer;
+    },
 
-  fromJSON(object: any): PayrollRecord {
-    return {
-      $type: PayrollRecord.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
-      employeeId: isSet(object.employeeId)
-        ? globalThis.String(object.employeeId)
-        : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
-      year: isSet(object.year) ? globalThis.Number(object.year) : 0,
-      month: isSet(object.month) ? globalThis.Number(object.month) : 0,
-      monthlyRate: isSet(object.monthlyRate)
-        ? globalThis.Number(object.monthlyRate)
-        : isSet(object.monthly_rate)
-        ? globalThis.Number(object.monthly_rate)
-        : 0,
-      unpaidDays: isSet(object.unpaidDays)
-        ? globalThis.Number(object.unpaidDays)
-        : isSet(object.unpaid_days)
-        ? globalThis.Number(object.unpaid_days)
-        : 0,
-      dailyRate: isSet(object.dailyRate)
-        ? globalThis.Number(object.dailyRate)
-        : isSet(object.daily_rate)
-        ? globalThis.Number(object.daily_rate)
-        : 0,
-      deduction: isSet(object.deduction) ? globalThis.Number(object.deduction) : 0,
-      netAmount: isSet(object.netAmount)
-        ? globalThis.Number(object.netAmount)
-        : isSet(object.net_amount)
-        ? globalThis.Number(object.net_amount)
-        : 0,
-      pdfKey: isSet(object.pdfKey)
-        ? globalThis.String(object.pdfKey)
-        : isSet(object.pdf_key)
-        ? globalThis.String(object.pdf_key)
-        : "",
-      generatedAt: isSet(object.generatedAt)
-        ? fromJsonTimestamp(object.generatedAt)
-        : isSet(object.generated_at)
-        ? fromJsonTimestamp(object.generated_at)
-        : undefined,
-    };
-  },
+    decode(input: BinaryReader | Uint8Array, length?: number): PayrollRecord {
+      const reader =
+        input instanceof BinaryReader ? input : new BinaryReader(input);
+      const end = length === undefined ? reader.len : reader.pos + length;
+      const message = createBasePayrollRecord();
+      while (reader.pos < end) {
+        const tag = reader.uint32();
+        switch (tag >>> 3) {
+          case 1: {
+            if (tag !== 10) {
+              break;
+            }
 
-  toJSON(message: PayrollRecord): unknown {
-    const obj: any = {};
-    if (message.id !== "") {
-      obj.id = message.id;
-    }
-    if (message.employeeId !== "") {
-      obj.employeeId = message.employeeId;
-    }
-    if (message.year !== 0) {
-      obj.year = Math.round(message.year);
-    }
-    if (message.month !== 0) {
-      obj.month = Math.round(message.month);
-    }
-    if (message.monthlyRate !== 0) {
-      obj.monthlyRate = message.monthlyRate;
-    }
-    if (message.unpaidDays !== 0) {
-      obj.unpaidDays = Math.round(message.unpaidDays);
-    }
-    if (message.dailyRate !== 0) {
-      obj.dailyRate = message.dailyRate;
-    }
-    if (message.deduction !== 0) {
-      obj.deduction = message.deduction;
-    }
-    if (message.netAmount !== 0) {
-      obj.netAmount = message.netAmount;
-    }
-    if (message.pdfKey !== "") {
-      obj.pdfKey = message.pdfKey;
-    }
-    if (message.generatedAt !== undefined) {
-      obj.generatedAt = message.generatedAt.toISOString();
-    }
-    return obj;
-  },
+            message.id = reader.string();
+            continue;
+          }
+          case 2: {
+            if (tag !== 18) {
+              break;
+            }
 
-  create<I extends Exact<DeepPartial<PayrollRecord>, I>>(base?: I): PayrollRecord {
-    return PayrollRecord.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<PayrollRecord>, I>>(object: I): PayrollRecord {
-    const message = createBasePayrollRecord();
-    message.id = object.id ?? "";
-    message.employeeId = object.employeeId ?? "";
-    message.year = object.year ?? 0;
-    message.month = object.month ?? 0;
-    message.monthlyRate = object.monthlyRate ?? 0;
-    message.unpaidDays = object.unpaidDays ?? 0;
-    message.dailyRate = object.dailyRate ?? 0;
-    message.deduction = object.deduction ?? 0;
-    message.netAmount = object.netAmount ?? 0;
-    message.pdfKey = object.pdfKey ?? "";
-    message.generatedAt = object.generatedAt ?? undefined;
-    return message;
-  },
-};
+            message.employeeId = reader.string();
+            continue;
+          }
+          case 3: {
+            if (tag !== 24) {
+              break;
+            }
+
+            message.year = reader.int32();
+            continue;
+          }
+          case 4: {
+            if (tag !== 32) {
+              break;
+            }
+
+            message.month = reader.int32();
+            continue;
+          }
+          case 5: {
+            if (tag !== 41) {
+              break;
+            }
+
+            message.monthlyRate = reader.double();
+            continue;
+          }
+          case 6: {
+            if (tag !== 48) {
+              break;
+            }
+
+            message.unpaidDays = reader.int32();
+            continue;
+          }
+          case 7: {
+            if (tag !== 57) {
+              break;
+            }
+
+            message.dailyRate = reader.double();
+            continue;
+          }
+          case 8: {
+            if (tag !== 65) {
+              break;
+            }
+
+            message.deduction = reader.double();
+            continue;
+          }
+          case 9: {
+            if (tag !== 73) {
+              break;
+            }
+
+            message.netAmount = reader.double();
+            continue;
+          }
+          case 10: {
+            if (tag !== 82) {
+              break;
+            }
+
+            message.pdfKey = reader.string();
+            continue;
+          }
+          case 11: {
+            if (tag !== 90) {
+              break;
+            }
+
+            message.generatedAt = fromTimestamp(
+              Timestamp.decode(reader, reader.uint32()),
+            );
+            continue;
+          }
+        }
+        if ((tag & 7) === 4 || tag === 0) {
+          break;
+        }
+        reader.skip(tag & 7);
+      }
+      return message;
+    },
+
+    fromJSON(object: any): PayrollRecord {
+      return {
+        $type: PayrollRecord.$type,
+        id: isSet(object.id) ? globalThis.String(object.id) : '',
+        employeeId: isSet(object.employeeId)
+          ? globalThis.String(object.employeeId)
+          : isSet(object.employee_id)
+            ? globalThis.String(object.employee_id)
+            : '',
+        year: isSet(object.year) ? globalThis.Number(object.year) : 0,
+        month: isSet(object.month) ? globalThis.Number(object.month) : 0,
+        monthlyRate: isSet(object.monthlyRate)
+          ? globalThis.Number(object.monthlyRate)
+          : isSet(object.monthly_rate)
+            ? globalThis.Number(object.monthly_rate)
+            : 0,
+        unpaidDays: isSet(object.unpaidDays)
+          ? globalThis.Number(object.unpaidDays)
+          : isSet(object.unpaid_days)
+            ? globalThis.Number(object.unpaid_days)
+            : 0,
+        dailyRate: isSet(object.dailyRate)
+          ? globalThis.Number(object.dailyRate)
+          : isSet(object.daily_rate)
+            ? globalThis.Number(object.daily_rate)
+            : 0,
+        deduction: isSet(object.deduction)
+          ? globalThis.Number(object.deduction)
+          : 0,
+        netAmount: isSet(object.netAmount)
+          ? globalThis.Number(object.netAmount)
+          : isSet(object.net_amount)
+            ? globalThis.Number(object.net_amount)
+            : 0,
+        pdfKey: isSet(object.pdfKey)
+          ? globalThis.String(object.pdfKey)
+          : isSet(object.pdf_key)
+            ? globalThis.String(object.pdf_key)
+            : '',
+        generatedAt: isSet(object.generatedAt)
+          ? fromJsonTimestamp(object.generatedAt)
+          : isSet(object.generated_at)
+            ? fromJsonTimestamp(object.generated_at)
+            : undefined,
+      };
+    },
+
+    toJSON(message: PayrollRecord): unknown {
+      const obj: any = {};
+      if (message.id !== '') {
+        obj.id = message.id;
+      }
+      if (message.employeeId !== '') {
+        obj.employeeId = message.employeeId;
+      }
+      if (message.year !== 0) {
+        obj.year = Math.round(message.year);
+      }
+      if (message.month !== 0) {
+        obj.month = Math.round(message.month);
+      }
+      if (message.monthlyRate !== 0) {
+        obj.monthlyRate = message.monthlyRate;
+      }
+      if (message.unpaidDays !== 0) {
+        obj.unpaidDays = Math.round(message.unpaidDays);
+      }
+      if (message.dailyRate !== 0) {
+        obj.dailyRate = message.dailyRate;
+      }
+      if (message.deduction !== 0) {
+        obj.deduction = message.deduction;
+      }
+      if (message.netAmount !== 0) {
+        obj.netAmount = message.netAmount;
+      }
+      if (message.pdfKey !== '') {
+        obj.pdfKey = message.pdfKey;
+      }
+      if (message.generatedAt !== undefined) {
+        obj.generatedAt = message.generatedAt.toISOString();
+      }
+      return obj;
+    },
+
+    create<I extends Exact<DeepPartial<PayrollRecord>, I>>(
+      base?: I,
+    ): PayrollRecord {
+      return PayrollRecord.fromPartial(base ?? ({} as any));
+    },
+    fromPartial<I extends Exact<DeepPartial<PayrollRecord>, I>>(
+      object: I,
+    ): PayrollRecord {
+      const message = createBasePayrollRecord();
+      message.id = object.id ?? '';
+      message.employeeId = object.employeeId ?? '';
+      message.year = object.year ?? 0;
+      message.month = object.month ?? 0;
+      message.monthlyRate = object.monthlyRate ?? 0;
+      message.unpaidDays = object.unpaidDays ?? 0;
+      message.dailyRate = object.dailyRate ?? 0;
+      message.deduction = object.deduction ?? 0;
+      message.netAmount = object.netAmount ?? 0;
+      message.pdfKey = object.pdfKey ?? '';
+      message.generatedAt = object.generatedAt ?? undefined;
+      return message;
+    },
+  };
 
 messageTypeRegistry.set(PayrollRecord.$type, PayrollRecord);
 
 function createBaseGetPayrollRecordsRequest(): GetPayrollRecordsRequest {
   return {
-    $type: "payroll.GetPayrollRecordsRequest",
-    employeeId: "",
+    $type: 'payroll.GetPayrollRecordsRequest',
+    employeeId: '',
     year: undefined,
     page: undefined,
     pageSize: undefined,
   };
 }
 
-export const GetPayrollRecordsRequest: MessageFns<GetPayrollRecordsRequest, "payroll.GetPayrollRecordsRequest"> = {
-  $type: "payroll.GetPayrollRecordsRequest" as const,
+export const GetPayrollRecordsRequest: MessageFns<
+  GetPayrollRecordsRequest,
+  'payroll.GetPayrollRecordsRequest'
+> = {
+  $type: 'payroll.GetPayrollRecordsRequest' as const,
 
-  encode(message: GetPayrollRecordsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetPayrollRecordsRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.year !== undefined) {
@@ -361,8 +383,12 @@ export const GetPayrollRecordsRequest: MessageFns<GetPayrollRecordsRequest, "pay
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetPayrollRecordsRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetPayrollRecordsRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetPayrollRecordsRequest();
     while (reader.pos < end) {
@@ -415,21 +441,21 @@ export const GetPayrollRecordsRequest: MessageFns<GetPayrollRecordsRequest, "pay
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       year: isSet(object.year) ? globalThis.Number(object.year) : undefined,
       page: isSet(object.page) ? globalThis.Number(object.page) : undefined,
       pageSize: isSet(object.pageSize)
         ? globalThis.Number(object.pageSize)
         : isSet(object.page_size)
-        ? globalThis.Number(object.page_size)
-        : undefined,
+          ? globalThis.Number(object.page_size)
+          : undefined,
     };
   },
 
   toJSON(message: GetPayrollRecordsRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.year !== undefined) {
@@ -444,12 +470,16 @@ export const GetPayrollRecordsRequest: MessageFns<GetPayrollRecordsRequest, "pay
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetPayrollRecordsRequest>, I>>(base?: I): GetPayrollRecordsRequest {
+  create<I extends Exact<DeepPartial<GetPayrollRecordsRequest>, I>>(
+    base?: I,
+  ): GetPayrollRecordsRequest {
     return GetPayrollRecordsRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetPayrollRecordsRequest>, I>>(object: I): GetPayrollRecordsRequest {
+  fromPartial<I extends Exact<DeepPartial<GetPayrollRecordsRequest>, I>>(
+    object: I,
+  ): GetPayrollRecordsRequest {
     const message = createBaseGetPayrollRecordsRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.year = object.year ?? undefined;
     message.page = object.page ?? undefined;
     message.pageSize = object.pageSize ?? undefined;
@@ -457,16 +487,25 @@ export const GetPayrollRecordsRequest: MessageFns<GetPayrollRecordsRequest, "pay
   },
 };
 
-messageTypeRegistry.set(GetPayrollRecordsRequest.$type, GetPayrollRecordsRequest);
+messageTypeRegistry.set(
+  GetPayrollRecordsRequest.$type,
+  GetPayrollRecordsRequest,
+);
 
 function createBaseGetPayrollRecordsResponse(): GetPayrollRecordsResponse {
-  return { $type: "payroll.GetPayrollRecordsResponse", records: [], total: 0 };
+  return { $type: 'payroll.GetPayrollRecordsResponse', records: [], total: 0 };
 }
 
-export const GetPayrollRecordsResponse: MessageFns<GetPayrollRecordsResponse, "payroll.GetPayrollRecordsResponse"> = {
-  $type: "payroll.GetPayrollRecordsResponse" as const,
+export const GetPayrollRecordsResponse: MessageFns<
+  GetPayrollRecordsResponse,
+  'payroll.GetPayrollRecordsResponse'
+> = {
+  $type: 'payroll.GetPayrollRecordsResponse' as const,
 
-  encode(message: GetPayrollRecordsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: GetPayrollRecordsResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     for (const v of message.records) {
       PayrollRecord.encode(v!, writer.uint32(10).fork()).join();
     }
@@ -476,8 +515,12 @@ export const GetPayrollRecordsResponse: MessageFns<GetPayrollRecordsResponse, "p
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetPayrollRecordsResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetPayrollRecordsResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetPayrollRecordsResponse();
     while (reader.pos < end) {
@@ -529,38 +572,60 @@ export const GetPayrollRecordsResponse: MessageFns<GetPayrollRecordsResponse, "p
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetPayrollRecordsResponse>, I>>(base?: I): GetPayrollRecordsResponse {
+  create<I extends Exact<DeepPartial<GetPayrollRecordsResponse>, I>>(
+    base?: I,
+  ): GetPayrollRecordsResponse {
     return GetPayrollRecordsResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetPayrollRecordsResponse>, I>>(object: I): GetPayrollRecordsResponse {
+  fromPartial<I extends Exact<DeepPartial<GetPayrollRecordsResponse>, I>>(
+    object: I,
+  ): GetPayrollRecordsResponse {
     const message = createBaseGetPayrollRecordsResponse();
-    message.records = object.records?.map((e) => PayrollRecord.fromPartial(e)) || [];
+    message.records =
+      object.records?.map((e) => PayrollRecord.fromPartial(e)) || [];
     message.total = object.total ?? 0;
     return message;
   },
 };
 
-messageTypeRegistry.set(GetPayrollRecordsResponse.$type, GetPayrollRecordsResponse);
+messageTypeRegistry.set(
+  GetPayrollRecordsResponse.$type,
+  GetPayrollRecordsResponse,
+);
 
 function createBaseGetPayrollPdfUrlRequest(): GetPayrollPdfUrlRequest {
-  return { $type: "payroll.GetPayrollPdfUrlRequest", payrollRecordId: "", requestorId: "" };
+  return {
+    $type: 'payroll.GetPayrollPdfUrlRequest',
+    payrollRecordId: '',
+    requestorId: '',
+  };
 }
 
-export const GetPayrollPdfUrlRequest: MessageFns<GetPayrollPdfUrlRequest, "payroll.GetPayrollPdfUrlRequest"> = {
-  $type: "payroll.GetPayrollPdfUrlRequest" as const,
+export const GetPayrollPdfUrlRequest: MessageFns<
+  GetPayrollPdfUrlRequest,
+  'payroll.GetPayrollPdfUrlRequest'
+> = {
+  $type: 'payroll.GetPayrollPdfUrlRequest' as const,
 
-  encode(message: GetPayrollPdfUrlRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.payrollRecordId !== "") {
+  encode(
+    message: GetPayrollPdfUrlRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.payrollRecordId !== '') {
       writer.uint32(10).string(message.payrollRecordId);
     }
-    if (message.requestorId !== "") {
+    if (message.requestorId !== '') {
       writer.uint32(18).string(message.requestorId);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetPayrollPdfUrlRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetPayrollPdfUrlRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetPayrollPdfUrlRequest();
     while (reader.pos < end) {
@@ -597,34 +662,38 @@ export const GetPayrollPdfUrlRequest: MessageFns<GetPayrollPdfUrlRequest, "payro
       payrollRecordId: isSet(object.payrollRecordId)
         ? globalThis.String(object.payrollRecordId)
         : isSet(object.payroll_record_id)
-        ? globalThis.String(object.payroll_record_id)
-        : "",
+          ? globalThis.String(object.payroll_record_id)
+          : '',
       requestorId: isSet(object.requestorId)
         ? globalThis.String(object.requestorId)
         : isSet(object.requestor_id)
-        ? globalThis.String(object.requestor_id)
-        : "",
+          ? globalThis.String(object.requestor_id)
+          : '',
     };
   },
 
   toJSON(message: GetPayrollPdfUrlRequest): unknown {
     const obj: any = {};
-    if (message.payrollRecordId !== "") {
+    if (message.payrollRecordId !== '') {
       obj.payrollRecordId = message.payrollRecordId;
     }
-    if (message.requestorId !== "") {
+    if (message.requestorId !== '') {
       obj.requestorId = message.requestorId;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetPayrollPdfUrlRequest>, I>>(base?: I): GetPayrollPdfUrlRequest {
+  create<I extends Exact<DeepPartial<GetPayrollPdfUrlRequest>, I>>(
+    base?: I,
+  ): GetPayrollPdfUrlRequest {
     return GetPayrollPdfUrlRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetPayrollPdfUrlRequest>, I>>(object: I): GetPayrollPdfUrlRequest {
+  fromPartial<I extends Exact<DeepPartial<GetPayrollPdfUrlRequest>, I>>(
+    object: I,
+  ): GetPayrollPdfUrlRequest {
     const message = createBaseGetPayrollPdfUrlRequest();
-    message.payrollRecordId = object.payrollRecordId ?? "";
-    message.requestorId = object.requestorId ?? "";
+    message.payrollRecordId = object.payrollRecordId ?? '';
+    message.requestorId = object.requestorId ?? '';
     return message;
   },
 };
@@ -632,21 +701,31 @@ export const GetPayrollPdfUrlRequest: MessageFns<GetPayrollPdfUrlRequest, "payro
 messageTypeRegistry.set(GetPayrollPdfUrlRequest.$type, GetPayrollPdfUrlRequest);
 
 function createBaseGetPayrollPdfUrlResponse(): GetPayrollPdfUrlResponse {
-  return { $type: "payroll.GetPayrollPdfUrlResponse", url: "" };
+  return { $type: 'payroll.GetPayrollPdfUrlResponse', url: '' };
 }
 
-export const GetPayrollPdfUrlResponse: MessageFns<GetPayrollPdfUrlResponse, "payroll.GetPayrollPdfUrlResponse"> = {
-  $type: "payroll.GetPayrollPdfUrlResponse" as const,
+export const GetPayrollPdfUrlResponse: MessageFns<
+  GetPayrollPdfUrlResponse,
+  'payroll.GetPayrollPdfUrlResponse'
+> = {
+  $type: 'payroll.GetPayrollPdfUrlResponse' as const,
 
-  encode(message: GetPayrollPdfUrlResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.url !== "") {
+  encode(
+    message: GetPayrollPdfUrlResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.url !== '') {
       writer.uint32(10).string(message.url);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetPayrollPdfUrlResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetPayrollPdfUrlResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetPayrollPdfUrlResponse();
     while (reader.pos < end) {
@@ -670,118 +749,174 @@ export const GetPayrollPdfUrlResponse: MessageFns<GetPayrollPdfUrlResponse, "pay
   },
 
   fromJSON(object: any): GetPayrollPdfUrlResponse {
-    return { $type: GetPayrollPdfUrlResponse.$type, url: isSet(object.url) ? globalThis.String(object.url) : "" };
+    return {
+      $type: GetPayrollPdfUrlResponse.$type,
+      url: isSet(object.url) ? globalThis.String(object.url) : '',
+    };
   },
 
   toJSON(message: GetPayrollPdfUrlResponse): unknown {
     const obj: any = {};
-    if (message.url !== "") {
+    if (message.url !== '') {
       obj.url = message.url;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetPayrollPdfUrlResponse>, I>>(base?: I): GetPayrollPdfUrlResponse {
+  create<I extends Exact<DeepPartial<GetPayrollPdfUrlResponse>, I>>(
+    base?: I,
+  ): GetPayrollPdfUrlResponse {
     return GetPayrollPdfUrlResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetPayrollPdfUrlResponse>, I>>(object: I): GetPayrollPdfUrlResponse {
+  fromPartial<I extends Exact<DeepPartial<GetPayrollPdfUrlResponse>, I>>(
+    object: I,
+  ): GetPayrollPdfUrlResponse {
     const message = createBaseGetPayrollPdfUrlResponse();
-    message.url = object.url ?? "";
+    message.url = object.url ?? '';
     return message;
   },
 };
 
-messageTypeRegistry.set(GetPayrollPdfUrlResponse.$type, GetPayrollPdfUrlResponse);
+messageTypeRegistry.set(
+  GetPayrollPdfUrlResponse.$type,
+  GetPayrollPdfUrlResponse,
+);
 
 export type PayrollServiceService = typeof PayrollServiceService;
 export const PayrollServiceService = {
   getPayrollRecords: {
-    path: "/payroll.PayrollService/GetPayrollRecords" as const,
+    path: '/payroll.PayrollService/GetPayrollRecords' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: GetPayrollRecordsRequest): Buffer =>
       Buffer.from(GetPayrollRecordsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetPayrollRecordsRequest => GetPayrollRecordsRequest.decode(value),
+    requestDeserialize: (value: Buffer): GetPayrollRecordsRequest =>
+      GetPayrollRecordsRequest.decode(value),
     responseSerialize: (value: GetPayrollRecordsResponse): Buffer =>
       Buffer.from(GetPayrollRecordsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetPayrollRecordsResponse => GetPayrollRecordsResponse.decode(value),
+    responseDeserialize: (value: Buffer): GetPayrollRecordsResponse =>
+      GetPayrollRecordsResponse.decode(value),
   },
   getPayrollPdfUrl: {
-    path: "/payroll.PayrollService/GetPayrollPdfUrl" as const,
+    path: '/payroll.PayrollService/GetPayrollPdfUrl' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: GetPayrollPdfUrlRequest): Buffer =>
       Buffer.from(GetPayrollPdfUrlRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetPayrollPdfUrlRequest => GetPayrollPdfUrlRequest.decode(value),
+    requestDeserialize: (value: Buffer): GetPayrollPdfUrlRequest =>
+      GetPayrollPdfUrlRequest.decode(value),
     responseSerialize: (value: GetPayrollPdfUrlResponse): Buffer =>
       Buffer.from(GetPayrollPdfUrlResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetPayrollPdfUrlResponse => GetPayrollPdfUrlResponse.decode(value),
+    responseDeserialize: (value: Buffer): GetPayrollPdfUrlResponse =>
+      GetPayrollPdfUrlResponse.decode(value),
   },
 } as const;
 
 export interface PayrollServiceServer extends UntypedServiceImplementation {
-  getPayrollRecords: handleUnaryCall<GetPayrollRecordsRequest, GetPayrollRecordsResponse>;
-  getPayrollPdfUrl: handleUnaryCall<GetPayrollPdfUrlRequest, GetPayrollPdfUrlResponse>;
+  getPayrollRecords: handleUnaryCall<
+    GetPayrollRecordsRequest,
+    GetPayrollRecordsResponse
+  >;
+  getPayrollPdfUrl: handleUnaryCall<
+    GetPayrollPdfUrlRequest,
+    GetPayrollPdfUrlResponse
+  >;
 }
 
 export interface PayrollServiceClient extends Client {
   getPayrollRecords(
     request: GetPayrollRecordsRequest,
-    callback: (error: ServiceError | null, response: GetPayrollRecordsResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetPayrollRecordsResponse,
+    ) => void,
   ): ClientUnaryCall;
   getPayrollRecords(
     request: GetPayrollRecordsRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetPayrollRecordsResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetPayrollRecordsResponse,
+    ) => void,
   ): ClientUnaryCall;
   getPayrollRecords(
     request: GetPayrollRecordsRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetPayrollRecordsResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetPayrollRecordsResponse,
+    ) => void,
   ): ClientUnaryCall;
   getPayrollPdfUrl(
     request: GetPayrollPdfUrlRequest,
-    callback: (error: ServiceError | null, response: GetPayrollPdfUrlResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetPayrollPdfUrlResponse,
+    ) => void,
   ): ClientUnaryCall;
   getPayrollPdfUrl(
     request: GetPayrollPdfUrlRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetPayrollPdfUrlResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetPayrollPdfUrlResponse,
+    ) => void,
   ): ClientUnaryCall;
   getPayrollPdfUrl(
     request: GetPayrollPdfUrlRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetPayrollPdfUrlResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetPayrollPdfUrlResponse,
+    ) => void,
   ): ClientUnaryCall;
 }
 
 export const PayrollServiceClient = makeGenericClientConstructor(
   PayrollServiceService,
-  "payroll.PayrollService",
+  'payroll.PayrollService',
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): PayrollServiceClient;
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): PayrollServiceClient;
   service: typeof PayrollServiceService;
   serviceName: string;
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = Math.trunc(date.getTime() / 1_000);
   const nanos = (date.getTime() % 1_000) * 1_000_000;
-  return { $type: "google.protobuf.Timestamp", seconds, nanos };
+  return { $type: 'google.protobuf.Timestamp', seconds, nanos };
 }
 
 function fromTimestamp(t: Timestamp): Date {
@@ -793,7 +928,7 @@ function fromTimestamp(t: Timestamp): Date {
 function fromJsonTimestamp(o: any): Date {
   if (o instanceof globalThis.Date) {
     return o;
-  } else if (typeof o === "string") {
+  } else if (typeof o === 'string') {
     return new globalThis.Date(o);
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
