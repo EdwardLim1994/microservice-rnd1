@@ -21,6 +21,7 @@
 	},
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose",
+		"check": "biome check --write",
 		"gen": "bun ../../../packages/script/src/bin/generate-api.ts"
 	}
 }
