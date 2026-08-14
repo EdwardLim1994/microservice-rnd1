@@ -6,6 +6,7 @@
 	"private": true,
 	"devDependencies": {
 		"@types/bun": "latest",
+		"@biomejs/biome": "2.4.15",
 		"prisma": "^7.8.0",
 		"@bufbuild/buf": "^1.70.0",
 		"protoc": "^35.1.0"
