@@ -1,0 +1,34 @@
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
+
+enum NotificationType {
+  LEAVE_REQUEST_RECEIVED
+  LEAVE_REQUEST_DECIDED
+  PAYROLL_GENERATED
+}
+
+type Query {
+  myNotifications(page: Int, pageSize: Int): NotificationListResult!
+  unreadNotificationCount: Int!
+}
+
+type Mutation {
+  markNotificationRead(id: ID!): Notification!
+  markAllNotificationsRead: Int!
+}
+
+type Notification @key(fields: "id") {
+  id: ID!
+  recipientId: ID!
+  type: NotificationType!
+  # Human-readable message derived from the CDC event
+  message: String!
+  read: Boolean!
+  createdAt: String!
+}
+
+type NotificationListResult {
+  notifications: [Notification!]!
+  total: Int!
+  unreadCount: Int!
+}

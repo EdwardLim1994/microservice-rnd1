@@ -1,0 +1,37 @@
+schema
+  @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
+{
+  query: Query
+  mutation: Mutation
+}
+
+type Mutation {
+  markAllNotificationsRead: Int!
+  markNotificationRead(id: ID!): Notification!
+}
+
+type Notification @key(fields: "id") {
+  createdAt: String!
+  id: ID!
+  message: String!
+  read: Boolean!
+  recipientId: ID!
+  type: NotificationType!
+}
+
+type NotificationListResult {
+  notifications: [Notification!]!
+  total: Int!
+  unreadCount: Int!
+}
+
+enum NotificationType {
+  LEAVE_REQUEST_DECIDED
+  LEAVE_REQUEST_RECEIVED
+  PAYROLL_GENERATED
+}
+
+type Query {
+  myNotifications(page: Int, pageSize: Int): NotificationListResult!
+  unreadNotificationCount: Int!
+}
