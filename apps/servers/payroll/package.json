@@ -18,10 +18,13 @@
 		"script": "workspace:*",
 		"@grpc/grpc-js": "^1.14.4",
 		"ts-proto": "^2.11.8",
-		"api": "workspace:*"
+		"api": "workspace:*",
+		"kafkajs": "^2.2.4",
+		"minio": "^8.0.5"
 	},
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose",
+		"check": "biome check --write",
 		"gen": "bun ../../../packages/script/src/bin/generate-api.ts",
 		"postinstall": "prisma generate"
 	}

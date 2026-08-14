@@ -6,3 +6,20 @@ generator client {
 datasource db {
     provider = "postgresql"
 }
+
+model PayrollRecord {
+    id          String   @id @default(cuid())
+    employeeId  String
+    year        Int
+    month       Int
+    monthlyRate Float
+    unpaidDays  Int
+    dailyRate   Float
+    deduction   Float
+    netAmount   Float
+    pdfKey      String
+    generatedAt DateTime @default(now())
+
+    @@unique([employeeId, year, month])
+    @@index([employeeId])
+}
