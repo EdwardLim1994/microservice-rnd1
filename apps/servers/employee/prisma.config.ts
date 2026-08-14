@@ -1,3 +1,3 @@
-import { createPrismaConfig } from "script";
+import { createPrismaConfig } from 'script';
 
 export default createPrismaConfig();
