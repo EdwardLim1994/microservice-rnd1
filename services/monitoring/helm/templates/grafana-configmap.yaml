@@ -1,3 +1,8 @@
+{{- $payrollDbSecret := lookup "v1" "Secret" "server-infra" "payroll-db-secret" }}
+{{- $payrollDbPassword := "payroll-placeholder-db-password" }}
+{{- if $payrollDbSecret }}
+{{- $payrollDbPassword = index $payrollDbSecret.data "password" | b64dec }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,5 +17,25 @@ data:
   # fine as-is in-cluster, same namespace, no FQDN rewrite needed.
   datasources.yaml: |
 {{ .Files.Get "files/grafana-datasources.yaml" | indent 4 }}
+  # Real copy of apps/servers/payroll/grafana-datasources.yaml, inlined
+  # for the same reason as the other per-server datasource keys above (Go-templating the
+  # password substitution in).
+  payroll-datasources.yaml: |
+    apiVersion: 1
+
+    datasources:
+      - name: payroll Postgres
+        uid: payroll-postgres
+        type: grafana-postgresql-datasource
+        access: proxy
+        url: payroll-db.server-infra.svc.cluster.local:5432
+        database: payroll
+        user: myuser
+        editable: false
+        jsonData:
+          sslmode: disable
+          postgresVersion: 1500
+        secureJsonData:
+          password: {{ $payrollDbPassword }}
   dashboards.yaml: |
 {{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}

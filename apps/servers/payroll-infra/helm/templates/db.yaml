@@ -1,0 +1,122 @@
+{{- $dbSecret := lookup "v1" "Secret" .Release.Namespace "payroll-db-secret" }}
+{{- $dbPassword := randAlphaNum 32 }}
+{{- if $dbSecret }}
+{{- $dbPassword = index $dbSecret.data "password" | b64dec }}
+{{- else if .Values.dbPassword }}
+# Terraform override (apps/terraform/main.tf's set_sensitive on this chart's own helm_release) —
+# needed because that provider's experiments.manifest=true renders this chart a *second* time, at
+# plan time, to compute the manifest it diffs against; two independent randAlphaNum renders never
+# match, so without a pinned value the provider sees "inconsistent final plan" and errors out. A
+# plain `helm install`/`upgrade` never sets this, so it still gets a real random password there,
+# correctly reused via `lookup` on every later `helm upgrade`.
+{{- $dbPassword = .Values.dbPassword }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payroll-db
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: payroll-db
+spec:
+  # Always 1 — a second replica would each get its own volume and diverge into two separate
+  # databases, not a real HA setup. Local/testing Postgres, same scope as every other
+  # single-instance infra chart in this repo.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payroll-db
+  template:
+    metadata:
+      labels:
+        app: payroll-db
+    spec:
+      # Postgres's image runs as a non-root uid (999) — matches every other bundled-Postgres
+      # chart in this repo (see services/authentik/helm/values.yaml's volumePermissions comment)
+      # so the default root-owned volume is actually writable by it.
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:15.3-alpine
+          # wal_level=logical + a replication slot/sender — required for Debezium Server's
+          # pgoutput plugin to stream this database's WAL at all. Args only (no `command:`
+          # override) so docker-entrypoint.sh's init logic still runs.
+          args:
+            - "-c"
+            - "wal_level=logical"
+            - "-c"
+            - "max_replication_slots=4"
+            - "-c"
+            - "max_wal_senders=4"
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: myuser
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: payroll-db-secret
+                  key: password
+            - name: POSTGRES_DB
+              value: payroll
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "myuser", "-d", "payroll"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: postgres
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      # ponytail: emptyDir, not a PersistentVolumeClaim — this is a per-server dev/test database,
+      # losing data on pod restart is fine. Switch to a PVC (see git history's
+      # templates/database/helm/postgres-pvc.yaml for the old shape) if that stops being true.
+      volumes:
+        - name: data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payroll-db
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: payroll-db
+spec:
+  # ClusterIP — the app chart's own Deployment/migrate Job (a different namespace now, see
+  # payroll's own values.yaml infraNamespace) reaches this cross-namespace via its
+  # fully-qualified DNS name.
+  type: ClusterIP
+  selector:
+    app: payroll-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+
+---
+# The Postgres superuser's own password — read by the postgres container above and copied
+# straight into the app chart's own DATABASE_URL by db-provision-job.yaml (same static
+# credential, no separate role). Randomly generated on first `helm install` (see the
+# `lookup`/`randAlphaNum` block at
+# the top of this file) and kept stable across every later `helm upgrade` — `lookup` reads this
+# same Secret's already-set password back instead of minting a fresh one on every render, which
+# would otherwise silently break Postgres/Vault's already-established credential each upgrade.
+# Only works against a real cluster: `helm template`/`--dry-run` always see `lookup` return
+# nothing, so those always take the "generate new" branch instead — expected, not a bug.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: payroll-db-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+data:
+  password: {{ $dbPassword | b64enc }}
