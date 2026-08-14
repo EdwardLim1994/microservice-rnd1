@@ -1,0 +1,26 @@
+schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"]) {
+  query: Query
+}
+
+type PayrollRecord @key(fields: "id") {
+  dailyRate: Float!
+  deduction: Float!
+  employeeId: ID!
+  generatedAt: String!
+  id: ID!
+  month: Int!
+  monthlyRate: Float!
+  netAmount: Float!
+  unpaidDays: Int!
+  year: Int!
+}
+
+type PayrollRecordListResult {
+  records: [PayrollRecord!]!
+  total: Int!
+}
+
+type Query {
+  myPayrollRecords(page: Int, pageSize: Int, year: Int): PayrollRecordListResult!
+  payrollPdfUrl(payrollRecordId: ID!): String!
+}
