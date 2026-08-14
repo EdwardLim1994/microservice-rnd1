@@ -95,7 +95,8 @@ function injectServerAppChainCall(
 	marker: string,
 	callText: string,
 ): string {
-	let raw = fs.readFileSync(absAppPath, "utf-8");
+	// Normalize CRLF → LF so regex patterns work on Windows-generated template files.
+	let raw = fs.readFileSync(absAppPath, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes(`.${marker}(`)) {
 		return `${relToRoot(absAppPath)} already has .${marker}(...)`;
 	}
@@ -312,7 +313,8 @@ function injectDockerfileMigrateStage(
 	absDockerfilePath: string,
 	snippet: string,
 ): string {
-	const raw = fs.readFileSync(absDockerfilePath, "utf-8");
+	// Normalize CRLF → LF so string/regex patterns work on Windows-generated template files.
+	const raw = fs.readFileSync(absDockerfilePath, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes("AS migrate")) {
 		return `${relToRoot(absDockerfilePath)} already has a migrate stage`;
 	}
@@ -342,8 +344,9 @@ function injectDockerfileMigrateStage(
  * dedicated RUN here fails the build loudly instead.
  */
 function injectDockerfilePrismaGenerate(absDockerfilePath: string): string {
-	const raw = fs.readFileSync(absDockerfilePath, "utf-8");
-	if (raw.includes("RUN bunx prisma generate")) {
+	// Normalize CRLF → LF so regex \n patterns work on Windows-generated template files.
+	const raw = fs.readFileSync(absDockerfilePath, "utf-8").replace(/\r\n/g, "\n");
+	if (raw.includes("RUN ./node_modules/.bin/prisma generate") || raw.includes("RUN bunx prisma generate")) {
 		return `${relToRoot(absDockerfilePath)} already has an explicit prisma generate`;
 	}
 
@@ -361,7 +364,7 @@ function injectDockerfilePrismaGenerate(absDockerfilePath: string): string {
 		"# missing, non-fatal to the overall build) and left an image with no generated/prisma/ at\n" +
 		"# all, crashing at runtime instead of at build time. A dedicated RUN here fails the build\n" +
 		"# loudly if this ever breaks again, instead of shipping a broken image.\n" +
-		"RUN bunx prisma generate\n";
+		"RUN ./node_modules/.bin/prisma generate\n";
 	fs.writeFileSync(
 		absDockerfilePath,
 		`${raw.slice(0, insertAt)}${snippet}${raw.slice(insertAt)}`,
@@ -429,12 +432,14 @@ function wireGrafanaConfigmap(root: string, name: string): string {
 	const varName = `${camelCase(name)}DbPassword`;
 	const secretVarName = `${camelCase(name)}DbSecret`;
 
-	let raw = fs.readFileSync(MONITORING_CONFIGMAP_PATH, "utf-8");
+	// Normalize CRLF → LF so marker searches work on Windows-checked-out files.
+	let raw = fs.readFileSync(MONITORING_CONFIGMAP_PATH, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes(`$${varName}`)) {
 		return `${path.relative(root, MONITORING_CONFIGMAP_PATH)} already wires ${name}`;
 	}
 
-	const apiVersionMarker = "\napiVersion: v1\n";
+	// Match "apiVersion: v1" with or without a preceding newline (first-server run vs subsequent).
+	const apiVersionMarker = "apiVersion: v1\n";
 	const apiVersionIndex = raw.indexOf(apiVersionMarker);
 	if (apiVersionIndex === -1) {
 		throw new Error(
@@ -447,7 +452,7 @@ function wireGrafanaConfigmap(root: string, name: string): string {
 		`{{- if $${secretVarName} }}\n` +
 		`{{- $${varName} = index $${secretVarName}.data "password" | b64dec }}\n` +
 		"{{- end }}\n";
-	const lookupInsertAt = apiVersionIndex + 1;
+	const lookupInsertAt = apiVersionIndex;
 	raw = `${raw.slice(0, lookupInsertAt)}${lookupBlock}${raw.slice(lookupInsertAt)}`;
 
 	const dashboardsMarker = "  dashboards.yaml: |";
@@ -504,7 +509,8 @@ function wireGrafanaStatefulsetMount(root: string, name: string): string {
 	if (!fs.existsSync(statefulsetPath)) {
 		return `${path.relative(root, statefulsetPath)} not found, skipped`;
 	}
-	const raw = fs.readFileSync(statefulsetPath, "utf-8");
+	// Normalize CRLF → LF so regex \n patterns work on Windows-checked-out files.
+	const raw = fs.readFileSync(statefulsetPath, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes(`subPath: ${name}-datasources.yaml`)) {
 		return `${path.relative(root, statefulsetPath)} already mounts ${name}`;
 	}
