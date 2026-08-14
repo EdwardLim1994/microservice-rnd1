@@ -1,33 +1,31 @@
-# One Debezium Server process captures {{ name }}-db only — not a shared Kafka Connect cluster
-# (see root CLAUDE.md's CDC note). Lives in {{ name }}-infra chart alongside db.yaml, deployed
+# One Debezium Server process captures payroll-db only — not a shared Kafka Connect cluster
+# (see root CLAUDE.md's CDC note). Lives in payroll-infra chart alongside db.yaml, deployed
 # independently of the app container so each can restart/redeploy on its own schedule.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ name }}-debezium-config
-  namespace: \{{ .Values.namespace }}
+  name: payroll-debezium-config
+  namespace: {{ .Values.namespace }}
 data:
   application.properties: |
     debezium.source.connector.class=io.debezium.connector.postgresql.PostgresConnector
     debezium.source.plugin.name=pgoutput
-    debezium.source.slot.name={{ name }}_debezium
-    debezium.source.publication.name={{ name }}_debezium
-    debezium.source.database.hostname={{ name }}-db
+    debezium.source.slot.name=payroll_debezium
+    debezium.source.publication.name=payroll_debezium
+    debezium.source.database.hostname=payroll-db
     debezium.source.database.port=5432
     debezium.source.database.user=myuser
     # ${DB_PASSWORD} — Quarkus/MicroProfile Config's own env var substitution (Debezium Server is
     # built on Quarkus), not Handlebars/Helm templating. Reads the Deployment's DB_PASSWORD env
-    # var (below) at container start, rather than this file re-deriving {{ name }}-db-secret's
+    # var (below) at container start, rather than this file re-deriving payroll-db-secret's
     # password itself — that Secret's value is only decided once, in db.yaml.hbs's own
     # lookup/randAlphaNum block; a second independent lookup here (a different template file,
     # rendered in the same Helm pass) could return empty and mint a *different* random password
     # than db.yaml.hbs already assigned to the running Postgres.
     debezium.source.database.password=${DB_PASSWORD}
-    debezium.source.database.dbname={{ name }}
-{{#if tableIncludeList}}
-    debezium.source.table.include.list={{ tableIncludeList }}
-{{/if}}
-    debezium.source.topic.prefix={{ name }}
+    debezium.source.database.dbname=payroll
+    debezium.source.table.include.list=public.payroll_record
+    debezium.source.topic.prefix=payroll
     debezium.source.offset.storage.file.filename=/debezium/data/offsets.dat
     debezium.source.database.history.file.filename=/debezium/data/history.dat
     debezium.sink.type=kafka
@@ -39,30 +37,30 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ name }}-debezium
-  namespace: \{{ .Values.namespace }}
+  name: payroll-debezium
+  namespace: {{ .Values.namespace }}
   labels:
-    app: {{ name }}-debezium
+    app: payroll-debezium
 spec:
   # Always 1 — a replication slot is single-consumer; a second replica would just fight the
   # first one over the same slot.
   replicas: 1
   selector:
     matchLabels:
-      app: {{ name }}-debezium
+      app: payroll-debezium
   template:
     metadata:
       labels:
-        app: {{ name }}-debezium
+        app: payroll-debezium
     spec:
       # Creates the publication pgoutput needs (Debezium creates the replication slot itself but
-      # not this) — deliberately NOT a docker-entrypoint-initdb.d script on {{ name }}-db's own
+      # not this) — deliberately NOT a docker-entrypoint-initdb.d script on payroll-db's own
       # Postgres container: initdb scripts run once, at Postgres's very first boot, before the
-      # {{ name }}-migrate Job (a separate k8s Job) has any chance to create the table(s) below,
+      # payroll-migrate Job (a separate k8s Job) has any chance to create the table(s) below,
       # so `CREATE PUBLICATION ... FOR TABLE ...` there fails every time against a table that
       # doesn't exist yet. This runs here instead, guarded idempotent (checks pg_publication
       # first, retries via pg_isready) since Debezium's own Deployment restarts — but nothing
-      # enforces {{ name }}-migrate having already run before this Deployment's first rollout, so
+      # enforces payroll-migrate having already run before this Deployment's first rollout, so
       # trigger it manually first if this is a fresh install.
       automountServiceAccountToken: false
       initContainers:
@@ -75,19 +73,19 @@ spec:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ name }}-db-secret
+                  name: payroll-db-secret
                   key: password
           command:
             - sh
             - -c
             - |
               set -e
-              until pg_isready -h {{ name }}-db -p 5432 -U myuser; do sleep 2; done
-              EXISTS=$(psql -h {{ name }}-db -U myuser -d {{ name }} -tAc \
-                "SELECT 1 FROM pg_publication WHERE pubname = '{{ name }}_debezium'")
+              until pg_isready -h payroll-db -p 5432 -U myuser; do sleep 2; done
+              EXISTS=$(psql -h payroll-db -U myuser -d payroll -tAc \
+                "SELECT 1 FROM pg_publication WHERE pubname = 'payroll_debezium'")
               if [ "$EXISTS" != "1" ]; then
-                psql -h {{ name }}-db -U myuser -d {{ name }} -c \
-                  "CREATE PUBLICATION {{ name }}_debezium FOR TABLE {{ publicationTargets }};"
+                psql -h payroll-db -U myuser -d payroll -c \
+                  "CREATE PUBLICATION payroll_debezium FOR TABLE public.\"payroll_record\";"
               fi
       containers:
         - name: debezium-server
@@ -100,7 +98,7 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ name }}-db-secret
+                  name: payroll-db-secret
                   key: password
           volumeMounts:
             - name: config
@@ -113,6 +111,6 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ name }}-debezium-config
+            name: payroll-debezium-config
         - name: data
           emptyDir: {}
