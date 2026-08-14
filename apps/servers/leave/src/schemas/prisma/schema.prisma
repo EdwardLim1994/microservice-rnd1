@@ -6,3 +6,42 @@ generator client {
 datasource db {
     provider = "postgresql"
 }
+
+enum LeaveType {
+    ANNUAL
+    SICK
+    UNPAID
+}
+
+enum LeaveStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+model LeaveRequest {
+    id         String      @id @default(cuid())
+    employeeId String
+    leaveType  LeaveType
+    startDate  DateTime
+    endDate    DateTime
+    days       Int
+    status     LeaveStatus @default(PENDING)
+    unpaidDays Int         @default(0)
+    createdAt  DateTime    @default(now())
+    updatedAt  DateTime    @updatedAt
+
+    @@index([employeeId, status])
+    @@index([startDate, endDate])
+}
+
+// One row per employee per year — created lazily on first leave submission
+model LeaveBalance {
+    id              String @id @default(cuid())
+    employeeId      String
+    year            Int
+    annualRemaining Int    @default(14)
+    sickRemaining   Int    @default(14)
+
+    @@unique([employeeId, year])
+}
