@@ -1,0 +1,25 @@
+generator client {
+    provider = "prisma-client-js"
+    output   = "../../../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum NotificationType {
+    LEAVE_REQUEST_RECEIVED
+    LEAVE_REQUEST_DECIDED
+    PAYROLL_GENERATED
+}
+
+model Notification {
+    id          String           @id @default(cuid())
+    recipientId String
+    type        NotificationType
+    message     String
+    read        Boolean          @default(false)
+    createdAt   DateTime         @default(now())
+
+    @@index([recipientId, read])
+}
