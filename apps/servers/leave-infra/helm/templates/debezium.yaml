@@ -1,0 +1,108 @@
+# One Debezium Server process captures leave-db only — not a shared Kafka Connect cluster
+# (see root CLAUDE.md's CDC note). Lives in leave-infra chart alongside db.yaml, deployed
+# independently of the app container so each can restart/redeploy on its own schedule.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: leave-debezium-config
+  namespace: {{ .Values.namespace }}
+data:
+  application.properties: |
+    debezium.source.connector.class=io.debezium.connector.postgresql.PostgresConnector
+    debezium.source.plugin.name=pgoutput
+    debezium.source.slot.name=leave_debezium
+    debezium.source.publication.name=leave_debezium
+    debezium.source.database.hostname=leave-db
+    debezium.source.database.port=5432
+    debezium.source.database.user=myuser
+    # ${DB_PASSWORD} — Quarkus/MicroProfile Config's own env var substitution (Debezium Server is
+    # built on Quarkus), not Handlebars/Helm templating. Reads the Deployment's DB_PASSWORD env
+    # var (below) at container start, rather than this file re-deriving leave-db-secret's
+    # password itself — that Secret's value is only decided once, in db.yaml.hbs's own
+    # lookup/randAlphaNum block; a second independent lookup here (a different template file,
+    # rendered in the same Helm pass) could return empty and mint a *different* random password
+    # than db.yaml.hbs already assigned to the running Postgres.
+    debezium.source.database.password=${DB_PASSWORD}
+    debezium.source.database.dbname=leave
+    debezium.source.table.include.list=public.leave_balance,public.leave_request
+    debezium.source.topic.prefix=leave
+    debezium.source.offset.storage.file.filename=/debezium/data/offsets.dat
+    debezium.source.database.history.file.filename=/debezium/data/history.dat
+    debezium.sink.type=kafka
+    debezium.sink.kafka.producer.bootstrap.servers=kafka.infra.svc.cluster.local:9092
+    debezium.sink.kafka.producer.key.serializer=org.apache.kafka.common.serialization.StringSerializer
+    debezium.sink.kafka.producer.value.serializer=org.apache.kafka.common.serialization.StringSerializer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leave-debezium
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: leave-debezium
+spec:
+  # Always 1 — a replication slot is single-consumer; a second replica would just fight the
+  # first one over the same slot.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leave-debezium
+  template:
+    metadata:
+      labels:
+        app: leave-debezium
+    spec:
+      # Creates the publication pgoutput needs (Debezium creates the replication slot itself but
+      # not this) — deliberately NOT a docker-entrypoint-initdb.d script on leave-db's own
+      # Postgres container: initdb scripts run once, at Postgres's very first boot, before the
+      # leave-migrate Job (a separate k8s Job) has any chance to create the table(s) below,
+      # so `CREATE PUBLICATION ... FOR TABLE ...` there fails every time against a table that
+      # doesn't exist yet. This runs here instead, guarded idempotent (checks pg_publication
+      # first, retries via pg_isready) since Debezium's own Deployment restarts — but nothing
+      # enforces leave-migrate having already run before this Deployment's first rollout, so
+      # trigger it manually first if this is a fresh install.
+      initContainers:
+        - name: create-publication
+          image: postgres:15.3-alpine
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: leave-db-secret
+                  key: password
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              until pg_isready -h leave-db -p 5432 -U myuser; do sleep 2; done
+              EXISTS=$(psql -h leave-db -U myuser -d leave -tAc \
+                "SELECT 1 FROM pg_publication WHERE pubname = 'leave_debezium'")
+              if [ "$EXISTS" != "1" ]; then
+                psql -h leave-db -U myuser -d leave -c \
+                  "CREATE PUBLICATION leave_debezium FOR TABLE public.\"leave_balance\", public.\"leave_request\";"
+              fi
+      containers:
+        - name: debezium-server
+          image: debezium/server:2.7.3.Final
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: leave-db-secret
+                  key: password
+          volumeMounts:
+            - name: config
+              mountPath: /debezium/conf
+            # ponytail: emptyDir offset/history storage — restart replays from the last
+            # committed Kafka offset via the slot, fine for dev. Switch to a PVC if a pod
+            # restart losing in-flight (uncommitted) position ever actually matters.
+            - name: data
+              mountPath: /debezium/data
+      volumes:
+        - name: config
+          configMap:
+            name: leave-debezium-config
+        - name: data
+          emptyDir: {}
