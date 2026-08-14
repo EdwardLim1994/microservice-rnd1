@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package employee;
+
+import "google/protobuf/timestamp.proto";
+
+message Employee {
+  string id = 1;
+  string full_name = 2;
+  string personal_email = 3;
+  double monthly_rate = 4;
+  optional string supervisor_id = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message RegisterEmployeeRequest {
+  string full_name = 1;
+  string personal_email = 2;
+  double monthly_rate = 3;
+  optional string supervisor_id = 4;
+}
+
+message RegisterEmployeeResponse {
+  Employee employee = 1;
+  // One-time plain-text password shown once in success dialog (ADR-3: mocked delivery)
+  string generated_password = 2;
+}
+
+message UpdateEmployeeRequest {
+  string id = 1;
+  optional double monthly_rate = 2;
+  optional string supervisor_id = 3;
+}
+
+message UpdateEmployeeResponse {
+  Employee employee = 1;
+}
+
+message GetEmployeeRequest {
+  string id = 1;
+}
+
+message ListEmployeesRequest {
+  optional int32 page = 1;
+  optional int32 page_size = 2;
+}
+
+message ListEmployeesResponse {
+  repeated Employee employees = 1;
+  int32 total = 2;
+}
+
+message GetSupervisorChainRequest {
+  string employee_id = 1;
+}
+
+message GetSupervisorChainResponse {
+  // Ordered from direct supervisor up to root (HR Admin or no supervisor)
+  repeated Employee chain = 1;
+}
+
+message GetEmployeeRateRequest {
+  string employee_id = 1;
+}
+
+message GetEmployeeRateResponse {
+  string employee_id = 1;
+  double monthly_rate = 2;
+}
+
+service EmployeeService {
+  rpc RegisterEmployee(RegisterEmployeeRequest) returns (RegisterEmployeeResponse);
+  rpc UpdateEmployee(UpdateEmployeeRequest) returns (UpdateEmployeeResponse);
+  rpc GetEmployee(GetEmployeeRequest) returns (Employee);
+  rpc ListEmployees(ListEmployeesRequest) returns (ListEmployeesResponse);
+  rpc GetSupervisorChain(GetSupervisorChainRequest) returns (GetSupervisorChainResponse);
+  rpc GetEmployeeRate(GetEmployeeRateRequest) returns (GetEmployeeRateResponse);
+}

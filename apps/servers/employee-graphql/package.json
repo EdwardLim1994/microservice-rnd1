@@ -1,28 +1,26 @@
 {
-	"name": "employee",
+	"name": "employee-graphql",
 	"module": "index.ts",
 	"type": "module",
 	"version": "0.0.1",
 	"private": true,
 	"devDependencies": {
 		"@types/bun": "latest",
-		"prisma": "^7.8.0",
-		"@bufbuild/buf": "^1.70.0",
-		"protoc": "^35.1.0"
+		"@graphql-codegen/add": "^7.0.1",
+		"@graphql-codegen/cli": "^7.1.2",
+		"@graphql-codegen/schema-ast": "^6.0.1",
+		"@graphql-codegen/typescript": "^6.0.2",
+		"@graphql-codegen/typescript-resolvers": "^6.0.2"
 	},
 	"dependencies": {
 		"server": "workspace:*",
 		"config": "workspace:*",
-		"@prisma/client": "^7.8.0",
-		"@prisma/client-runtime-utils": "^7.8.0",
 		"script": "workspace:*",
-		"@grpc/grpc-js": "^1.14.4",
-		"ts-proto": "^2.11.8",
+		"graphql": "^16.14.2",
 		"api": "workspace:*"
 	},
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose",
-		"gen": "bun ../../../packages/script/src/bin/generate-api.ts",
-		"postinstall": "prisma generate"
+		"gen": "bun ../../../packages/script/src/bin/generate-api.ts"
 	}
 }
