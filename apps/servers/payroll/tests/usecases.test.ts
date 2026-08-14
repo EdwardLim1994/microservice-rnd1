@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'bun:test';
 import { GetPayrollPdfUrlUseCase } from '../src/usecases/GetPayrollPdfUrlUseCase';
 import { GetPayrollRecordsUseCase } from '../src/usecases/GetPayrollRecordsUseCase';
+import { buildPayslipText } from '../src/usecases/helpers';
 
 const now = new Date();
 const row = (id = 'pr1') => ({
@@ -102,4 +103,21 @@ test('GetPayrollPdfUrlUseCase — throws PERMISSION_DENIED for wrong owner', asy
       requestorId: 'other',
     }),
   ).rejects.toMatchObject({ code: 7 });
+});
+
+test('buildPayslipText — produces payslip string with net pay', () => {
+  const text = buildPayslipText({
+    employeeId: 'e1',
+    year: 2026,
+    month: 1,
+    monthlyRate: 5000,
+    unpaidDays: 2,
+    dailyRate: 166.67,
+    netAmount: 4666.66,
+    deduction: 333.34,
+  });
+  expect(text).toContain('PAYSLIP');
+  expect(text).toContain('e1');
+  expect(text).toContain('5000.00');
+  expect(text).toContain('4666.66');
 });
