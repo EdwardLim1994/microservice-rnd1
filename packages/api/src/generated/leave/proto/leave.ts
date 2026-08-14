@@ -5,44 +5,44 @@
 // source: leave.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
 import {
   type CallOptions,
   type ChannelCredentials,
-  Client,
+  type Client,
   type ClientOptions,
   type ClientUnaryCall,
   type handleUnaryCall,
-  makeGenericClientConstructor,
   type Metadata,
+  makeGenericClientConstructor,
   type ServiceError,
   type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { Timestamp } from "./google/protobuf/timestamp";
-import { messageTypeRegistry } from "./typeRegistry";
+} from '@grpc/grpc-js';
+import { Timestamp } from './google/protobuf/timestamp';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "leave";
+export const protobufPackage = 'leave';
 
 export enum LeaveType {
-  ANNUAL = "ANNUAL",
-  SICK = "SICK",
-  UNPAID = "UNPAID",
-  UNRECOGNIZED = "UNRECOGNIZED",
+  ANNUAL = 'ANNUAL',
+  SICK = 'SICK',
+  UNPAID = 'UNPAID',
+  UNRECOGNIZED = 'UNRECOGNIZED',
 }
 
 export function leaveTypeFromJSON(object: any): LeaveType {
   switch (object) {
     case 0:
-    case "ANNUAL":
+    case 'ANNUAL':
       return LeaveType.ANNUAL;
     case 1:
-    case "SICK":
+    case 'SICK':
       return LeaveType.SICK;
     case 2:
-    case "UNPAID":
+    case 'UNPAID':
       return LeaveType.UNPAID;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return LeaveType.UNRECOGNIZED;
   }
@@ -51,14 +51,14 @@ export function leaveTypeFromJSON(object: any): LeaveType {
 export function leaveTypeToJSON(object: LeaveType): string {
   switch (object) {
     case LeaveType.ANNUAL:
-      return "ANNUAL";
+      return 'ANNUAL';
     case LeaveType.SICK:
-      return "SICK";
+      return 'SICK';
     case LeaveType.UNPAID:
-      return "UNPAID";
+      return 'UNPAID';
     case LeaveType.UNRECOGNIZED:
     default:
-      return "UNRECOGNIZED";
+      return 'UNRECOGNIZED';
   }
 }
 
@@ -77,25 +77,25 @@ export function leaveTypeToNumber(object: LeaveType): number {
 }
 
 export enum LeaveStatus {
-  PENDING = "PENDING",
-  APPROVED = "APPROVED",
-  REJECTED = "REJECTED",
-  UNRECOGNIZED = "UNRECOGNIZED",
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  UNRECOGNIZED = 'UNRECOGNIZED',
 }
 
 export function leaveStatusFromJSON(object: any): LeaveStatus {
   switch (object) {
     case 0:
-    case "PENDING":
+    case 'PENDING':
       return LeaveStatus.PENDING;
     case 1:
-    case "APPROVED":
+    case 'APPROVED':
       return LeaveStatus.APPROVED;
     case 2:
-    case "REJECTED":
+    case 'REJECTED':
       return LeaveStatus.REJECTED;
     case -1:
-    case "UNRECOGNIZED":
+    case 'UNRECOGNIZED':
     default:
       return LeaveStatus.UNRECOGNIZED;
   }
@@ -104,14 +104,14 @@ export function leaveStatusFromJSON(object: any): LeaveStatus {
 export function leaveStatusToJSON(object: LeaveStatus): string {
   switch (object) {
     case LeaveStatus.PENDING:
-      return "PENDING";
+      return 'PENDING';
     case LeaveStatus.APPROVED:
-      return "APPROVED";
+      return 'APPROVED';
     case LeaveStatus.REJECTED:
-      return "REJECTED";
+      return 'REJECTED';
     case LeaveStatus.UNRECOGNIZED:
     default:
-      return "UNRECOGNIZED";
+      return 'UNRECOGNIZED';
   }
 }
 
@@ -130,7 +130,7 @@ export function leaveStatusToNumber(object: LeaveStatus): number {
 }
 
 export interface LeaveRequest {
-  $type: "leave.LeaveRequest";
+  $type: 'leave.LeaveRequest';
   id: string;
   employeeId: string;
   leaveType: LeaveType;
@@ -145,14 +145,14 @@ export interface LeaveRequest {
 }
 
 export interface LeaveBalance {
-  $type: "leave.LeaveBalance";
+  $type: 'leave.LeaveBalance';
   employeeId: string;
   annualRemaining: number;
   sickRemaining: number;
 }
 
 export interface SubmitLeaveRequest {
-  $type: "leave.SubmitLeaveRequest";
+  $type: 'leave.SubmitLeaveRequest';
   employeeId: string;
   leaveType: LeaveType;
   startDate?: Date | undefined;
@@ -160,30 +160,30 @@ export interface SubmitLeaveRequest {
 }
 
 export interface SubmitLeaveResponse {
-  $type: "leave.SubmitLeaveResponse";
+  $type: 'leave.SubmitLeaveResponse';
   leaveRequest?: LeaveRequest | undefined;
   balance?: LeaveBalance | undefined;
 }
 
 export interface ReviewLeaveRequest {
-  $type: "leave.ReviewLeaveRequest";
+  $type: 'leave.ReviewLeaveRequest';
   leaveRequestId: string;
   reviewerId: string;
   decision: LeaveStatus;
 }
 
 export interface ReviewLeaveResponse {
-  $type: "leave.ReviewLeaveResponse";
+  $type: 'leave.ReviewLeaveResponse';
   leaveRequest?: LeaveRequest | undefined;
 }
 
 export interface GetLeaveBalanceRequest {
-  $type: "leave.GetLeaveBalanceRequest";
+  $type: 'leave.GetLeaveBalanceRequest';
   employeeId: string;
 }
 
 export interface ListLeaveRequestsRequest {
-  $type: "leave.ListLeaveRequestsRequest";
+  $type: 'leave.ListLeaveRequestsRequest';
   employeeId?: string | undefined;
   reviewerId?: string | undefined;
   status?: LeaveStatus | undefined;
@@ -192,30 +192,30 @@ export interface ListLeaveRequestsRequest {
 }
 
 export interface ListLeaveRequestsResponse {
-  $type: "leave.ListLeaveRequestsResponse";
+  $type: 'leave.ListLeaveRequestsResponse';
   leaveRequests: LeaveRequest[];
   total: number;
 }
 
 /** Used by payroll to compute monthly deductions */
 export interface GetUnpaidLeaveDaysRequest {
-  $type: "leave.GetUnpaidLeaveDaysRequest";
+  $type: 'leave.GetUnpaidLeaveDaysRequest';
   employeeId: string;
   year: number;
   month: number;
 }
 
 export interface GetUnpaidLeaveDaysResponse {
-  $type: "leave.GetUnpaidLeaveDaysResponse";
+  $type: 'leave.GetUnpaidLeaveDaysResponse';
   employeeId: string;
   unpaidDays: number;
 }
 
 function createBaseLeaveRequest(): LeaveRequest {
   return {
-    $type: "leave.LeaveRequest",
-    id: "",
-    employeeId: "",
+    $type: 'leave.LeaveRequest',
+    id: '',
+    employeeId: '',
     leaveType: LeaveType.ANNUAL,
     startDate: undefined,
     endDate: undefined,
@@ -227,24 +227,33 @@ function createBaseLeaveRequest(): LeaveRequest {
   };
 }
 
-export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
-  $type: "leave.LeaveRequest" as const,
+export const LeaveRequest: MessageFns<LeaveRequest, 'leave.LeaveRequest'> = {
+  $type: 'leave.LeaveRequest' as const,
 
-  encode(message: LeaveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: LeaveRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       writer.uint32(18).string(message.employeeId);
     }
     if (message.leaveType !== LeaveType.ANNUAL) {
       writer.uint32(24).int32(leaveTypeToNumber(message.leaveType));
     }
     if (message.startDate !== undefined) {
-      Timestamp.encode(toTimestamp(message.startDate), writer.uint32(34).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.startDate),
+        writer.uint32(34).fork(),
+      ).join();
     }
     if (message.endDate !== undefined) {
-      Timestamp.encode(toTimestamp(message.endDate), writer.uint32(42).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.endDate),
+        writer.uint32(42).fork(),
+      ).join();
     }
     if (message.days !== 0) {
       writer.uint32(48).int32(message.days);
@@ -256,16 +265,23 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
       writer.uint32(64).int32(message.unpaidDays);
     }
     if (message.createdAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.createdAt), writer.uint32(74).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.createdAt),
+        writer.uint32(74).fork(),
+      ).join();
     }
     if (message.updatedAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(82).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.updatedAt),
+        writer.uint32(82).fork(),
+      ).join();
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): LeaveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseLeaveRequest();
     while (reader.pos < end) {
@@ -300,7 +316,9 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
             break;
           }
 
-          message.startDate = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.startDate = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
         case 5: {
@@ -308,7 +326,9 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
             break;
           }
 
-          message.endDate = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.endDate = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
         case 6: {
@@ -340,7 +360,9 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
             break;
           }
 
-          message.createdAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.createdAt = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
         case 10: {
@@ -348,7 +370,9 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
             break;
           }
 
-          message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.updatedAt = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
       }
@@ -363,53 +387,55 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
   fromJSON(object: any): LeaveRequest {
     return {
       $type: LeaveRequest.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       leaveType: isSet(object.leaveType)
         ? leaveTypeFromJSON(object.leaveType)
         : isSet(object.leave_type)
-        ? leaveTypeFromJSON(object.leave_type)
-        : LeaveType.ANNUAL,
+          ? leaveTypeFromJSON(object.leave_type)
+          : LeaveType.ANNUAL,
       startDate: isSet(object.startDate)
         ? fromJsonTimestamp(object.startDate)
         : isSet(object.start_date)
-        ? fromJsonTimestamp(object.start_date)
-        : undefined,
+          ? fromJsonTimestamp(object.start_date)
+          : undefined,
       endDate: isSet(object.endDate)
         ? fromJsonTimestamp(object.endDate)
         : isSet(object.end_date)
-        ? fromJsonTimestamp(object.end_date)
-        : undefined,
+          ? fromJsonTimestamp(object.end_date)
+          : undefined,
       days: isSet(object.days) ? globalThis.Number(object.days) : 0,
-      status: isSet(object.status) ? leaveStatusFromJSON(object.status) : LeaveStatus.PENDING,
+      status: isSet(object.status)
+        ? leaveStatusFromJSON(object.status)
+        : LeaveStatus.PENDING,
       unpaidDays: isSet(object.unpaidDays)
         ? globalThis.Number(object.unpaidDays)
         : isSet(object.unpaid_days)
-        ? globalThis.Number(object.unpaid_days)
-        : 0,
+          ? globalThis.Number(object.unpaid_days)
+          : 0,
       createdAt: isSet(object.createdAt)
         ? fromJsonTimestamp(object.createdAt)
         : isSet(object.created_at)
-        ? fromJsonTimestamp(object.created_at)
-        : undefined,
+          ? fromJsonTimestamp(object.created_at)
+          : undefined,
       updatedAt: isSet(object.updatedAt)
         ? fromJsonTimestamp(object.updatedAt)
         : isSet(object.updated_at)
-        ? fromJsonTimestamp(object.updated_at)
-        : undefined,
+          ? fromJsonTimestamp(object.updated_at)
+          : undefined,
     };
   },
 
   toJSON(message: LeaveRequest): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.leaveType !== LeaveType.ANNUAL) {
@@ -439,13 +465,17 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<LeaveRequest>, I>>(base?: I): LeaveRequest {
+  create<I extends Exact<DeepPartial<LeaveRequest>, I>>(
+    base?: I,
+  ): LeaveRequest {
     return LeaveRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<LeaveRequest>, I>>(object: I): LeaveRequest {
+  fromPartial<I extends Exact<DeepPartial<LeaveRequest>, I>>(
+    object: I,
+  ): LeaveRequest {
     const message = createBaseLeaveRequest();
-    message.id = object.id ?? "";
-    message.employeeId = object.employeeId ?? "";
+    message.id = object.id ?? '';
+    message.employeeId = object.employeeId ?? '';
     message.leaveType = object.leaveType ?? LeaveType.ANNUAL;
     message.startDate = object.startDate ?? undefined;
     message.endDate = object.endDate ?? undefined;
@@ -461,14 +491,22 @@ export const LeaveRequest: MessageFns<LeaveRequest, "leave.LeaveRequest"> = {
 messageTypeRegistry.set(LeaveRequest.$type, LeaveRequest);
 
 function createBaseLeaveBalance(): LeaveBalance {
-  return { $type: "leave.LeaveBalance", employeeId: "", annualRemaining: 0, sickRemaining: 0 };
+  return {
+    $type: 'leave.LeaveBalance',
+    employeeId: '',
+    annualRemaining: 0,
+    sickRemaining: 0,
+  };
 }
 
-export const LeaveBalance: MessageFns<LeaveBalance, "leave.LeaveBalance"> = {
-  $type: "leave.LeaveBalance" as const,
+export const LeaveBalance: MessageFns<LeaveBalance, 'leave.LeaveBalance'> = {
+  $type: 'leave.LeaveBalance' as const,
 
-  encode(message: LeaveBalance, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: LeaveBalance,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.annualRemaining !== 0) {
@@ -481,7 +519,8 @@ export const LeaveBalance: MessageFns<LeaveBalance, "leave.LeaveBalance"> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): LeaveBalance {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseLeaveBalance();
     while (reader.pos < end) {
@@ -526,24 +565,24 @@ export const LeaveBalance: MessageFns<LeaveBalance, "leave.LeaveBalance"> = {
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       annualRemaining: isSet(object.annualRemaining)
         ? globalThis.Number(object.annualRemaining)
         : isSet(object.annual_remaining)
-        ? globalThis.Number(object.annual_remaining)
-        : 0,
+          ? globalThis.Number(object.annual_remaining)
+          : 0,
       sickRemaining: isSet(object.sickRemaining)
         ? globalThis.Number(object.sickRemaining)
         : isSet(object.sick_remaining)
-        ? globalThis.Number(object.sick_remaining)
-        : 0,
+          ? globalThis.Number(object.sick_remaining)
+          : 0,
     };
   },
 
   toJSON(message: LeaveBalance): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.annualRemaining !== 0) {
@@ -555,12 +594,16 @@ export const LeaveBalance: MessageFns<LeaveBalance, "leave.LeaveBalance"> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<LeaveBalance>, I>>(base?: I): LeaveBalance {
+  create<I extends Exact<DeepPartial<LeaveBalance>, I>>(
+    base?: I,
+  ): LeaveBalance {
     return LeaveBalance.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<LeaveBalance>, I>>(object: I): LeaveBalance {
+  fromPartial<I extends Exact<DeepPartial<LeaveBalance>, I>>(
+    object: I,
+  ): LeaveBalance {
     const message = createBaseLeaveBalance();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.annualRemaining = object.annualRemaining ?? 0;
     message.sickRemaining = object.sickRemaining ?? 0;
     return message;
@@ -571,35 +614,51 @@ messageTypeRegistry.set(LeaveBalance.$type, LeaveBalance);
 
 function createBaseSubmitLeaveRequest(): SubmitLeaveRequest {
   return {
-    $type: "leave.SubmitLeaveRequest",
-    employeeId: "",
+    $type: 'leave.SubmitLeaveRequest',
+    employeeId: '',
     leaveType: LeaveType.ANNUAL,
     startDate: undefined,
     endDate: undefined,
   };
 }
 
-export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLeaveRequest"> = {
-  $type: "leave.SubmitLeaveRequest" as const,
+export const SubmitLeaveRequest: MessageFns<
+  SubmitLeaveRequest,
+  'leave.SubmitLeaveRequest'
+> = {
+  $type: 'leave.SubmitLeaveRequest' as const,
 
-  encode(message: SubmitLeaveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: SubmitLeaveRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.leaveType !== LeaveType.ANNUAL) {
       writer.uint32(16).int32(leaveTypeToNumber(message.leaveType));
     }
     if (message.startDate !== undefined) {
-      Timestamp.encode(toTimestamp(message.startDate), writer.uint32(26).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.startDate),
+        writer.uint32(26).fork(),
+      ).join();
     }
     if (message.endDate !== undefined) {
-      Timestamp.encode(toTimestamp(message.endDate), writer.uint32(34).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.endDate),
+        writer.uint32(34).fork(),
+      ).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): SubmitLeaveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): SubmitLeaveRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSubmitLeaveRequest();
     while (reader.pos < end) {
@@ -626,7 +685,9 @@ export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLea
             break;
           }
 
-          message.startDate = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.startDate = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
         case 4: {
@@ -634,7 +695,9 @@ export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLea
             break;
           }
 
-          message.endDate = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.endDate = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
       }
@@ -652,29 +715,29 @@ export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLea
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       leaveType: isSet(object.leaveType)
         ? leaveTypeFromJSON(object.leaveType)
         : isSet(object.leave_type)
-        ? leaveTypeFromJSON(object.leave_type)
-        : LeaveType.ANNUAL,
+          ? leaveTypeFromJSON(object.leave_type)
+          : LeaveType.ANNUAL,
       startDate: isSet(object.startDate)
         ? fromJsonTimestamp(object.startDate)
         : isSet(object.start_date)
-        ? fromJsonTimestamp(object.start_date)
-        : undefined,
+          ? fromJsonTimestamp(object.start_date)
+          : undefined,
       endDate: isSet(object.endDate)
         ? fromJsonTimestamp(object.endDate)
         : isSet(object.end_date)
-        ? fromJsonTimestamp(object.end_date)
-        : undefined,
+          ? fromJsonTimestamp(object.end_date)
+          : undefined,
     };
   },
 
   toJSON(message: SubmitLeaveRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.leaveType !== LeaveType.ANNUAL) {
@@ -689,12 +752,16 @@ export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLea
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(base?: I): SubmitLeaveRequest {
+  create<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(
+    base?: I,
+  ): SubmitLeaveRequest {
     return SubmitLeaveRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(object: I): SubmitLeaveRequest {
+  fromPartial<I extends Exact<DeepPartial<SubmitLeaveRequest>, I>>(
+    object: I,
+  ): SubmitLeaveRequest {
     const message = createBaseSubmitLeaveRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.leaveType = object.leaveType ?? LeaveType.ANNUAL;
     message.startDate = object.startDate ?? undefined;
     message.endDate = object.endDate ?? undefined;
@@ -705,15 +772,28 @@ export const SubmitLeaveRequest: MessageFns<SubmitLeaveRequest, "leave.SubmitLea
 messageTypeRegistry.set(SubmitLeaveRequest.$type, SubmitLeaveRequest);
 
 function createBaseSubmitLeaveResponse(): SubmitLeaveResponse {
-  return { $type: "leave.SubmitLeaveResponse", leaveRequest: undefined, balance: undefined };
+  return {
+    $type: 'leave.SubmitLeaveResponse',
+    leaveRequest: undefined,
+    balance: undefined,
+  };
 }
 
-export const SubmitLeaveResponse: MessageFns<SubmitLeaveResponse, "leave.SubmitLeaveResponse"> = {
-  $type: "leave.SubmitLeaveResponse" as const,
+export const SubmitLeaveResponse: MessageFns<
+  SubmitLeaveResponse,
+  'leave.SubmitLeaveResponse'
+> = {
+  $type: 'leave.SubmitLeaveResponse' as const,
 
-  encode(message: SubmitLeaveResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: SubmitLeaveResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.leaveRequest !== undefined) {
-      LeaveRequest.encode(message.leaveRequest, writer.uint32(10).fork()).join();
+      LeaveRequest.encode(
+        message.leaveRequest,
+        writer.uint32(10).fork(),
+      ).join();
     }
     if (message.balance !== undefined) {
       LeaveBalance.encode(message.balance, writer.uint32(18).fork()).join();
@@ -721,8 +801,12 @@ export const SubmitLeaveResponse: MessageFns<SubmitLeaveResponse, "leave.SubmitL
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): SubmitLeaveResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): SubmitLeaveResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseSubmitLeaveResponse();
     while (reader.pos < end) {
@@ -759,9 +843,11 @@ export const SubmitLeaveResponse: MessageFns<SubmitLeaveResponse, "leave.SubmitL
       leaveRequest: isSet(object.leaveRequest)
         ? LeaveRequest.fromJSON(object.leaveRequest)
         : isSet(object.leave_request)
-        ? LeaveRequest.fromJSON(object.leave_request)
+          ? LeaveRequest.fromJSON(object.leave_request)
+          : undefined,
+      balance: isSet(object.balance)
+        ? LeaveBalance.fromJSON(object.balance)
         : undefined,
-      balance: isSet(object.balance) ? LeaveBalance.fromJSON(object.balance) : undefined,
     };
   },
 
@@ -776,17 +862,23 @@ export const SubmitLeaveResponse: MessageFns<SubmitLeaveResponse, "leave.SubmitL
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SubmitLeaveResponse>, I>>(base?: I): SubmitLeaveResponse {
+  create<I extends Exact<DeepPartial<SubmitLeaveResponse>, I>>(
+    base?: I,
+  ): SubmitLeaveResponse {
     return SubmitLeaveResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SubmitLeaveResponse>, I>>(object: I): SubmitLeaveResponse {
+  fromPartial<I extends Exact<DeepPartial<SubmitLeaveResponse>, I>>(
+    object: I,
+  ): SubmitLeaveResponse {
     const message = createBaseSubmitLeaveResponse();
-    message.leaveRequest = (object.leaveRequest !== undefined && object.leaveRequest !== null)
-      ? LeaveRequest.fromPartial(object.leaveRequest)
-      : undefined;
-    message.balance = (object.balance !== undefined && object.balance !== null)
-      ? LeaveBalance.fromPartial(object.balance)
-      : undefined;
+    message.leaveRequest =
+      object.leaveRequest !== undefined && object.leaveRequest !== null
+        ? LeaveRequest.fromPartial(object.leaveRequest)
+        : undefined;
+    message.balance =
+      object.balance !== undefined && object.balance !== null
+        ? LeaveBalance.fromPartial(object.balance)
+        : undefined;
     return message;
   },
 };
@@ -794,17 +886,28 @@ export const SubmitLeaveResponse: MessageFns<SubmitLeaveResponse, "leave.SubmitL
 messageTypeRegistry.set(SubmitLeaveResponse.$type, SubmitLeaveResponse);
 
 function createBaseReviewLeaveRequest(): ReviewLeaveRequest {
-  return { $type: "leave.ReviewLeaveRequest", leaveRequestId: "", reviewerId: "", decision: LeaveStatus.PENDING };
+  return {
+    $type: 'leave.ReviewLeaveRequest',
+    leaveRequestId: '',
+    reviewerId: '',
+    decision: LeaveStatus.PENDING,
+  };
 }
 
-export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLeaveRequest"> = {
-  $type: "leave.ReviewLeaveRequest" as const,
+export const ReviewLeaveRequest: MessageFns<
+  ReviewLeaveRequest,
+  'leave.ReviewLeaveRequest'
+> = {
+  $type: 'leave.ReviewLeaveRequest' as const,
 
-  encode(message: ReviewLeaveRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.leaveRequestId !== "") {
+  encode(
+    message: ReviewLeaveRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.leaveRequestId !== '') {
       writer.uint32(10).string(message.leaveRequestId);
     }
-    if (message.reviewerId !== "") {
+    if (message.reviewerId !== '') {
       writer.uint32(18).string(message.reviewerId);
     }
     if (message.decision !== LeaveStatus.PENDING) {
@@ -813,8 +916,12 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ReviewLeaveRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ReviewLeaveRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseReviewLeaveRequest();
     while (reader.pos < end) {
@@ -859,23 +966,25 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
       leaveRequestId: isSet(object.leaveRequestId)
         ? globalThis.String(object.leaveRequestId)
         : isSet(object.leave_request_id)
-        ? globalThis.String(object.leave_request_id)
-        : "",
+          ? globalThis.String(object.leave_request_id)
+          : '',
       reviewerId: isSet(object.reviewerId)
         ? globalThis.String(object.reviewerId)
         : isSet(object.reviewer_id)
-        ? globalThis.String(object.reviewer_id)
-        : "",
-      decision: isSet(object.decision) ? leaveStatusFromJSON(object.decision) : LeaveStatus.PENDING,
+          ? globalThis.String(object.reviewer_id)
+          : '',
+      decision: isSet(object.decision)
+        ? leaveStatusFromJSON(object.decision)
+        : LeaveStatus.PENDING,
     };
   },
 
   toJSON(message: ReviewLeaveRequest): unknown {
     const obj: any = {};
-    if (message.leaveRequestId !== "") {
+    if (message.leaveRequestId !== '') {
       obj.leaveRequestId = message.leaveRequestId;
     }
-    if (message.reviewerId !== "") {
+    if (message.reviewerId !== '') {
       obj.reviewerId = message.reviewerId;
     }
     if (message.decision !== LeaveStatus.PENDING) {
@@ -884,13 +993,17 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(base?: I): ReviewLeaveRequest {
+  create<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(
+    base?: I,
+  ): ReviewLeaveRequest {
     return ReviewLeaveRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(object: I): ReviewLeaveRequest {
+  fromPartial<I extends Exact<DeepPartial<ReviewLeaveRequest>, I>>(
+    object: I,
+  ): ReviewLeaveRequest {
     const message = createBaseReviewLeaveRequest();
-    message.leaveRequestId = object.leaveRequestId ?? "";
-    message.reviewerId = object.reviewerId ?? "";
+    message.leaveRequestId = object.leaveRequestId ?? '';
+    message.reviewerId = object.reviewerId ?? '';
     message.decision = object.decision ?? LeaveStatus.PENDING;
     return message;
   },
@@ -899,21 +1012,34 @@ export const ReviewLeaveRequest: MessageFns<ReviewLeaveRequest, "leave.ReviewLea
 messageTypeRegistry.set(ReviewLeaveRequest.$type, ReviewLeaveRequest);
 
 function createBaseReviewLeaveResponse(): ReviewLeaveResponse {
-  return { $type: "leave.ReviewLeaveResponse", leaveRequest: undefined };
+  return { $type: 'leave.ReviewLeaveResponse', leaveRequest: undefined };
 }
 
-export const ReviewLeaveResponse: MessageFns<ReviewLeaveResponse, "leave.ReviewLeaveResponse"> = {
-  $type: "leave.ReviewLeaveResponse" as const,
+export const ReviewLeaveResponse: MessageFns<
+  ReviewLeaveResponse,
+  'leave.ReviewLeaveResponse'
+> = {
+  $type: 'leave.ReviewLeaveResponse' as const,
 
-  encode(message: ReviewLeaveResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ReviewLeaveResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.leaveRequest !== undefined) {
-      LeaveRequest.encode(message.leaveRequest, writer.uint32(10).fork()).join();
+      LeaveRequest.encode(
+        message.leaveRequest,
+        writer.uint32(10).fork(),
+      ).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ReviewLeaveResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ReviewLeaveResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseReviewLeaveResponse();
     while (reader.pos < end) {
@@ -942,8 +1068,8 @@ export const ReviewLeaveResponse: MessageFns<ReviewLeaveResponse, "leave.ReviewL
       leaveRequest: isSet(object.leaveRequest)
         ? LeaveRequest.fromJSON(object.leaveRequest)
         : isSet(object.leave_request)
-        ? LeaveRequest.fromJSON(object.leave_request)
-        : undefined,
+          ? LeaveRequest.fromJSON(object.leave_request)
+          : undefined,
     };
   },
 
@@ -955,14 +1081,19 @@ export const ReviewLeaveResponse: MessageFns<ReviewLeaveResponse, "leave.ReviewL
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ReviewLeaveResponse>, I>>(base?: I): ReviewLeaveResponse {
+  create<I extends Exact<DeepPartial<ReviewLeaveResponse>, I>>(
+    base?: I,
+  ): ReviewLeaveResponse {
     return ReviewLeaveResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ReviewLeaveResponse>, I>>(object: I): ReviewLeaveResponse {
+  fromPartial<I extends Exact<DeepPartial<ReviewLeaveResponse>, I>>(
+    object: I,
+  ): ReviewLeaveResponse {
     const message = createBaseReviewLeaveResponse();
-    message.leaveRequest = (object.leaveRequest !== undefined && object.leaveRequest !== null)
-      ? LeaveRequest.fromPartial(object.leaveRequest)
-      : undefined;
+    message.leaveRequest =
+      object.leaveRequest !== undefined && object.leaveRequest !== null
+        ? LeaveRequest.fromPartial(object.leaveRequest)
+        : undefined;
     return message;
   },
 };
@@ -970,21 +1101,31 @@ export const ReviewLeaveResponse: MessageFns<ReviewLeaveResponse, "leave.ReviewL
 messageTypeRegistry.set(ReviewLeaveResponse.$type, ReviewLeaveResponse);
 
 function createBaseGetLeaveBalanceRequest(): GetLeaveBalanceRequest {
-  return { $type: "leave.GetLeaveBalanceRequest", employeeId: "" };
+  return { $type: 'leave.GetLeaveBalanceRequest', employeeId: '' };
 }
 
-export const GetLeaveBalanceRequest: MessageFns<GetLeaveBalanceRequest, "leave.GetLeaveBalanceRequest"> = {
-  $type: "leave.GetLeaveBalanceRequest" as const,
+export const GetLeaveBalanceRequest: MessageFns<
+  GetLeaveBalanceRequest,
+  'leave.GetLeaveBalanceRequest'
+> = {
+  $type: 'leave.GetLeaveBalanceRequest' as const,
 
-  encode(message: GetLeaveBalanceRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetLeaveBalanceRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetLeaveBalanceRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetLeaveBalanceRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetLeaveBalanceRequest();
     while (reader.pos < end) {
@@ -1013,25 +1154,29 @@ export const GetLeaveBalanceRequest: MessageFns<GetLeaveBalanceRequest, "leave.G
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
     };
   },
 
   toJSON(message: GetLeaveBalanceRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetLeaveBalanceRequest>, I>>(base?: I): GetLeaveBalanceRequest {
+  create<I extends Exact<DeepPartial<GetLeaveBalanceRequest>, I>>(
+    base?: I,
+  ): GetLeaveBalanceRequest {
     return GetLeaveBalanceRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetLeaveBalanceRequest>, I>>(object: I): GetLeaveBalanceRequest {
+  fromPartial<I extends Exact<DeepPartial<GetLeaveBalanceRequest>, I>>(
+    object: I,
+  ): GetLeaveBalanceRequest {
     const message = createBaseGetLeaveBalanceRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     return message;
   },
 };
@@ -1040,7 +1185,7 @@ messageTypeRegistry.set(GetLeaveBalanceRequest.$type, GetLeaveBalanceRequest);
 
 function createBaseListLeaveRequestsRequest(): ListLeaveRequestsRequest {
   return {
-    $type: "leave.ListLeaveRequestsRequest",
+    $type: 'leave.ListLeaveRequestsRequest',
     employeeId: undefined,
     reviewerId: undefined,
     status: undefined,
@@ -1049,10 +1194,16 @@ function createBaseListLeaveRequestsRequest(): ListLeaveRequestsRequest {
   };
 }
 
-export const ListLeaveRequestsRequest: MessageFns<ListLeaveRequestsRequest, "leave.ListLeaveRequestsRequest"> = {
-  $type: "leave.ListLeaveRequestsRequest" as const,
+export const ListLeaveRequestsRequest: MessageFns<
+  ListLeaveRequestsRequest,
+  'leave.ListLeaveRequestsRequest'
+> = {
+  $type: 'leave.ListLeaveRequestsRequest' as const,
 
-  encode(message: ListLeaveRequestsRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListLeaveRequestsRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.employeeId !== undefined) {
       writer.uint32(10).string(message.employeeId);
     }
@@ -1071,8 +1222,12 @@ export const ListLeaveRequestsRequest: MessageFns<ListLeaveRequestsRequest, "lea
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ListLeaveRequestsRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ListLeaveRequestsRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseListLeaveRequestsRequest();
     while (reader.pos < end) {
@@ -1133,20 +1288,22 @@ export const ListLeaveRequestsRequest: MessageFns<ListLeaveRequestsRequest, "lea
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : undefined,
+          ? globalThis.String(object.employee_id)
+          : undefined,
       reviewerId: isSet(object.reviewerId)
         ? globalThis.String(object.reviewerId)
         : isSet(object.reviewer_id)
-        ? globalThis.String(object.reviewer_id)
+          ? globalThis.String(object.reviewer_id)
+          : undefined,
+      status: isSet(object.status)
+        ? leaveStatusFromJSON(object.status)
         : undefined,
-      status: isSet(object.status) ? leaveStatusFromJSON(object.status) : undefined,
       page: isSet(object.page) ? globalThis.Number(object.page) : undefined,
       pageSize: isSet(object.pageSize)
         ? globalThis.Number(object.pageSize)
         : isSet(object.page_size)
-        ? globalThis.Number(object.page_size)
-        : undefined,
+          ? globalThis.Number(object.page_size)
+          : undefined,
     };
   },
 
@@ -1170,10 +1327,14 @@ export const ListLeaveRequestsRequest: MessageFns<ListLeaveRequestsRequest, "lea
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListLeaveRequestsRequest>, I>>(base?: I): ListLeaveRequestsRequest {
+  create<I extends Exact<DeepPartial<ListLeaveRequestsRequest>, I>>(
+    base?: I,
+  ): ListLeaveRequestsRequest {
     return ListLeaveRequestsRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListLeaveRequestsRequest>, I>>(object: I): ListLeaveRequestsRequest {
+  fromPartial<I extends Exact<DeepPartial<ListLeaveRequestsRequest>, I>>(
+    object: I,
+  ): ListLeaveRequestsRequest {
     const message = createBaseListLeaveRequestsRequest();
     message.employeeId = object.employeeId ?? undefined;
     message.reviewerId = object.reviewerId ?? undefined;
@@ -1184,16 +1345,29 @@ export const ListLeaveRequestsRequest: MessageFns<ListLeaveRequestsRequest, "lea
   },
 };
 
-messageTypeRegistry.set(ListLeaveRequestsRequest.$type, ListLeaveRequestsRequest);
+messageTypeRegistry.set(
+  ListLeaveRequestsRequest.$type,
+  ListLeaveRequestsRequest,
+);
 
 function createBaseListLeaveRequestsResponse(): ListLeaveRequestsResponse {
-  return { $type: "leave.ListLeaveRequestsResponse", leaveRequests: [], total: 0 };
+  return {
+    $type: 'leave.ListLeaveRequestsResponse',
+    leaveRequests: [],
+    total: 0,
+  };
 }
 
-export const ListLeaveRequestsResponse: MessageFns<ListLeaveRequestsResponse, "leave.ListLeaveRequestsResponse"> = {
-  $type: "leave.ListLeaveRequestsResponse" as const,
+export const ListLeaveRequestsResponse: MessageFns<
+  ListLeaveRequestsResponse,
+  'leave.ListLeaveRequestsResponse'
+> = {
+  $type: 'leave.ListLeaveRequestsResponse' as const,
 
-  encode(message: ListLeaveRequestsResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListLeaveRequestsResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     for (const v of message.leaveRequests) {
       LeaveRequest.encode(v!, writer.uint32(10).fork()).join();
     }
@@ -1203,8 +1377,12 @@ export const ListLeaveRequestsResponse: MessageFns<ListLeaveRequestsResponse, "l
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ListLeaveRequestsResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ListLeaveRequestsResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseListLeaveRequestsResponse();
     while (reader.pos < end) {
@@ -1215,7 +1393,9 @@ export const ListLeaveRequestsResponse: MessageFns<ListLeaveRequestsResponse, "l
             break;
           }
 
-          message.leaveRequests.push(LeaveRequest.decode(reader, reader.uint32()));
+          message.leaveRequests.push(
+            LeaveRequest.decode(reader, reader.uint32()),
+          );
           continue;
         }
         case 2: {
@@ -1241,8 +1421,8 @@ export const ListLeaveRequestsResponse: MessageFns<ListLeaveRequestsResponse, "l
       leaveRequests: globalThis.Array.isArray(object?.leaveRequests)
         ? object.leaveRequests.map((e: any) => LeaveRequest.fromJSON(e))
         : globalThis.Array.isArray(object?.leave_requests)
-        ? object.leave_requests.map((e: any) => LeaveRequest.fromJSON(e))
-        : [],
+          ? object.leave_requests.map((e: any) => LeaveRequest.fromJSON(e))
+          : [],
       total: isSet(object.total) ? globalThis.Number(object.total) : 0,
     };
   },
@@ -1250,7 +1430,9 @@ export const ListLeaveRequestsResponse: MessageFns<ListLeaveRequestsResponse, "l
   toJSON(message: ListLeaveRequestsResponse): unknown {
     const obj: any = {};
     if (message.leaveRequests?.length) {
-      obj.leaveRequests = message.leaveRequests.map((e) => LeaveRequest.toJSON(e));
+      obj.leaveRequests = message.leaveRequests.map((e) =>
+        LeaveRequest.toJSON(e),
+      );
     }
     if (message.total !== 0) {
       obj.total = Math.round(message.total);
@@ -1258,28 +1440,47 @@ export const ListLeaveRequestsResponse: MessageFns<ListLeaveRequestsResponse, "l
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListLeaveRequestsResponse>, I>>(base?: I): ListLeaveRequestsResponse {
+  create<I extends Exact<DeepPartial<ListLeaveRequestsResponse>, I>>(
+    base?: I,
+  ): ListLeaveRequestsResponse {
     return ListLeaveRequestsResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListLeaveRequestsResponse>, I>>(object: I): ListLeaveRequestsResponse {
+  fromPartial<I extends Exact<DeepPartial<ListLeaveRequestsResponse>, I>>(
+    object: I,
+  ): ListLeaveRequestsResponse {
     const message = createBaseListLeaveRequestsResponse();
-    message.leaveRequests = object.leaveRequests?.map((e) => LeaveRequest.fromPartial(e)) || [];
+    message.leaveRequests =
+      object.leaveRequests?.map((e) => LeaveRequest.fromPartial(e)) || [];
     message.total = object.total ?? 0;
     return message;
   },
 };
 
-messageTypeRegistry.set(ListLeaveRequestsResponse.$type, ListLeaveRequestsResponse);
+messageTypeRegistry.set(
+  ListLeaveRequestsResponse.$type,
+  ListLeaveRequestsResponse,
+);
 
 function createBaseGetUnpaidLeaveDaysRequest(): GetUnpaidLeaveDaysRequest {
-  return { $type: "leave.GetUnpaidLeaveDaysRequest", employeeId: "", year: 0, month: 0 };
+  return {
+    $type: 'leave.GetUnpaidLeaveDaysRequest',
+    employeeId: '',
+    year: 0,
+    month: 0,
+  };
 }
 
-export const GetUnpaidLeaveDaysRequest: MessageFns<GetUnpaidLeaveDaysRequest, "leave.GetUnpaidLeaveDaysRequest"> = {
-  $type: "leave.GetUnpaidLeaveDaysRequest" as const,
+export const GetUnpaidLeaveDaysRequest: MessageFns<
+  GetUnpaidLeaveDaysRequest,
+  'leave.GetUnpaidLeaveDaysRequest'
+> = {
+  $type: 'leave.GetUnpaidLeaveDaysRequest' as const,
 
-  encode(message: GetUnpaidLeaveDaysRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetUnpaidLeaveDaysRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.year !== 0) {
@@ -1291,8 +1492,12 @@ export const GetUnpaidLeaveDaysRequest: MessageFns<GetUnpaidLeaveDaysRequest, "l
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetUnpaidLeaveDaysRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetUnpaidLeaveDaysRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetUnpaidLeaveDaysRequest();
     while (reader.pos < end) {
@@ -1337,8 +1542,8 @@ export const GetUnpaidLeaveDaysRequest: MessageFns<GetUnpaidLeaveDaysRequest, "l
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       year: isSet(object.year) ? globalThis.Number(object.year) : 0,
       month: isSet(object.month) ? globalThis.Number(object.month) : 0,
     };
@@ -1346,7 +1551,7 @@ export const GetUnpaidLeaveDaysRequest: MessageFns<GetUnpaidLeaveDaysRequest, "l
 
   toJSON(message: GetUnpaidLeaveDaysRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.year !== 0) {
@@ -1358,29 +1563,46 @@ export const GetUnpaidLeaveDaysRequest: MessageFns<GetUnpaidLeaveDaysRequest, "l
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetUnpaidLeaveDaysRequest>, I>>(base?: I): GetUnpaidLeaveDaysRequest {
+  create<I extends Exact<DeepPartial<GetUnpaidLeaveDaysRequest>, I>>(
+    base?: I,
+  ): GetUnpaidLeaveDaysRequest {
     return GetUnpaidLeaveDaysRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetUnpaidLeaveDaysRequest>, I>>(object: I): GetUnpaidLeaveDaysRequest {
+  fromPartial<I extends Exact<DeepPartial<GetUnpaidLeaveDaysRequest>, I>>(
+    object: I,
+  ): GetUnpaidLeaveDaysRequest {
     const message = createBaseGetUnpaidLeaveDaysRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.year = object.year ?? 0;
     message.month = object.month ?? 0;
     return message;
   },
 };
 
-messageTypeRegistry.set(GetUnpaidLeaveDaysRequest.$type, GetUnpaidLeaveDaysRequest);
+messageTypeRegistry.set(
+  GetUnpaidLeaveDaysRequest.$type,
+  GetUnpaidLeaveDaysRequest,
+);
 
 function createBaseGetUnpaidLeaveDaysResponse(): GetUnpaidLeaveDaysResponse {
-  return { $type: "leave.GetUnpaidLeaveDaysResponse", employeeId: "", unpaidDays: 0 };
+  return {
+    $type: 'leave.GetUnpaidLeaveDaysResponse',
+    employeeId: '',
+    unpaidDays: 0,
+  };
 }
 
-export const GetUnpaidLeaveDaysResponse: MessageFns<GetUnpaidLeaveDaysResponse, "leave.GetUnpaidLeaveDaysResponse"> = {
-  $type: "leave.GetUnpaidLeaveDaysResponse" as const,
+export const GetUnpaidLeaveDaysResponse: MessageFns<
+  GetUnpaidLeaveDaysResponse,
+  'leave.GetUnpaidLeaveDaysResponse'
+> = {
+  $type: 'leave.GetUnpaidLeaveDaysResponse' as const,
 
-  encode(message: GetUnpaidLeaveDaysResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetUnpaidLeaveDaysResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.unpaidDays !== 0) {
@@ -1389,8 +1611,12 @@ export const GetUnpaidLeaveDaysResponse: MessageFns<GetUnpaidLeaveDaysResponse, 
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetUnpaidLeaveDaysResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetUnpaidLeaveDaysResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetUnpaidLeaveDaysResponse();
     while (reader.pos < end) {
@@ -1427,19 +1653,19 @@ export const GetUnpaidLeaveDaysResponse: MessageFns<GetUnpaidLeaveDaysResponse, 
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       unpaidDays: isSet(object.unpaidDays)
         ? globalThis.Number(object.unpaidDays)
         : isSet(object.unpaid_days)
-        ? globalThis.Number(object.unpaid_days)
-        : 0,
+          ? globalThis.Number(object.unpaid_days)
+          : 0,
     };
   },
 
   toJSON(message: GetUnpaidLeaveDaysResponse): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.unpaidDays !== 0) {
@@ -1448,70 +1674,92 @@ export const GetUnpaidLeaveDaysResponse: MessageFns<GetUnpaidLeaveDaysResponse, 
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetUnpaidLeaveDaysResponse>, I>>(base?: I): GetUnpaidLeaveDaysResponse {
+  create<I extends Exact<DeepPartial<GetUnpaidLeaveDaysResponse>, I>>(
+    base?: I,
+  ): GetUnpaidLeaveDaysResponse {
     return GetUnpaidLeaveDaysResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetUnpaidLeaveDaysResponse>, I>>(object: I): GetUnpaidLeaveDaysResponse {
+  fromPartial<I extends Exact<DeepPartial<GetUnpaidLeaveDaysResponse>, I>>(
+    object: I,
+  ): GetUnpaidLeaveDaysResponse {
     const message = createBaseGetUnpaidLeaveDaysResponse();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.unpaidDays = object.unpaidDays ?? 0;
     return message;
   },
 };
 
-messageTypeRegistry.set(GetUnpaidLeaveDaysResponse.$type, GetUnpaidLeaveDaysResponse);
+messageTypeRegistry.set(
+  GetUnpaidLeaveDaysResponse.$type,
+  GetUnpaidLeaveDaysResponse,
+);
 
 export type LeaveServiceService = typeof LeaveServiceService;
 export const LeaveServiceService = {
   submitLeave: {
-    path: "/leave.LeaveService/SubmitLeave" as const,
+    path: '/leave.LeaveService/SubmitLeave' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: SubmitLeaveRequest): Buffer => Buffer.from(SubmitLeaveRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): SubmitLeaveRequest => SubmitLeaveRequest.decode(value),
-    responseSerialize: (value: SubmitLeaveResponse): Buffer => Buffer.from(SubmitLeaveResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): SubmitLeaveResponse => SubmitLeaveResponse.decode(value),
+    requestSerialize: (value: SubmitLeaveRequest): Buffer =>
+      Buffer.from(SubmitLeaveRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): SubmitLeaveRequest =>
+      SubmitLeaveRequest.decode(value),
+    responseSerialize: (value: SubmitLeaveResponse): Buffer =>
+      Buffer.from(SubmitLeaveResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): SubmitLeaveResponse =>
+      SubmitLeaveResponse.decode(value),
   },
   reviewLeave: {
-    path: "/leave.LeaveService/ReviewLeave" as const,
+    path: '/leave.LeaveService/ReviewLeave' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: ReviewLeaveRequest): Buffer => Buffer.from(ReviewLeaveRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): ReviewLeaveRequest => ReviewLeaveRequest.decode(value),
-    responseSerialize: (value: ReviewLeaveResponse): Buffer => Buffer.from(ReviewLeaveResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): ReviewLeaveResponse => ReviewLeaveResponse.decode(value),
+    requestSerialize: (value: ReviewLeaveRequest): Buffer =>
+      Buffer.from(ReviewLeaveRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ReviewLeaveRequest =>
+      ReviewLeaveRequest.decode(value),
+    responseSerialize: (value: ReviewLeaveResponse): Buffer =>
+      Buffer.from(ReviewLeaveResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer): ReviewLeaveResponse =>
+      ReviewLeaveResponse.decode(value),
   },
   getLeaveBalance: {
-    path: "/leave.LeaveService/GetLeaveBalance" as const,
+    path: '/leave.LeaveService/GetLeaveBalance' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: GetLeaveBalanceRequest): Buffer =>
       Buffer.from(GetLeaveBalanceRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetLeaveBalanceRequest => GetLeaveBalanceRequest.decode(value),
-    responseSerialize: (value: LeaveBalance): Buffer => Buffer.from(LeaveBalance.encode(value).finish()),
-    responseDeserialize: (value: Buffer): LeaveBalance => LeaveBalance.decode(value),
+    requestDeserialize: (value: Buffer): GetLeaveBalanceRequest =>
+      GetLeaveBalanceRequest.decode(value),
+    responseSerialize: (value: LeaveBalance): Buffer =>
+      Buffer.from(LeaveBalance.encode(value).finish()),
+    responseDeserialize: (value: Buffer): LeaveBalance =>
+      LeaveBalance.decode(value),
   },
   listLeaveRequests: {
-    path: "/leave.LeaveService/ListLeaveRequests" as const,
+    path: '/leave.LeaveService/ListLeaveRequests' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: ListLeaveRequestsRequest): Buffer =>
       Buffer.from(ListLeaveRequestsRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): ListLeaveRequestsRequest => ListLeaveRequestsRequest.decode(value),
+    requestDeserialize: (value: Buffer): ListLeaveRequestsRequest =>
+      ListLeaveRequestsRequest.decode(value),
     responseSerialize: (value: ListLeaveRequestsResponse): Buffer =>
       Buffer.from(ListLeaveRequestsResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): ListLeaveRequestsResponse => ListLeaveRequestsResponse.decode(value),
+    responseDeserialize: (value: Buffer): ListLeaveRequestsResponse =>
+      ListLeaveRequestsResponse.decode(value),
   },
   getUnpaidLeaveDays: {
-    path: "/leave.LeaveService/GetUnpaidLeaveDays" as const,
+    path: '/leave.LeaveService/GetUnpaidLeaveDays' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: GetUnpaidLeaveDaysRequest): Buffer =>
       Buffer.from(GetUnpaidLeaveDaysRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetUnpaidLeaveDaysRequest => GetUnpaidLeaveDaysRequest.decode(value),
+    requestDeserialize: (value: Buffer): GetUnpaidLeaveDaysRequest =>
+      GetUnpaidLeaveDaysRequest.decode(value),
     responseSerialize: (value: GetUnpaidLeaveDaysResponse): Buffer =>
       Buffer.from(GetUnpaidLeaveDaysResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetUnpaidLeaveDaysResponse => GetUnpaidLeaveDaysResponse.decode(value),
+    responseDeserialize: (value: Buffer): GetUnpaidLeaveDaysResponse =>
+      GetUnpaidLeaveDaysResponse.decode(value),
   },
 } as const;
 
@@ -1519,40 +1767,64 @@ export interface LeaveServiceServer extends UntypedServiceImplementation {
   submitLeave: handleUnaryCall<SubmitLeaveRequest, SubmitLeaveResponse>;
   reviewLeave: handleUnaryCall<ReviewLeaveRequest, ReviewLeaveResponse>;
   getLeaveBalance: handleUnaryCall<GetLeaveBalanceRequest, LeaveBalance>;
-  listLeaveRequests: handleUnaryCall<ListLeaveRequestsRequest, ListLeaveRequestsResponse>;
-  getUnpaidLeaveDays: handleUnaryCall<GetUnpaidLeaveDaysRequest, GetUnpaidLeaveDaysResponse>;
+  listLeaveRequests: handleUnaryCall<
+    ListLeaveRequestsRequest,
+    ListLeaveRequestsResponse
+  >;
+  getUnpaidLeaveDays: handleUnaryCall<
+    GetUnpaidLeaveDaysRequest,
+    GetUnpaidLeaveDaysResponse
+  >;
 }
 
 export interface LeaveServiceClient extends Client {
   submitLeave(
     request: SubmitLeaveRequest,
-    callback: (error: ServiceError | null, response: SubmitLeaveResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: SubmitLeaveResponse,
+    ) => void,
   ): ClientUnaryCall;
   submitLeave(
     request: SubmitLeaveRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: SubmitLeaveResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: SubmitLeaveResponse,
+    ) => void,
   ): ClientUnaryCall;
   submitLeave(
     request: SubmitLeaveRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: SubmitLeaveResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: SubmitLeaveResponse,
+    ) => void,
   ): ClientUnaryCall;
   reviewLeave(
     request: ReviewLeaveRequest,
-    callback: (error: ServiceError | null, response: ReviewLeaveResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ReviewLeaveResponse,
+    ) => void,
   ): ClientUnaryCall;
   reviewLeave(
     request: ReviewLeaveRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: ReviewLeaveResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ReviewLeaveResponse,
+    ) => void,
   ): ClientUnaryCall;
   reviewLeave(
     request: ReviewLeaveRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: ReviewLeaveResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ReviewLeaveResponse,
+    ) => void,
   ): ClientUnaryCall;
   getLeaveBalance(
     request: GetLeaveBalanceRequest,
@@ -1571,61 +1843,97 @@ export interface LeaveServiceClient extends Client {
   ): ClientUnaryCall;
   listLeaveRequests(
     request: ListLeaveRequestsRequest,
-    callback: (error: ServiceError | null, response: ListLeaveRequestsResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ListLeaveRequestsResponse,
+    ) => void,
   ): ClientUnaryCall;
   listLeaveRequests(
     request: ListLeaveRequestsRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: ListLeaveRequestsResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ListLeaveRequestsResponse,
+    ) => void,
   ): ClientUnaryCall;
   listLeaveRequests(
     request: ListLeaveRequestsRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: ListLeaveRequestsResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ListLeaveRequestsResponse,
+    ) => void,
   ): ClientUnaryCall;
   getUnpaidLeaveDays(
     request: GetUnpaidLeaveDaysRequest,
-    callback: (error: ServiceError | null, response: GetUnpaidLeaveDaysResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetUnpaidLeaveDaysResponse,
+    ) => void,
   ): ClientUnaryCall;
   getUnpaidLeaveDays(
     request: GetUnpaidLeaveDaysRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetUnpaidLeaveDaysResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetUnpaidLeaveDaysResponse,
+    ) => void,
   ): ClientUnaryCall;
   getUnpaidLeaveDays(
     request: GetUnpaidLeaveDaysRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetUnpaidLeaveDaysResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetUnpaidLeaveDaysResponse,
+    ) => void,
   ): ClientUnaryCall;
 }
 
 export const LeaveServiceClient = makeGenericClientConstructor(
   LeaveServiceService,
-  "leave.LeaveService",
+  'leave.LeaveService',
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): LeaveServiceClient;
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): LeaveServiceClient;
   service: typeof LeaveServiceService;
   serviceName: string;
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = Math.trunc(date.getTime() / 1_000);
   const nanos = (date.getTime() % 1_000) * 1_000_000;
-  return { $type: "google.protobuf.Timestamp", seconds, nanos };
+  return { $type: 'google.protobuf.Timestamp', seconds, nanos };
 }
 
 function fromTimestamp(t: Timestamp): Date {
@@ -1637,7 +1945,7 @@ function fromTimestamp(t: Timestamp): Date {
 function fromJsonTimestamp(o: any): Date {
   if (o instanceof globalThis.Date) {
     return o;
-  } else if (typeof o === "string") {
+  } else if (typeof o === 'string') {
     return new globalThis.Date(o);
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));
