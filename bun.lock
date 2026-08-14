@@ -31,6 +31,7 @@
         "@prisma/client-runtime-utils": "^7.8.0",
         "api": "workspace:*",
         "config": "workspace:*",
+        "kafkajs": "^2.2.4",
         "script": "workspace:*",
         "server": "workspace:*",
         "ts-proto": "^2.11.8",
