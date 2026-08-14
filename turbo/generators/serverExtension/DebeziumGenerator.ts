@@ -42,16 +42,22 @@ function parsePrismaModels(schemaPath: string): { model: string; table: string }
 	return results;
 }
 
+function infraTemplatesDir(root: string, location: string): string {
+	const name = path.basename(location);
+	return path.join(root, path.dirname(location), `${name}-infra`, "helm", "templates");
+}
+
 /**
- * Eligible targets: servers with a db.yaml (the "database" extension already ran) that don't
- * have a debezium.yaml yet.
+ * Eligible targets: servers whose -infra chart has a db.yaml (the "database" extension already
+ * ran) but no debezium.yaml yet. db.yaml and debezium.yaml both live in the -infra chart, not
+ * the server's own chart — Debezium Server is infrastructure, co-located with its Postgres.
  */
 function findServersEligibleForDebezium(root: string, prismaServerWorkspaces: string[]) {
 	return prismaServerWorkspaces.filter((location) => {
-		const templatesDir = path.join(root, location, "helm", "templates");
+		const dir = infraTemplatesDir(root, location);
 		return (
-			fs.existsSync(path.join(templatesDir, "db.yaml")) &&
-			!fs.existsSync(path.join(templatesDir, "debezium.yaml"))
+			fs.existsSync(path.join(dir, "db.yaml")) &&
+			!fs.existsSync(path.join(dir, "debezium.yaml"))
 		);
 	});
 }
@@ -75,7 +81,8 @@ export function patchDbForDebezium(
 		);
 	}
 
-	let raw = fs.readFileSync(absDbYamlPath, "utf-8");
+	// Normalize CRLF → LF so the marker string search works on Windows-generated template files.
+	let raw = fs.readFileSync(absDbYamlPath, "utf-8").replace(/\r\n/g, "\n");
 	const results: string[] = [];
 
 	if (!raw.includes("wal_level=logical")) {
@@ -140,13 +147,12 @@ export default class DebeziumGenerator {
 				path.join(TEMPLATES_DIR, "helm-debezium.yaml.hbs"),
 				"utf-8",
 			);
-			const destPath = path.join(
-				process.cwd(),
-				location,
-				"helm",
-				"templates",
-				"debezium.yaml",
-			);
+			// debezium.yaml lives in the -infra chart alongside db.yaml — same namespace,
+				// so the bare `{{ name }}-db` hostname and `{{ name }}-db-secret` secretKeyRef resolve.
+				const destPath = path.join(
+					infraTemplatesDir(process.cwd(), location),
+					"debezium.yaml",
+				);
 			if (fs.existsSync(destPath)) {
 				return `${relToRoot(destPath)} already exists`;
 			}
@@ -179,7 +185,7 @@ export default class DebeziumGenerator {
 				answers as { location: string; tables?: string[]; tablesFreeText?: string },
 			);
 			return patchDbForDebezium(
-				path.join(process.cwd(), location, "helm", "templates", "db.yaml"),
+				path.join(infraTemplatesDir(process.cwd(), location), "db.yaml"),
 				name,
 				tables,
 			);

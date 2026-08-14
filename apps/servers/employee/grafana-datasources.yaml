@@ -1,0 +1,25 @@
+apiVersion: 1
+
+# Direct query access (SQL Explore), for ad-hoc queries against employee's own data — no
+# postgres-exporter sidecar wired for this chart, so there's no Prometheus metrics path.
+#
+# ponytail: password below is a stale placeholder — see services/monitoring/helm/templates/
+# grafana-configmap.yaml's inlined copy of this file, which substitutes the real
+# employee-db-secret password via `lookup` at render time. This file is just the
+# source-of-truth mirror.
+datasources:
+  - name: employee Postgres
+    uid: employee-postgres
+    # Canonical plugin id, not the deprecated "postgres" alias — the alias leaves the
+    # resource client (table/schema dropdown in the query builder) unwired.
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: employee-db.server-infra.svc.cluster.local:5432
+    database: employee
+    user: myuser
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+    secureJsonData:
+      password: employee-placeholder-db-password
