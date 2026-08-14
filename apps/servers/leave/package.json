@@ -25,6 +25,7 @@
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose",
 		"check": "biome check --write",
+		"test": "bun test",
 		"gen": "bun ../../../packages/script/src/bin/generate-api.ts",
 		"postinstall": "prisma generate"
 	}
