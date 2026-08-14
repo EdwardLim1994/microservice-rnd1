@@ -1,0 +1,1 @@
+export type PayrollGraphqlContextType = Record<string, never>;

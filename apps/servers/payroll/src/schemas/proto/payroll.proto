@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package payroll;
+
+import "google/protobuf/timestamp.proto";
+
+message PayrollRecord {
+  string id = 1;
+  string employee_id = 2;
+  int32 year = 3;
+  int32 month = 4;
+  double monthly_rate = 5;
+  int32 unpaid_days = 6;
+  double daily_rate = 7;
+  double deduction = 8;
+  double net_amount = 9;
+  // MinIO object key for the generated PDF
+  string pdf_key = 10;
+  google.protobuf.Timestamp generated_at = 11;
+}
+
+message GetPayrollRecordsRequest {
+  string employee_id = 1;
+  optional int32 year = 2;
+  optional int32 page = 3;
+  optional int32 page_size = 4;
+}
+
+message GetPayrollRecordsResponse {
+  repeated PayrollRecord records = 1;
+  int32 total = 2;
+}
+
+message GetPayrollPdfUrlRequest {
+  string payroll_record_id = 1;
+  // Caller's employee id — used for access control (own record or HR Admin)
+  string requestor_id = 2;
+}
+
+message GetPayrollPdfUrlResponse {
+  // Pre-signed MinIO URL, short-lived
+  string url = 1;
+}
+
+service PayrollService {
+  rpc GetPayrollRecords(GetPayrollRecordsRequest) returns (GetPayrollRecordsResponse);
+  rpc GetPayrollPdfUrl(GetPayrollPdfUrlRequest) returns (GetPayrollPdfUrlResponse);
+}

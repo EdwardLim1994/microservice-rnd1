@@ -13,9 +13,13 @@ spec:
       labels:
         app: {{name}}
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: {{name}}
           image: {{name}}:latest
+          resources:
+            limits:
+              memory: 256Mi
           envFrom:
             - configMapRef:
                 name: {{name}}-log-env
