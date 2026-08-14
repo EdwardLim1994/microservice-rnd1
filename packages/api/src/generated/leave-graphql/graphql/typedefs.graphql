@@ -1,0 +1,66 @@
+schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"]) {
+  query: Query
+  mutation: Mutation
+}
+
+type LeaveBalance {
+  annualRemaining: Int!
+  employeeId: ID!
+  sickRemaining: Int!
+}
+
+type LeaveRequest @key(fields: "id") {
+  createdAt: String!
+  days: Int!
+  employeeId: ID!
+  endDate: String!
+  id: ID!
+  leaveType: LeaveType!
+  startDate: String!
+  status: LeaveStatus!
+  unpaidDays: Int!
+  updatedAt: String!
+}
+
+type LeaveRequestListResult {
+  leaveRequests: [LeaveRequest!]!
+  total: Int!
+}
+
+enum LeaveStatus {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+}
+
+type Mutation {
+  reviewLeave(decision: ReviewDecision!, id: ID!): LeaveRequest!
+  submitLeave(input: SubmitLeaveInput!): SubmitLeaveResult!
+}
+
+type Query {
+  myLeaveBalance: LeaveBalance!
+  myLeaveRequests(page: Int, pageSize: Int, status: LeaveStatus): LeaveRequestListResult!
+  pendingApprovals(page: Int, pageSize: Int): LeaveRequestListResult!
+}
+
+input ReviewDecision {
+  decision: LeaveStatus!
+}
+
+input SubmitLeaveInput {
+  endDate: String!
+  leaveType: LeaveType!
+  startDate: String!
+}
+
+type SubmitLeaveResult {
+  balance: LeaveBalance!
+  leaveRequest: LeaveRequest!
+}
