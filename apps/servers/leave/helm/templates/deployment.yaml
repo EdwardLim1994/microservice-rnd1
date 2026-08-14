@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leave
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: leave
+  template:
+    metadata:
+      labels:
+        app: leave
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-leave-db
+          image: postgres:15.3-alpine
+          command: ["sh", "-c", "until pg_isready -h leave-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done"]
+          resources:
+            limits:
+              memory: 64Mi
+      containers:
+        - name: leave
+          image: leave:latest
+          envFrom:
+            - configMapRef:
+                name: leave-log-env
+            - configMapRef:
+                name: leave-env
+            - secretRef:
+                name: leave-secret
+          resources:
+            limits:
+              memory: 256Mi

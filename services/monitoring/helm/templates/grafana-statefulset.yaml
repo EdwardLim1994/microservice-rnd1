@@ -72,6 +72,9 @@ spec:
               mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
               subPath: datasources.yaml
             - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/leave.yaml
+              subPath: leave-datasources.yaml
+            - name: provisioning
               mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
               subPath: dashboards.yaml
             - name: dashboards-json
