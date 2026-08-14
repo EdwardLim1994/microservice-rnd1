@@ -6,6 +6,7 @@
 	"private": true,
 	"devDependencies": {
 		"@types/bun": "latest",
+		"@biomejs/biome": "2.4.15",
 		"prisma": "^7.8.0",
 		"@bufbuild/buf": "^1.70.0",
 		"protoc": "^35.1.0"
@@ -18,10 +19,13 @@
 		"script": "workspace:*",
 		"@grpc/grpc-js": "^1.14.4",
 		"ts-proto": "^2.11.8",
-		"api": "workspace:*"
+		"api": "workspace:*",
+		"kafkajs": "^2.2.4"
 	},
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose",
+		"check": "biome check --write",
+		"test": "bun test",
 		"gen": "bun ../../../packages/script/src/bin/generate-api.ts",
 		"postinstall": "prisma generate"
 	}
