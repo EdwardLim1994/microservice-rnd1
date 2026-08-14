@@ -62,9 +62,13 @@ spec:
       # first, retries via pg_isready) since Debezium's own Deployment restarts — but nothing
       # enforces leave-migrate having already run before this Deployment's first rollout, so
       # trigger it manually first if this is a fresh install.
+      automountServiceAccountToken: false
       initContainers:
         - name: create-publication
           image: postgres:15.3-alpine
+          resources:
+            limits:
+              memory: 64Mi
           env:
             - name: PGPASSWORD
               valueFrom:
@@ -86,6 +90,10 @@ spec:
       containers:
         - name: debezium-server
           image: debezium/server:2.7.3.Final
+          resources:
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 1Gi
           env:
             - name: DB_PASSWORD
               valueFrom:
