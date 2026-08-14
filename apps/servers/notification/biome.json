@@ -1,0 +1,10 @@
+{
+  "extends": ["config/src/biome/biome.json"],
+  "overrides": [
+    {
+      "includes": ["src/generated/**", "generated/**"],
+      "linter": { "enabled": false },
+      "formatter": { "enabled": false }
+    }
+  ]
+}
