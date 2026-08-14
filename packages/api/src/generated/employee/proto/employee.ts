@@ -5,26 +5,26 @@
 // source: employee.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
 import {
   type CallOptions,
   type ChannelCredentials,
-  Client,
+  type Client,
   type ClientOptions,
   type ClientUnaryCall,
   type handleUnaryCall,
-  makeGenericClientConstructor,
   type Metadata,
+  makeGenericClientConstructor,
   type ServiceError,
   type UntypedServiceImplementation,
-} from "@grpc/grpc-js";
-import { Timestamp } from "./google/protobuf/timestamp";
-import { messageTypeRegistry } from "./typeRegistry";
+} from '@grpc/grpc-js';
+import { Timestamp } from './google/protobuf/timestamp';
+import { messageTypeRegistry } from './typeRegistry';
 
-export const protobufPackage = "employee";
+export const protobufPackage = 'employee';
 
 export interface Employee {
-  $type: "employee.Employee";
+  $type: 'employee.Employee';
   id: string;
   fullName: string;
   personalEmail: string;
@@ -35,7 +35,7 @@ export interface Employee {
 }
 
 export interface RegisterEmployeeRequest {
-  $type: "employee.RegisterEmployeeRequest";
+  $type: 'employee.RegisterEmployeeRequest';
   fullName: string;
   personalEmail: string;
   monthlyRate: number;
@@ -43,71 +43,69 @@ export interface RegisterEmployeeRequest {
 }
 
 export interface RegisterEmployeeResponse {
-  $type: "employee.RegisterEmployeeResponse";
-  employee?:
-    | Employee
-    | undefined;
+  $type: 'employee.RegisterEmployeeResponse';
+  employee?: Employee | undefined;
   /** One-time plain-text password shown once in success dialog (ADR-3: mocked delivery) */
   generatedPassword: string;
 }
 
 export interface UpdateEmployeeRequest {
-  $type: "employee.UpdateEmployeeRequest";
+  $type: 'employee.UpdateEmployeeRequest';
   id: string;
   monthlyRate?: number | undefined;
   supervisorId?: string | undefined;
 }
 
 export interface UpdateEmployeeResponse {
-  $type: "employee.UpdateEmployeeResponse";
+  $type: 'employee.UpdateEmployeeResponse';
   employee?: Employee | undefined;
 }
 
 export interface GetEmployeeRequest {
-  $type: "employee.GetEmployeeRequest";
+  $type: 'employee.GetEmployeeRequest';
   id: string;
 }
 
 export interface ListEmployeesRequest {
-  $type: "employee.ListEmployeesRequest";
+  $type: 'employee.ListEmployeesRequest';
   page?: number | undefined;
   pageSize?: number | undefined;
 }
 
 export interface ListEmployeesResponse {
-  $type: "employee.ListEmployeesResponse";
+  $type: 'employee.ListEmployeesResponse';
   employees: Employee[];
   total: number;
 }
 
 export interface GetSupervisorChainRequest {
-  $type: "employee.GetSupervisorChainRequest";
+  $type: 'employee.GetSupervisorChainRequest';
   employeeId: string;
 }
 
 export interface GetSupervisorChainResponse {
-  $type: "employee.GetSupervisorChainResponse";
+  $type: 'employee.GetSupervisorChainResponse';
   /** Ordered from direct supervisor up to root (HR Admin or no supervisor) */
   chain: Employee[];
 }
 
 export interface GetEmployeeRateRequest {
-  $type: "employee.GetEmployeeRateRequest";
+  $type: 'employee.GetEmployeeRateRequest';
   employeeId: string;
 }
 
 export interface GetEmployeeRateResponse {
-  $type: "employee.GetEmployeeRateResponse";
+  $type: 'employee.GetEmployeeRateResponse';
   employeeId: string;
   monthlyRate: number;
 }
 
 function createBaseEmployee(): Employee {
   return {
-    $type: "employee.Employee",
-    id: "",
-    fullName: "",
-    personalEmail: "",
+    $type: 'employee.Employee',
+    id: '',
+    fullName: '',
+    personalEmail: '',
     monthlyRate: 0,
     supervisorId: undefined,
     createdAt: undefined,
@@ -115,17 +113,20 @@ function createBaseEmployee(): Employee {
   };
 }
 
-export const Employee: MessageFns<Employee, "employee.Employee"> = {
-  $type: "employee.Employee" as const,
+export const Employee: MessageFns<Employee, 'employee.Employee'> = {
+  $type: 'employee.Employee' as const,
 
-  encode(message: Employee, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: Employee,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
-    if (message.fullName !== "") {
+    if (message.fullName !== '') {
       writer.uint32(18).string(message.fullName);
     }
-    if (message.personalEmail !== "") {
+    if (message.personalEmail !== '') {
       writer.uint32(26).string(message.personalEmail);
     }
     if (message.monthlyRate !== 0) {
@@ -135,16 +136,23 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
       writer.uint32(42).string(message.supervisorId);
     }
     if (message.createdAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.createdAt), writer.uint32(50).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.createdAt),
+        writer.uint32(50).fork(),
+      ).join();
     }
     if (message.updatedAt !== undefined) {
-      Timestamp.encode(toTimestamp(message.updatedAt), writer.uint32(58).fork()).join();
+      Timestamp.encode(
+        toTimestamp(message.updatedAt),
+        writer.uint32(58).fork(),
+      ).join();
     }
     return writer;
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Employee {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseEmployee();
     while (reader.pos < end) {
@@ -195,7 +203,9 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
             break;
           }
 
-          message.createdAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.createdAt = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
         case 7: {
@@ -203,7 +213,9 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
             break;
           }
 
-          message.updatedAt = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
+          message.updatedAt = fromTimestamp(
+            Timestamp.decode(reader, reader.uint32()),
+          );
           continue;
         }
       }
@@ -218,49 +230,49 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
   fromJSON(object: any): Employee {
     return {
       $type: Employee.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
       fullName: isSet(object.fullName)
         ? globalThis.String(object.fullName)
         : isSet(object.full_name)
-        ? globalThis.String(object.full_name)
-        : "",
+          ? globalThis.String(object.full_name)
+          : '',
       personalEmail: isSet(object.personalEmail)
         ? globalThis.String(object.personalEmail)
         : isSet(object.personal_email)
-        ? globalThis.String(object.personal_email)
-        : "",
+          ? globalThis.String(object.personal_email)
+          : '',
       monthlyRate: isSet(object.monthlyRate)
         ? globalThis.Number(object.monthlyRate)
         : isSet(object.monthly_rate)
-        ? globalThis.Number(object.monthly_rate)
-        : 0,
+          ? globalThis.Number(object.monthly_rate)
+          : 0,
       supervisorId: isSet(object.supervisorId)
         ? globalThis.String(object.supervisorId)
         : isSet(object.supervisor_id)
-        ? globalThis.String(object.supervisor_id)
-        : undefined,
+          ? globalThis.String(object.supervisor_id)
+          : undefined,
       createdAt: isSet(object.createdAt)
         ? fromJsonTimestamp(object.createdAt)
         : isSet(object.created_at)
-        ? fromJsonTimestamp(object.created_at)
-        : undefined,
+          ? fromJsonTimestamp(object.created_at)
+          : undefined,
       updatedAt: isSet(object.updatedAt)
         ? fromJsonTimestamp(object.updatedAt)
         : isSet(object.updated_at)
-        ? fromJsonTimestamp(object.updated_at)
-        : undefined,
+          ? fromJsonTimestamp(object.updated_at)
+          : undefined,
     };
   },
 
   toJSON(message: Employee): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
-    if (message.fullName !== "") {
+    if (message.fullName !== '') {
       obj.fullName = message.fullName;
     }
-    if (message.personalEmail !== "") {
+    if (message.personalEmail !== '') {
       obj.personalEmail = message.personalEmail;
     }
     if (message.monthlyRate !== 0) {
@@ -283,9 +295,9 @@ export const Employee: MessageFns<Employee, "employee.Employee"> = {
   },
   fromPartial<I extends Exact<DeepPartial<Employee>, I>>(object: I): Employee {
     const message = createBaseEmployee();
-    message.id = object.id ?? "";
-    message.fullName = object.fullName ?? "";
-    message.personalEmail = object.personalEmail ?? "";
+    message.id = object.id ?? '';
+    message.fullName = object.fullName ?? '';
+    message.personalEmail = object.personalEmail ?? '';
     message.monthlyRate = object.monthlyRate ?? 0;
     message.supervisorId = object.supervisorId ?? undefined;
     message.createdAt = object.createdAt ?? undefined;
@@ -298,22 +310,28 @@ messageTypeRegistry.set(Employee.$type, Employee);
 
 function createBaseRegisterEmployeeRequest(): RegisterEmployeeRequest {
   return {
-    $type: "employee.RegisterEmployeeRequest",
-    fullName: "",
-    personalEmail: "",
+    $type: 'employee.RegisterEmployeeRequest',
+    fullName: '',
+    personalEmail: '',
     monthlyRate: 0,
     supervisorId: undefined,
   };
 }
 
-export const RegisterEmployeeRequest: MessageFns<RegisterEmployeeRequest, "employee.RegisterEmployeeRequest"> = {
-  $type: "employee.RegisterEmployeeRequest" as const,
+export const RegisterEmployeeRequest: MessageFns<
+  RegisterEmployeeRequest,
+  'employee.RegisterEmployeeRequest'
+> = {
+  $type: 'employee.RegisterEmployeeRequest' as const,
 
-  encode(message: RegisterEmployeeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.fullName !== "") {
+  encode(
+    message: RegisterEmployeeRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.fullName !== '') {
       writer.uint32(10).string(message.fullName);
     }
-    if (message.personalEmail !== "") {
+    if (message.personalEmail !== '') {
       writer.uint32(18).string(message.personalEmail);
     }
     if (message.monthlyRate !== 0) {
@@ -325,8 +343,12 @@ export const RegisterEmployeeRequest: MessageFns<RegisterEmployeeRequest, "emplo
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RegisterEmployeeRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): RegisterEmployeeRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseRegisterEmployeeRequest();
     while (reader.pos < end) {
@@ -379,32 +401,32 @@ export const RegisterEmployeeRequest: MessageFns<RegisterEmployeeRequest, "emplo
       fullName: isSet(object.fullName)
         ? globalThis.String(object.fullName)
         : isSet(object.full_name)
-        ? globalThis.String(object.full_name)
-        : "",
+          ? globalThis.String(object.full_name)
+          : '',
       personalEmail: isSet(object.personalEmail)
         ? globalThis.String(object.personalEmail)
         : isSet(object.personal_email)
-        ? globalThis.String(object.personal_email)
-        : "",
+          ? globalThis.String(object.personal_email)
+          : '',
       monthlyRate: isSet(object.monthlyRate)
         ? globalThis.Number(object.monthlyRate)
         : isSet(object.monthly_rate)
-        ? globalThis.Number(object.monthly_rate)
-        : 0,
+          ? globalThis.Number(object.monthly_rate)
+          : 0,
       supervisorId: isSet(object.supervisorId)
         ? globalThis.String(object.supervisorId)
         : isSet(object.supervisor_id)
-        ? globalThis.String(object.supervisor_id)
-        : undefined,
+          ? globalThis.String(object.supervisor_id)
+          : undefined,
     };
   },
 
   toJSON(message: RegisterEmployeeRequest): unknown {
     const obj: any = {};
-    if (message.fullName !== "") {
+    if (message.fullName !== '') {
       obj.fullName = message.fullName;
     }
-    if (message.personalEmail !== "") {
+    if (message.personalEmail !== '') {
       obj.personalEmail = message.personalEmail;
     }
     if (message.monthlyRate !== 0) {
@@ -416,13 +438,17 @@ export const RegisterEmployeeRequest: MessageFns<RegisterEmployeeRequest, "emplo
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RegisterEmployeeRequest>, I>>(base?: I): RegisterEmployeeRequest {
+  create<I extends Exact<DeepPartial<RegisterEmployeeRequest>, I>>(
+    base?: I,
+  ): RegisterEmployeeRequest {
     return RegisterEmployeeRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RegisterEmployeeRequest>, I>>(object: I): RegisterEmployeeRequest {
+  fromPartial<I extends Exact<DeepPartial<RegisterEmployeeRequest>, I>>(
+    object: I,
+  ): RegisterEmployeeRequest {
     const message = createBaseRegisterEmployeeRequest();
-    message.fullName = object.fullName ?? "";
-    message.personalEmail = object.personalEmail ?? "";
+    message.fullName = object.fullName ?? '';
+    message.personalEmail = object.personalEmail ?? '';
     message.monthlyRate = object.monthlyRate ?? 0;
     message.supervisorId = object.supervisorId ?? undefined;
     return message;
@@ -432,24 +458,38 @@ export const RegisterEmployeeRequest: MessageFns<RegisterEmployeeRequest, "emplo
 messageTypeRegistry.set(RegisterEmployeeRequest.$type, RegisterEmployeeRequest);
 
 function createBaseRegisterEmployeeResponse(): RegisterEmployeeResponse {
-  return { $type: "employee.RegisterEmployeeResponse", employee: undefined, generatedPassword: "" };
+  return {
+    $type: 'employee.RegisterEmployeeResponse',
+    employee: undefined,
+    generatedPassword: '',
+  };
 }
 
-export const RegisterEmployeeResponse: MessageFns<RegisterEmployeeResponse, "employee.RegisterEmployeeResponse"> = {
-  $type: "employee.RegisterEmployeeResponse" as const,
+export const RegisterEmployeeResponse: MessageFns<
+  RegisterEmployeeResponse,
+  'employee.RegisterEmployeeResponse'
+> = {
+  $type: 'employee.RegisterEmployeeResponse' as const,
 
-  encode(message: RegisterEmployeeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: RegisterEmployeeResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.employee !== undefined) {
       Employee.encode(message.employee, writer.uint32(10).fork()).join();
     }
-    if (message.generatedPassword !== "") {
+    if (message.generatedPassword !== '') {
       writer.uint32(18).string(message.generatedPassword);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): RegisterEmployeeResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): RegisterEmployeeResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseRegisterEmployeeResponse();
     while (reader.pos < end) {
@@ -483,12 +523,14 @@ export const RegisterEmployeeResponse: MessageFns<RegisterEmployeeResponse, "emp
   fromJSON(object: any): RegisterEmployeeResponse {
     return {
       $type: RegisterEmployeeResponse.$type,
-      employee: isSet(object.employee) ? Employee.fromJSON(object.employee) : undefined,
+      employee: isSet(object.employee)
+        ? Employee.fromJSON(object.employee)
+        : undefined,
       generatedPassword: isSet(object.generatedPassword)
         ? globalThis.String(object.generatedPassword)
         : isSet(object.generated_password)
-        ? globalThis.String(object.generated_password)
-        : "",
+          ? globalThis.String(object.generated_password)
+          : '',
     };
   },
 
@@ -497,36 +539,55 @@ export const RegisterEmployeeResponse: MessageFns<RegisterEmployeeResponse, "emp
     if (message.employee !== undefined) {
       obj.employee = Employee.toJSON(message.employee);
     }
-    if (message.generatedPassword !== "") {
+    if (message.generatedPassword !== '') {
       obj.generatedPassword = message.generatedPassword;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<RegisterEmployeeResponse>, I>>(base?: I): RegisterEmployeeResponse {
+  create<I extends Exact<DeepPartial<RegisterEmployeeResponse>, I>>(
+    base?: I,
+  ): RegisterEmployeeResponse {
     return RegisterEmployeeResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<RegisterEmployeeResponse>, I>>(object: I): RegisterEmployeeResponse {
+  fromPartial<I extends Exact<DeepPartial<RegisterEmployeeResponse>, I>>(
+    object: I,
+  ): RegisterEmployeeResponse {
     const message = createBaseRegisterEmployeeResponse();
-    message.employee = (object.employee !== undefined && object.employee !== null)
-      ? Employee.fromPartial(object.employee)
-      : undefined;
-    message.generatedPassword = object.generatedPassword ?? "";
+    message.employee =
+      object.employee !== undefined && object.employee !== null
+        ? Employee.fromPartial(object.employee)
+        : undefined;
+    message.generatedPassword = object.generatedPassword ?? '';
     return message;
   },
 };
 
-messageTypeRegistry.set(RegisterEmployeeResponse.$type, RegisterEmployeeResponse);
+messageTypeRegistry.set(
+  RegisterEmployeeResponse.$type,
+  RegisterEmployeeResponse,
+);
 
 function createBaseUpdateEmployeeRequest(): UpdateEmployeeRequest {
-  return { $type: "employee.UpdateEmployeeRequest", id: "", monthlyRate: undefined, supervisorId: undefined };
+  return {
+    $type: 'employee.UpdateEmployeeRequest',
+    id: '',
+    monthlyRate: undefined,
+    supervisorId: undefined,
+  };
 }
 
-export const UpdateEmployeeRequest: MessageFns<UpdateEmployeeRequest, "employee.UpdateEmployeeRequest"> = {
-  $type: "employee.UpdateEmployeeRequest" as const,
+export const UpdateEmployeeRequest: MessageFns<
+  UpdateEmployeeRequest,
+  'employee.UpdateEmployeeRequest'
+> = {
+  $type: 'employee.UpdateEmployeeRequest' as const,
 
-  encode(message: UpdateEmployeeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: UpdateEmployeeRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
     if (message.monthlyRate !== undefined) {
@@ -538,8 +599,12 @@ export const UpdateEmployeeRequest: MessageFns<UpdateEmployeeRequest, "employee.
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): UpdateEmployeeRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): UpdateEmployeeRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseUpdateEmployeeRequest();
     while (reader.pos < end) {
@@ -581,23 +646,23 @@ export const UpdateEmployeeRequest: MessageFns<UpdateEmployeeRequest, "employee.
   fromJSON(object: any): UpdateEmployeeRequest {
     return {
       $type: UpdateEmployeeRequest.$type,
-      id: isSet(object.id) ? globalThis.String(object.id) : "",
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
       monthlyRate: isSet(object.monthlyRate)
         ? globalThis.Number(object.monthlyRate)
         : isSet(object.monthly_rate)
-        ? globalThis.Number(object.monthly_rate)
-        : undefined,
+          ? globalThis.Number(object.monthly_rate)
+          : undefined,
       supervisorId: isSet(object.supervisorId)
         ? globalThis.String(object.supervisorId)
         : isSet(object.supervisor_id)
-        ? globalThis.String(object.supervisor_id)
-        : undefined,
+          ? globalThis.String(object.supervisor_id)
+          : undefined,
     };
   },
 
   toJSON(message: UpdateEmployeeRequest): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
     if (message.monthlyRate !== undefined) {
@@ -609,12 +674,16 @@ export const UpdateEmployeeRequest: MessageFns<UpdateEmployeeRequest, "employee.
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<UpdateEmployeeRequest>, I>>(base?: I): UpdateEmployeeRequest {
+  create<I extends Exact<DeepPartial<UpdateEmployeeRequest>, I>>(
+    base?: I,
+  ): UpdateEmployeeRequest {
     return UpdateEmployeeRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<UpdateEmployeeRequest>, I>>(object: I): UpdateEmployeeRequest {
+  fromPartial<I extends Exact<DeepPartial<UpdateEmployeeRequest>, I>>(
+    object: I,
+  ): UpdateEmployeeRequest {
     const message = createBaseUpdateEmployeeRequest();
-    message.id = object.id ?? "";
+    message.id = object.id ?? '';
     message.monthlyRate = object.monthlyRate ?? undefined;
     message.supervisorId = object.supervisorId ?? undefined;
     return message;
@@ -624,21 +693,31 @@ export const UpdateEmployeeRequest: MessageFns<UpdateEmployeeRequest, "employee.
 messageTypeRegistry.set(UpdateEmployeeRequest.$type, UpdateEmployeeRequest);
 
 function createBaseUpdateEmployeeResponse(): UpdateEmployeeResponse {
-  return { $type: "employee.UpdateEmployeeResponse", employee: undefined };
+  return { $type: 'employee.UpdateEmployeeResponse', employee: undefined };
 }
 
-export const UpdateEmployeeResponse: MessageFns<UpdateEmployeeResponse, "employee.UpdateEmployeeResponse"> = {
-  $type: "employee.UpdateEmployeeResponse" as const,
+export const UpdateEmployeeResponse: MessageFns<
+  UpdateEmployeeResponse,
+  'employee.UpdateEmployeeResponse'
+> = {
+  $type: 'employee.UpdateEmployeeResponse' as const,
 
-  encode(message: UpdateEmployeeResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: UpdateEmployeeResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.employee !== undefined) {
       Employee.encode(message.employee, writer.uint32(10).fork()).join();
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): UpdateEmployeeResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): UpdateEmployeeResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseUpdateEmployeeResponse();
     while (reader.pos < end) {
@@ -664,7 +743,9 @@ export const UpdateEmployeeResponse: MessageFns<UpdateEmployeeResponse, "employe
   fromJSON(object: any): UpdateEmployeeResponse {
     return {
       $type: UpdateEmployeeResponse.$type,
-      employee: isSet(object.employee) ? Employee.fromJSON(object.employee) : undefined,
+      employee: isSet(object.employee)
+        ? Employee.fromJSON(object.employee)
+        : undefined,
     };
   },
 
@@ -676,14 +757,19 @@ export const UpdateEmployeeResponse: MessageFns<UpdateEmployeeResponse, "employe
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<UpdateEmployeeResponse>, I>>(base?: I): UpdateEmployeeResponse {
+  create<I extends Exact<DeepPartial<UpdateEmployeeResponse>, I>>(
+    base?: I,
+  ): UpdateEmployeeResponse {
     return UpdateEmployeeResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<UpdateEmployeeResponse>, I>>(object: I): UpdateEmployeeResponse {
+  fromPartial<I extends Exact<DeepPartial<UpdateEmployeeResponse>, I>>(
+    object: I,
+  ): UpdateEmployeeResponse {
     const message = createBaseUpdateEmployeeResponse();
-    message.employee = (object.employee !== undefined && object.employee !== null)
-      ? Employee.fromPartial(object.employee)
-      : undefined;
+    message.employee =
+      object.employee !== undefined && object.employee !== null
+        ? Employee.fromPartial(object.employee)
+        : undefined;
     return message;
   },
 };
@@ -691,21 +777,31 @@ export const UpdateEmployeeResponse: MessageFns<UpdateEmployeeResponse, "employe
 messageTypeRegistry.set(UpdateEmployeeResponse.$type, UpdateEmployeeResponse);
 
 function createBaseGetEmployeeRequest(): GetEmployeeRequest {
-  return { $type: "employee.GetEmployeeRequest", id: "" };
+  return { $type: 'employee.GetEmployeeRequest', id: '' };
 }
 
-export const GetEmployeeRequest: MessageFns<GetEmployeeRequest, "employee.GetEmployeeRequest"> = {
-  $type: "employee.GetEmployeeRequest" as const,
+export const GetEmployeeRequest: MessageFns<
+  GetEmployeeRequest,
+  'employee.GetEmployeeRequest'
+> = {
+  $type: 'employee.GetEmployeeRequest' as const,
 
-  encode(message: GetEmployeeRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== "") {
+  encode(
+    message: GetEmployeeRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.id !== '') {
       writer.uint32(10).string(message.id);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetEmployeeRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetEmployeeRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetEmployeeRequest();
     while (reader.pos < end) {
@@ -729,23 +825,30 @@ export const GetEmployeeRequest: MessageFns<GetEmployeeRequest, "employee.GetEmp
   },
 
   fromJSON(object: any): GetEmployeeRequest {
-    return { $type: GetEmployeeRequest.$type, id: isSet(object.id) ? globalThis.String(object.id) : "" };
+    return {
+      $type: GetEmployeeRequest.$type,
+      id: isSet(object.id) ? globalThis.String(object.id) : '',
+    };
   },
 
   toJSON(message: GetEmployeeRequest): unknown {
     const obj: any = {};
-    if (message.id !== "") {
+    if (message.id !== '') {
       obj.id = message.id;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetEmployeeRequest>, I>>(base?: I): GetEmployeeRequest {
+  create<I extends Exact<DeepPartial<GetEmployeeRequest>, I>>(
+    base?: I,
+  ): GetEmployeeRequest {
     return GetEmployeeRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetEmployeeRequest>, I>>(object: I): GetEmployeeRequest {
+  fromPartial<I extends Exact<DeepPartial<GetEmployeeRequest>, I>>(
+    object: I,
+  ): GetEmployeeRequest {
     const message = createBaseGetEmployeeRequest();
-    message.id = object.id ?? "";
+    message.id = object.id ?? '';
     return message;
   },
 };
@@ -753,13 +856,23 @@ export const GetEmployeeRequest: MessageFns<GetEmployeeRequest, "employee.GetEmp
 messageTypeRegistry.set(GetEmployeeRequest.$type, GetEmployeeRequest);
 
 function createBaseListEmployeesRequest(): ListEmployeesRequest {
-  return { $type: "employee.ListEmployeesRequest", page: undefined, pageSize: undefined };
+  return {
+    $type: 'employee.ListEmployeesRequest',
+    page: undefined,
+    pageSize: undefined,
+  };
 }
 
-export const ListEmployeesRequest: MessageFns<ListEmployeesRequest, "employee.ListEmployeesRequest"> = {
-  $type: "employee.ListEmployeesRequest" as const,
+export const ListEmployeesRequest: MessageFns<
+  ListEmployeesRequest,
+  'employee.ListEmployeesRequest'
+> = {
+  $type: 'employee.ListEmployeesRequest' as const,
 
-  encode(message: ListEmployeesRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListEmployeesRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.page !== undefined) {
       writer.uint32(8).int32(message.page);
     }
@@ -769,8 +882,12 @@ export const ListEmployeesRequest: MessageFns<ListEmployeesRequest, "employee.Li
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ListEmployeesRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ListEmployeesRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseListEmployeesRequest();
     while (reader.pos < end) {
@@ -808,8 +925,8 @@ export const ListEmployeesRequest: MessageFns<ListEmployeesRequest, "employee.Li
       pageSize: isSet(object.pageSize)
         ? globalThis.Number(object.pageSize)
         : isSet(object.page_size)
-        ? globalThis.Number(object.page_size)
-        : undefined,
+          ? globalThis.Number(object.page_size)
+          : undefined,
     };
   },
 
@@ -824,10 +941,14 @@ export const ListEmployeesRequest: MessageFns<ListEmployeesRequest, "employee.Li
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListEmployeesRequest>, I>>(base?: I): ListEmployeesRequest {
+  create<I extends Exact<DeepPartial<ListEmployeesRequest>, I>>(
+    base?: I,
+  ): ListEmployeesRequest {
     return ListEmployeesRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListEmployeesRequest>, I>>(object: I): ListEmployeesRequest {
+  fromPartial<I extends Exact<DeepPartial<ListEmployeesRequest>, I>>(
+    object: I,
+  ): ListEmployeesRequest {
     const message = createBaseListEmployeesRequest();
     message.page = object.page ?? undefined;
     message.pageSize = object.pageSize ?? undefined;
@@ -838,13 +959,19 @@ export const ListEmployeesRequest: MessageFns<ListEmployeesRequest, "employee.Li
 messageTypeRegistry.set(ListEmployeesRequest.$type, ListEmployeesRequest);
 
 function createBaseListEmployeesResponse(): ListEmployeesResponse {
-  return { $type: "employee.ListEmployeesResponse", employees: [], total: 0 };
+  return { $type: 'employee.ListEmployeesResponse', employees: [], total: 0 };
 }
 
-export const ListEmployeesResponse: MessageFns<ListEmployeesResponse, "employee.ListEmployeesResponse"> = {
-  $type: "employee.ListEmployeesResponse" as const,
+export const ListEmployeesResponse: MessageFns<
+  ListEmployeesResponse,
+  'employee.ListEmployeesResponse'
+> = {
+  $type: 'employee.ListEmployeesResponse' as const,
 
-  encode(message: ListEmployeesResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: ListEmployeesResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     for (const v of message.employees) {
       Employee.encode(v!, writer.uint32(10).fork()).join();
     }
@@ -854,8 +981,12 @@ export const ListEmployeesResponse: MessageFns<ListEmployeesResponse, "employee.
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): ListEmployeesResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): ListEmployeesResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseListEmployeesResponse();
     while (reader.pos < end) {
@@ -907,12 +1038,17 @@ export const ListEmployeesResponse: MessageFns<ListEmployeesResponse, "employee.
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<ListEmployeesResponse>, I>>(base?: I): ListEmployeesResponse {
+  create<I extends Exact<DeepPartial<ListEmployeesResponse>, I>>(
+    base?: I,
+  ): ListEmployeesResponse {
     return ListEmployeesResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<ListEmployeesResponse>, I>>(object: I): ListEmployeesResponse {
+  fromPartial<I extends Exact<DeepPartial<ListEmployeesResponse>, I>>(
+    object: I,
+  ): ListEmployeesResponse {
     const message = createBaseListEmployeesResponse();
-    message.employees = object.employees?.map((e) => Employee.fromPartial(e)) || [];
+    message.employees =
+      object.employees?.map((e) => Employee.fromPartial(e)) || [];
     message.total = object.total ?? 0;
     return message;
   },
@@ -921,21 +1057,31 @@ export const ListEmployeesResponse: MessageFns<ListEmployeesResponse, "employee.
 messageTypeRegistry.set(ListEmployeesResponse.$type, ListEmployeesResponse);
 
 function createBaseGetSupervisorChainRequest(): GetSupervisorChainRequest {
-  return { $type: "employee.GetSupervisorChainRequest", employeeId: "" };
+  return { $type: 'employee.GetSupervisorChainRequest', employeeId: '' };
 }
 
-export const GetSupervisorChainRequest: MessageFns<GetSupervisorChainRequest, "employee.GetSupervisorChainRequest"> = {
-  $type: "employee.GetSupervisorChainRequest" as const,
+export const GetSupervisorChainRequest: MessageFns<
+  GetSupervisorChainRequest,
+  'employee.GetSupervisorChainRequest'
+> = {
+  $type: 'employee.GetSupervisorChainRequest' as const,
 
-  encode(message: GetSupervisorChainRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetSupervisorChainRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetSupervisorChainRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetSupervisorChainRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetSupervisorChainRequest();
     while (reader.pos < end) {
@@ -964,113 +1110,148 @@ export const GetSupervisorChainRequest: MessageFns<GetSupervisorChainRequest, "e
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
     };
   },
 
   toJSON(message: GetSupervisorChainRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetSupervisorChainRequest>, I>>(base?: I): GetSupervisorChainRequest {
+  create<I extends Exact<DeepPartial<GetSupervisorChainRequest>, I>>(
+    base?: I,
+  ): GetSupervisorChainRequest {
     return GetSupervisorChainRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetSupervisorChainRequest>, I>>(object: I): GetSupervisorChainRequest {
+  fromPartial<I extends Exact<DeepPartial<GetSupervisorChainRequest>, I>>(
+    object: I,
+  ): GetSupervisorChainRequest {
     const message = createBaseGetSupervisorChainRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     return message;
   },
 };
 
-messageTypeRegistry.set(GetSupervisorChainRequest.$type, GetSupervisorChainRequest);
+messageTypeRegistry.set(
+  GetSupervisorChainRequest.$type,
+  GetSupervisorChainRequest,
+);
 
 function createBaseGetSupervisorChainResponse(): GetSupervisorChainResponse {
-  return { $type: "employee.GetSupervisorChainResponse", chain: [] };
+  return { $type: 'employee.GetSupervisorChainResponse', chain: [] };
 }
 
-export const GetSupervisorChainResponse: MessageFns<GetSupervisorChainResponse, "employee.GetSupervisorChainResponse"> =
-  {
-    $type: "employee.GetSupervisorChainResponse" as const,
+export const GetSupervisorChainResponse: MessageFns<
+  GetSupervisorChainResponse,
+  'employee.GetSupervisorChainResponse'
+> = {
+  $type: 'employee.GetSupervisorChainResponse' as const,
 
-    encode(message: GetSupervisorChainResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-      for (const v of message.chain) {
-        Employee.encode(v!, writer.uint32(10).fork()).join();
-      }
-      return writer;
-    },
+  encode(
+    message: GetSupervisorChainResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    for (const v of message.chain) {
+      Employee.encode(v!, writer.uint32(10).fork()).join();
+    }
+    return writer;
+  },
 
-    decode(input: BinaryReader | Uint8Array, length?: number): GetSupervisorChainResponse {
-      const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-      const end = length === undefined ? reader.len : reader.pos + length;
-      const message = createBaseGetSupervisorChainResponse();
-      while (reader.pos < end) {
-        const tag = reader.uint32();
-        switch (tag >>> 3) {
-          case 1: {
-            if (tag !== 10) {
-              break;
-            }
-
-            message.chain.push(Employee.decode(reader, reader.uint32()));
-            continue;
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetSupervisorChainResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetSupervisorChainResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
           }
+
+          message.chain.push(Employee.decode(reader, reader.uint32()));
+          continue;
         }
-        if ((tag & 7) === 4 || tag === 0) {
-          break;
-        }
-        reader.skip(tag & 7);
       }
-      return message;
-    },
-
-    fromJSON(object: any): GetSupervisorChainResponse {
-      return {
-        $type: GetSupervisorChainResponse.$type,
-        chain: globalThis.Array.isArray(object?.chain) ? object.chain.map((e: any) => Employee.fromJSON(e)) : [],
-      };
-    },
-
-    toJSON(message: GetSupervisorChainResponse): unknown {
-      const obj: any = {};
-      if (message.chain?.length) {
-        obj.chain = message.chain.map((e) => Employee.toJSON(e));
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
       }
-      return obj;
-    },
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
 
-    create<I extends Exact<DeepPartial<GetSupervisorChainResponse>, I>>(base?: I): GetSupervisorChainResponse {
-      return GetSupervisorChainResponse.fromPartial(base ?? ({} as any));
-    },
-    fromPartial<I extends Exact<DeepPartial<GetSupervisorChainResponse>, I>>(object: I): GetSupervisorChainResponse {
-      const message = createBaseGetSupervisorChainResponse();
-      message.chain = object.chain?.map((e) => Employee.fromPartial(e)) || [];
-      return message;
-    },
-  };
+  fromJSON(object: any): GetSupervisorChainResponse {
+    return {
+      $type: GetSupervisorChainResponse.$type,
+      chain: globalThis.Array.isArray(object?.chain)
+        ? object.chain.map((e: any) => Employee.fromJSON(e))
+        : [],
+    };
+  },
 
-messageTypeRegistry.set(GetSupervisorChainResponse.$type, GetSupervisorChainResponse);
+  toJSON(message: GetSupervisorChainResponse): unknown {
+    const obj: any = {};
+    if (message.chain?.length) {
+      obj.chain = message.chain.map((e) => Employee.toJSON(e));
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<GetSupervisorChainResponse>, I>>(
+    base?: I,
+  ): GetSupervisorChainResponse {
+    return GetSupervisorChainResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<GetSupervisorChainResponse>, I>>(
+    object: I,
+  ): GetSupervisorChainResponse {
+    const message = createBaseGetSupervisorChainResponse();
+    message.chain = object.chain?.map((e) => Employee.fromPartial(e)) || [];
+    return message;
+  },
+};
+
+messageTypeRegistry.set(
+  GetSupervisorChainResponse.$type,
+  GetSupervisorChainResponse,
+);
 
 function createBaseGetEmployeeRateRequest(): GetEmployeeRateRequest {
-  return { $type: "employee.GetEmployeeRateRequest", employeeId: "" };
+  return { $type: 'employee.GetEmployeeRateRequest', employeeId: '' };
 }
 
-export const GetEmployeeRateRequest: MessageFns<GetEmployeeRateRequest, "employee.GetEmployeeRateRequest"> = {
-  $type: "employee.GetEmployeeRateRequest" as const,
+export const GetEmployeeRateRequest: MessageFns<
+  GetEmployeeRateRequest,
+  'employee.GetEmployeeRateRequest'
+> = {
+  $type: 'employee.GetEmployeeRateRequest' as const,
 
-  encode(message: GetEmployeeRateRequest, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetEmployeeRateRequest,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetEmployeeRateRequest {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetEmployeeRateRequest {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetEmployeeRateRequest();
     while (reader.pos < end) {
@@ -1099,25 +1280,29 @@ export const GetEmployeeRateRequest: MessageFns<GetEmployeeRateRequest, "employe
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
     };
   },
 
   toJSON(message: GetEmployeeRateRequest): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetEmployeeRateRequest>, I>>(base?: I): GetEmployeeRateRequest {
+  create<I extends Exact<DeepPartial<GetEmployeeRateRequest>, I>>(
+    base?: I,
+  ): GetEmployeeRateRequest {
     return GetEmployeeRateRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetEmployeeRateRequest>, I>>(object: I): GetEmployeeRateRequest {
+  fromPartial<I extends Exact<DeepPartial<GetEmployeeRateRequest>, I>>(
+    object: I,
+  ): GetEmployeeRateRequest {
     const message = createBaseGetEmployeeRateRequest();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     return message;
   },
 };
@@ -1125,14 +1310,24 @@ export const GetEmployeeRateRequest: MessageFns<GetEmployeeRateRequest, "employe
 messageTypeRegistry.set(GetEmployeeRateRequest.$type, GetEmployeeRateRequest);
 
 function createBaseGetEmployeeRateResponse(): GetEmployeeRateResponse {
-  return { $type: "employee.GetEmployeeRateResponse", employeeId: "", monthlyRate: 0 };
+  return {
+    $type: 'employee.GetEmployeeRateResponse',
+    employeeId: '',
+    monthlyRate: 0,
+  };
 }
 
-export const GetEmployeeRateResponse: MessageFns<GetEmployeeRateResponse, "employee.GetEmployeeRateResponse"> = {
-  $type: "employee.GetEmployeeRateResponse" as const,
+export const GetEmployeeRateResponse: MessageFns<
+  GetEmployeeRateResponse,
+  'employee.GetEmployeeRateResponse'
+> = {
+  $type: 'employee.GetEmployeeRateResponse' as const,
 
-  encode(message: GetEmployeeRateResponse, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.employeeId !== "") {
+  encode(
+    message: GetEmployeeRateResponse,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
+    if (message.employeeId !== '') {
       writer.uint32(10).string(message.employeeId);
     }
     if (message.monthlyRate !== 0) {
@@ -1141,8 +1336,12 @@ export const GetEmployeeRateResponse: MessageFns<GetEmployeeRateResponse, "emplo
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): GetEmployeeRateResponse {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+  decode(
+    input: BinaryReader | Uint8Array,
+    length?: number,
+  ): GetEmployeeRateResponse {
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseGetEmployeeRateResponse();
     while (reader.pos < end) {
@@ -1179,19 +1378,19 @@ export const GetEmployeeRateResponse: MessageFns<GetEmployeeRateResponse, "emplo
       employeeId: isSet(object.employeeId)
         ? globalThis.String(object.employeeId)
         : isSet(object.employee_id)
-        ? globalThis.String(object.employee_id)
-        : "",
+          ? globalThis.String(object.employee_id)
+          : '',
       monthlyRate: isSet(object.monthlyRate)
         ? globalThis.Number(object.monthlyRate)
         : isSet(object.monthly_rate)
-        ? globalThis.Number(object.monthly_rate)
-        : 0,
+          ? globalThis.Number(object.monthly_rate)
+          : 0,
     };
   },
 
   toJSON(message: GetEmployeeRateResponse): unknown {
     const obj: any = {};
-    if (message.employeeId !== "") {
+    if (message.employeeId !== '') {
       obj.employeeId = message.employeeId;
     }
     if (message.monthlyRate !== 0) {
@@ -1200,12 +1399,16 @@ export const GetEmployeeRateResponse: MessageFns<GetEmployeeRateResponse, "emplo
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<GetEmployeeRateResponse>, I>>(base?: I): GetEmployeeRateResponse {
+  create<I extends Exact<DeepPartial<GetEmployeeRateResponse>, I>>(
+    base?: I,
+  ): GetEmployeeRateResponse {
     return GetEmployeeRateResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<GetEmployeeRateResponse>, I>>(object: I): GetEmployeeRateResponse {
+  fromPartial<I extends Exact<DeepPartial<GetEmployeeRateResponse>, I>>(
+    object: I,
+  ): GetEmployeeRateResponse {
     const message = createBaseGetEmployeeRateResponse();
-    message.employeeId = object.employeeId ?? "";
+    message.employeeId = object.employeeId ?? '';
     message.monthlyRate = object.monthlyRate ?? 0;
     return message;
   },
@@ -1216,109 +1419,153 @@ messageTypeRegistry.set(GetEmployeeRateResponse.$type, GetEmployeeRateResponse);
 export type EmployeeServiceService = typeof EmployeeServiceService;
 export const EmployeeServiceService = {
   registerEmployee: {
-    path: "/employee.EmployeeService/RegisterEmployee" as const,
+    path: '/employee.EmployeeService/RegisterEmployee' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: RegisterEmployeeRequest): Buffer =>
       Buffer.from(RegisterEmployeeRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): RegisterEmployeeRequest => RegisterEmployeeRequest.decode(value),
+    requestDeserialize: (value: Buffer): RegisterEmployeeRequest =>
+      RegisterEmployeeRequest.decode(value),
     responseSerialize: (value: RegisterEmployeeResponse): Buffer =>
       Buffer.from(RegisterEmployeeResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): RegisterEmployeeResponse => RegisterEmployeeResponse.decode(value),
+    responseDeserialize: (value: Buffer): RegisterEmployeeResponse =>
+      RegisterEmployeeResponse.decode(value),
   },
   updateEmployee: {
-    path: "/employee.EmployeeService/UpdateEmployee" as const,
+    path: '/employee.EmployeeService/UpdateEmployee' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: UpdateEmployeeRequest): Buffer =>
       Buffer.from(UpdateEmployeeRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): UpdateEmployeeRequest => UpdateEmployeeRequest.decode(value),
+    requestDeserialize: (value: Buffer): UpdateEmployeeRequest =>
+      UpdateEmployeeRequest.decode(value),
     responseSerialize: (value: UpdateEmployeeResponse): Buffer =>
       Buffer.from(UpdateEmployeeResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): UpdateEmployeeResponse => UpdateEmployeeResponse.decode(value),
+    responseDeserialize: (value: Buffer): UpdateEmployeeResponse =>
+      UpdateEmployeeResponse.decode(value),
   },
   getEmployee: {
-    path: "/employee.EmployeeService/GetEmployee" as const,
+    path: '/employee.EmployeeService/GetEmployee' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: GetEmployeeRequest): Buffer => Buffer.from(GetEmployeeRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetEmployeeRequest => GetEmployeeRequest.decode(value),
-    responseSerialize: (value: Employee): Buffer => Buffer.from(Employee.encode(value).finish()),
+    requestSerialize: (value: GetEmployeeRequest): Buffer =>
+      Buffer.from(GetEmployeeRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): GetEmployeeRequest =>
+      GetEmployeeRequest.decode(value),
+    responseSerialize: (value: Employee): Buffer =>
+      Buffer.from(Employee.encode(value).finish()),
     responseDeserialize: (value: Buffer): Employee => Employee.decode(value),
   },
   listEmployees: {
-    path: "/employee.EmployeeService/ListEmployees" as const,
+    path: '/employee.EmployeeService/ListEmployees' as const,
     requestStream: false as const,
     responseStream: false as const,
-    requestSerialize: (value: ListEmployeesRequest): Buffer => Buffer.from(ListEmployeesRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): ListEmployeesRequest => ListEmployeesRequest.decode(value),
+    requestSerialize: (value: ListEmployeesRequest): Buffer =>
+      Buffer.from(ListEmployeesRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer): ListEmployeesRequest =>
+      ListEmployeesRequest.decode(value),
     responseSerialize: (value: ListEmployeesResponse): Buffer =>
       Buffer.from(ListEmployeesResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): ListEmployeesResponse => ListEmployeesResponse.decode(value),
+    responseDeserialize: (value: Buffer): ListEmployeesResponse =>
+      ListEmployeesResponse.decode(value),
   },
   getSupervisorChain: {
-    path: "/employee.EmployeeService/GetSupervisorChain" as const,
+    path: '/employee.EmployeeService/GetSupervisorChain' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: GetSupervisorChainRequest): Buffer =>
       Buffer.from(GetSupervisorChainRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetSupervisorChainRequest => GetSupervisorChainRequest.decode(value),
+    requestDeserialize: (value: Buffer): GetSupervisorChainRequest =>
+      GetSupervisorChainRequest.decode(value),
     responseSerialize: (value: GetSupervisorChainResponse): Buffer =>
       Buffer.from(GetSupervisorChainResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetSupervisorChainResponse => GetSupervisorChainResponse.decode(value),
+    responseDeserialize: (value: Buffer): GetSupervisorChainResponse =>
+      GetSupervisorChainResponse.decode(value),
   },
   getEmployeeRate: {
-    path: "/employee.EmployeeService/GetEmployeeRate" as const,
+    path: '/employee.EmployeeService/GetEmployeeRate' as const,
     requestStream: false as const,
     responseStream: false as const,
     requestSerialize: (value: GetEmployeeRateRequest): Buffer =>
       Buffer.from(GetEmployeeRateRequest.encode(value).finish()),
-    requestDeserialize: (value: Buffer): GetEmployeeRateRequest => GetEmployeeRateRequest.decode(value),
+    requestDeserialize: (value: Buffer): GetEmployeeRateRequest =>
+      GetEmployeeRateRequest.decode(value),
     responseSerialize: (value: GetEmployeeRateResponse): Buffer =>
       Buffer.from(GetEmployeeRateResponse.encode(value).finish()),
-    responseDeserialize: (value: Buffer): GetEmployeeRateResponse => GetEmployeeRateResponse.decode(value),
+    responseDeserialize: (value: Buffer): GetEmployeeRateResponse =>
+      GetEmployeeRateResponse.decode(value),
   },
 } as const;
 
 export interface EmployeeServiceServer extends UntypedServiceImplementation {
-  registerEmployee: handleUnaryCall<RegisterEmployeeRequest, RegisterEmployeeResponse>;
-  updateEmployee: handleUnaryCall<UpdateEmployeeRequest, UpdateEmployeeResponse>;
+  registerEmployee: handleUnaryCall<
+    RegisterEmployeeRequest,
+    RegisterEmployeeResponse
+  >;
+  updateEmployee: handleUnaryCall<
+    UpdateEmployeeRequest,
+    UpdateEmployeeResponse
+  >;
   getEmployee: handleUnaryCall<GetEmployeeRequest, Employee>;
   listEmployees: handleUnaryCall<ListEmployeesRequest, ListEmployeesResponse>;
-  getSupervisorChain: handleUnaryCall<GetSupervisorChainRequest, GetSupervisorChainResponse>;
-  getEmployeeRate: handleUnaryCall<GetEmployeeRateRequest, GetEmployeeRateResponse>;
+  getSupervisorChain: handleUnaryCall<
+    GetSupervisorChainRequest,
+    GetSupervisorChainResponse
+  >;
+  getEmployeeRate: handleUnaryCall<
+    GetEmployeeRateRequest,
+    GetEmployeeRateResponse
+  >;
 }
 
 export interface EmployeeServiceClient extends Client {
   registerEmployee(
     request: RegisterEmployeeRequest,
-    callback: (error: ServiceError | null, response: RegisterEmployeeResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: RegisterEmployeeResponse,
+    ) => void,
   ): ClientUnaryCall;
   registerEmployee(
     request: RegisterEmployeeRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: RegisterEmployeeResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: RegisterEmployeeResponse,
+    ) => void,
   ): ClientUnaryCall;
   registerEmployee(
     request: RegisterEmployeeRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: RegisterEmployeeResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: RegisterEmployeeResponse,
+    ) => void,
   ): ClientUnaryCall;
   updateEmployee(
     request: UpdateEmployeeRequest,
-    callback: (error: ServiceError | null, response: UpdateEmployeeResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: UpdateEmployeeResponse,
+    ) => void,
   ): ClientUnaryCall;
   updateEmployee(
     request: UpdateEmployeeRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: UpdateEmployeeResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: UpdateEmployeeResponse,
+    ) => void,
   ): ClientUnaryCall;
   updateEmployee(
     request: UpdateEmployeeRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: UpdateEmployeeResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: UpdateEmployeeResponse,
+    ) => void,
   ): ClientUnaryCall;
   getEmployee(
     request: GetEmployeeRequest,
@@ -1337,76 +1584,121 @@ export interface EmployeeServiceClient extends Client {
   ): ClientUnaryCall;
   listEmployees(
     request: ListEmployeesRequest,
-    callback: (error: ServiceError | null, response: ListEmployeesResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ListEmployeesResponse,
+    ) => void,
   ): ClientUnaryCall;
   listEmployees(
     request: ListEmployeesRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: ListEmployeesResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ListEmployeesResponse,
+    ) => void,
   ): ClientUnaryCall;
   listEmployees(
     request: ListEmployeesRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: ListEmployeesResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: ListEmployeesResponse,
+    ) => void,
   ): ClientUnaryCall;
   getSupervisorChain(
     request: GetSupervisorChainRequest,
-    callback: (error: ServiceError | null, response: GetSupervisorChainResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetSupervisorChainResponse,
+    ) => void,
   ): ClientUnaryCall;
   getSupervisorChain(
     request: GetSupervisorChainRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetSupervisorChainResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetSupervisorChainResponse,
+    ) => void,
   ): ClientUnaryCall;
   getSupervisorChain(
     request: GetSupervisorChainRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetSupervisorChainResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetSupervisorChainResponse,
+    ) => void,
   ): ClientUnaryCall;
   getEmployeeRate(
     request: GetEmployeeRateRequest,
-    callback: (error: ServiceError | null, response: GetEmployeeRateResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetEmployeeRateResponse,
+    ) => void,
   ): ClientUnaryCall;
   getEmployeeRate(
     request: GetEmployeeRateRequest,
     metadata: Metadata,
-    callback: (error: ServiceError | null, response: GetEmployeeRateResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetEmployeeRateResponse,
+    ) => void,
   ): ClientUnaryCall;
   getEmployeeRate(
     request: GetEmployeeRateRequest,
     metadata: Metadata,
     options: Partial<CallOptions>,
-    callback: (error: ServiceError | null, response: GetEmployeeRateResponse) => void,
+    callback: (
+      error: ServiceError | null,
+      response: GetEmployeeRateResponse,
+    ) => void,
   ): ClientUnaryCall;
 }
 
 export const EmployeeServiceClient = makeGenericClientConstructor(
   EmployeeServiceService,
-  "employee.EmployeeService",
+  'employee.EmployeeService',
 ) as unknown as {
-  new (address: string, credentials: ChannelCredentials, options?: Partial<ClientOptions>): EmployeeServiceClient;
+  new (
+    address: string,
+    credentials: ChannelCredentials,
+    options?: Partial<ClientOptions>,
+  ): EmployeeServiceClient;
   service: typeof EmployeeServiceService;
   serviceName: string;
 };
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function toTimestamp(date: Date): Timestamp {
   const seconds = Math.trunc(date.getTime() / 1_000);
   const nanos = (date.getTime() % 1_000) * 1_000_000;
-  return { $type: "google.protobuf.Timestamp", seconds, nanos };
+  return { $type: 'google.protobuf.Timestamp', seconds, nanos };
 }
 
 function fromTimestamp(t: Timestamp): Date {
@@ -1418,7 +1710,7 @@ function fromTimestamp(t: Timestamp): Date {
 function fromJsonTimestamp(o: any): Date {
   if (o instanceof globalThis.Date) {
     return o;
-  } else if (typeof o === "string") {
+  } else if (typeof o === 'string') {
     return new globalThis.Date(o);
   } else {
     return fromTimestamp(Timestamp.fromJSON(o));

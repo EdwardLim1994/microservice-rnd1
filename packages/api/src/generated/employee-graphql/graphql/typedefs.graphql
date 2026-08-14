@@ -1,4 +1,6 @@
-schema @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"]) {
+schema
+  @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
+{
   query: Query
   mutation: Mutation
 }

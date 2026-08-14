@@ -5,10 +5,10 @@
 // source: google/protobuf/timestamp.proto
 
 /* eslint-disable */
-import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { messageTypeRegistry } from "../../typeRegistry";
+import { BinaryReader, BinaryWriter } from '@bufbuild/protobuf/wire';
+import { messageTypeRegistry } from '../../typeRegistry';
 
-export const protobufPackage = "google.protobuf";
+export const protobufPackage = 'google.protobuf';
 
 /**
  * A Timestamp represents a point in time independent of any time zone or local
@@ -102,7 +102,7 @@ export const protobufPackage = "google.protobuf";
  * ) to obtain a formatter capable of generating timestamps in this format.
  */
 export interface Timestamp {
-  $type: "google.protobuf.Timestamp";
+  $type: 'google.protobuf.Timestamp';
   /**
    * Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must
    * be between -315576000000 and 315576000000 inclusive (which corresponds to
@@ -120,13 +120,16 @@ export interface Timestamp {
 }
 
 function createBaseTimestamp(): Timestamp {
-  return { $type: "google.protobuf.Timestamp", seconds: 0, nanos: 0 };
+  return { $type: 'google.protobuf.Timestamp', seconds: 0, nanos: 0 };
 }
 
-export const Timestamp: MessageFns<Timestamp, "google.protobuf.Timestamp"> = {
-  $type: "google.protobuf.Timestamp" as const,
+export const Timestamp: MessageFns<Timestamp, 'google.protobuf.Timestamp'> = {
+  $type: 'google.protobuf.Timestamp' as const,
 
-  encode(message: Timestamp, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+  encode(
+    message: Timestamp,
+    writer: BinaryWriter = new BinaryWriter(),
+  ): BinaryWriter {
     if (message.seconds !== 0) {
       writer.uint32(8).int64(message.seconds);
     }
@@ -137,7 +140,8 @@ export const Timestamp: MessageFns<Timestamp, "google.protobuf.Timestamp"> = {
   },
 
   decode(input: BinaryReader | Uint8Array, length?: number): Timestamp {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const reader =
+      input instanceof BinaryReader ? input : new BinaryReader(input);
     const end = length === undefined ? reader.len : reader.pos + length;
     const message = createBaseTimestamp();
     while (reader.pos < end) {
@@ -190,7 +194,9 @@ export const Timestamp: MessageFns<Timestamp, "google.protobuf.Timestamp"> = {
   create<I extends Exact<DeepPartial<Timestamp>, I>>(base?: I): Timestamp {
     return Timestamp.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Timestamp>, I>>(object: I): Timestamp {
+  fromPartial<I extends Exact<DeepPartial<Timestamp>, I>>(
+    object: I,
+  ): Timestamp {
     const message = createBaseTimestamp();
     message.seconds = object.seconds ?? 0;
     message.nanos = object.nanos ?? 0;
@@ -200,25 +206,39 @@ export const Timestamp: MessageFns<Timestamp, "google.protobuf.Timestamp"> = {
 
 messageTypeRegistry.set(Timestamp.$type, Timestamp);
 
-type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+type Builtin =
+  | Date
+  | Function
+  | Uint8Array
+  | string
+  | number
+  | boolean
+  | undefined;
 
-export type DeepPartial<T> = T extends Builtin ? T
-  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
-  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
-  : T extends {} ? { [K in Exclude<keyof T, "$type">]?: DeepPartial<T[K]> }
-  : Partial<T>;
+export type DeepPartial<T> = T extends Builtin
+  ? T
+  : T extends globalThis.Array<infer U>
+    ? globalThis.Array<DeepPartial<U>>
+    : T extends ReadonlyArray<infer U>
+      ? ReadonlyArray<DeepPartial<U>>
+      : T extends {}
+        ? { [K in Exclude<keyof T, '$type'>]?: DeepPartial<T[K]> }
+        : Partial<T>;
 
 type KeysOfUnion<T> = T extends T ? keyof T : never;
-export type Exact<P, I extends P> = P extends Builtin ? P
-  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P> | "$type">]: never };
+export type Exact<P, I extends P> = P extends Builtin
+  ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & {
+      [K in Exclude<keyof I, KeysOfUnion<P> | '$type'>]: never;
+    };
 
 function longToNumber(int64: { toString(): string }): number {
   const num = globalThis.Number(int64.toString());
   if (num > globalThis.Number.MAX_SAFE_INTEGER) {
-    throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
+    throw new globalThis.Error('Value is larger than Number.MAX_SAFE_INTEGER');
   }
   if (num < globalThis.Number.MIN_SAFE_INTEGER) {
-    throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
+    throw new globalThis.Error('Value is smaller than Number.MIN_SAFE_INTEGER');
   }
   return num;
 }
