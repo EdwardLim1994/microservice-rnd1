@@ -1,8 +1,8 @@
 # Build context must be repo root:
-#   docker build -f servers/{{ name }}/Dockerfile -t {{ name }} .
+#   docker build -f servers/payroll/Dockerfile -t payroll .
 
 ARG BUN_VERSION=1.3.14
-ARG SERVER_NAME={{ name }}
+ARG SERVER_NAME=payroll
 # x64, not arm64 — matches this repo's actual host/minikube node architecture (confirmed via
 # `uname -m` and `kubectl get nodes -o jsonpath='{.status.nodeInfo.architecture}'`, both amd64).
 # A mismatched target produces a binary that fails with "exec format error" at container start,
@@ -62,6 +62,13 @@ RUN bun run build
 
 WORKDIR /app/apps/servers/"${SERVER_NAME}"
 
+# Explicit, not relying on the postinstall hook `bun install`/`bun run build` may or may
+# not have actually triggered above — that path failed silently once already (DATABASE_URL
+# missing, non-fatal to the overall build) and left an image with no generated/prisma/ at
+# all, crashing at runtime instead of at build time. A dedicated RUN here fails the build
+# loudly if this ever breaks again, instead of shipping a broken image.
+RUN ./node_modules/.bin/prisma generate
+
 # ── development ───────────────────────────────────────────────────────────────
 # Runs index.ts directly via bun (no compile step), so source edits synced into the running
 # container re-execute on the next request/restart, instead of waiting on a full
@@ -106,4 +113,4 @@ USER ${SERVER_NAME}
 
 EXPOSE 4001 5001
 
-ENTRYPOINT ["/app/{{ name }}"]
+ENTRYPOINT ["/app/payroll"]

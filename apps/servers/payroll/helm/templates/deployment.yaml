@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payroll
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: payroll
+  template:
+    metadata:
+      labels:
+        app: payroll
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-payroll-db
+          image: postgres:15.3-alpine
+          command: ["sh", "-c", "until pg_isready -h payroll-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done"]
+          resources:
+            limits:
+              memory: 64Mi
+      containers:
+        - name: payroll
+          image: payroll:latest
+          envFrom:
+            - configMapRef:
+                name: payroll-log-env
+            - configMapRef:
+                name: payroll-env
+            - secretRef:
+                name: payroll-secret
+          resources:
+            limits:
+              memory: 256Mi
