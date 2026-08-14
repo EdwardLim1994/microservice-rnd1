@@ -1,3 +1,6 @@
 {
-  "extends": ["config/src/biome/biome.json"]
+  "extends": ["config/src/biome/biome.json"],
+  "files": {
+    "ignore": ["src/generated/**"]
+  }
 }
