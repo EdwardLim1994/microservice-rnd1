@@ -683,7 +683,7 @@ export function wireHelmInitContainerWait(
 		throw new Error(`Could not find a "containers:" line in ${absDeploymentPath}`);
 	}
 	const indent = containersLineMatch[1];
-	const entry = `${indent}  - name: ${name}\n${indent}    image: ${image}\n${indent}    command: ["sh", "-c", ${JSON.stringify(waitCommand)}]\n`;
+	const entry = `${indent}  - name: ${name}\n${indent}    image: ${image}\n${indent}    command: ["sh", "-c", ${JSON.stringify(waitCommand)}]\n${indent}    resources:\n${indent}      limits:\n${indent}        memory: 64Mi\n`;
 
 	const initContainersLineMatch = /^(\s+)initContainers:[ \t]*\n/m.exec(raw);
 	if (initContainersLineMatch) {

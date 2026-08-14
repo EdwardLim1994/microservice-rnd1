@@ -346,7 +346,7 @@ function injectDockerfileMigrateStage(
 function injectDockerfilePrismaGenerate(absDockerfilePath: string): string {
 	// Normalize CRLF → LF so regex \n patterns work on Windows-generated template files.
 	const raw = fs.readFileSync(absDockerfilePath, "utf-8").replace(/\r\n/g, "\n");
-	if (raw.includes("RUN bunx prisma generate")) {
+	if (raw.includes("RUN ./node_modules/.bin/prisma generate") || raw.includes("RUN bunx prisma generate")) {
 		return `${relToRoot(absDockerfilePath)} already has an explicit prisma generate`;
 	}
 
@@ -364,7 +364,7 @@ function injectDockerfilePrismaGenerate(absDockerfilePath: string): string {
 		"# missing, non-fatal to the overall build) and left an image with no generated/prisma/ at\n" +
 		"# all, crashing at runtime instead of at build time. A dedicated RUN here fails the build\n" +
 		"# loudly if this ever breaks again, instead of shipping a broken image.\n" +
-		"RUN bunx prisma generate\n";
+		"RUN ./node_modules/.bin/prisma generate\n";
 	fs.writeFileSync(
 		absDockerfilePath,
 		`${raw.slice(0, insertAt)}${snippet}${raw.slice(insertAt)}`,

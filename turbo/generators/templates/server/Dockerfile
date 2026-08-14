@@ -38,7 +38,7 @@ WORKDIR /app
 
 COPY --from=pruner /app/out/json/ .
 
-RUN bun install --ignore-scripts
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ── builder ────────────────────────────────────────────────────────────────────
 # Stops right after workspace deps (packages/server etc.) are built — every downstream stage

@@ -34,11 +34,16 @@ spec:
       # Postgres's image runs as a non-root uid (999) — matches every other bundled-Postgres
       # chart in this repo (see services/authentik/helm/values.yaml's volumePermissions comment)
       # so the default root-owned volume is actually writable by it.
+      automountServiceAccountToken: false
       securityContext:
         fsGroup: 999
       containers:
         - name: postgres
           image: postgres:15.3-alpine
+          resources:
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 1Gi
           ports:
             - name: postgres
               containerPort: 5432
