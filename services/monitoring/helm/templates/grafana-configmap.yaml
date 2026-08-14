@@ -1,3 +1,8 @@
+{{- $leaveDbSecret := lookup "v1" "Secret" "server-infra" "leave-db-secret" }}
+{{- $leaveDbPassword := "leave-placeholder-db-password" }}
+{{- if $leaveDbSecret }}
+{{- $leaveDbPassword = index $leaveDbSecret.data "password" | b64dec }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,5 +17,25 @@ data:
   # fine as-is in-cluster, same namespace, no FQDN rewrite needed.
   datasources.yaml: |
 {{ .Files.Get "files/grafana-datasources.yaml" | indent 4 }}
+  # Real copy of apps/servers/leave/grafana-datasources.yaml, inlined
+  # for the same reason as the other per-server datasource keys above (Go-templating the
+  # password substitution in).
+  leave-datasources.yaml: |
+    apiVersion: 1
+
+    datasources:
+      - name: leave Postgres
+        uid: leave-postgres
+        type: grafana-postgresql-datasource
+        access: proxy
+        url: leave-db.server-infra.svc.cluster.local:5432
+        database: leave
+        user: myuser
+        editable: false
+        jsonData:
+          sslmode: disable
+          postgresVersion: 1500
+        secureJsonData:
+          password: {{ $leaveDbPassword }}
   dashboards.yaml: |
 {{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}
