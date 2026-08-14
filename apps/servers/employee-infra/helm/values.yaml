@@ -1,0 +1,19 @@
+# Shared namespace — every server's infra chart (Postgres/Redis/etc.) lands here, not a
+# dedicated one per server. Collisions between servers are avoided by prefixing every object name
+# with this server's own name (employee-db, employee-vault-db-provision, etc.), not by
+# namespace. This chart is deploy-once (Terraform-applied); the app chart is applied separately.
+# See root-level comment in apps/terraform/main.tf.
+namespace: server-infra
+
+# Where the app chart's own Deployment/Secret live — db-provision-job.yaml patches DATABASE_URL
+# and rolls the Deployment there on every credential rotation, so this chart's own ServiceAccount
+# needs a Role/RoleBinding scoped into that namespace too, not just its own. Also shared across
+# every server now. See db-provision-job.yaml's own header comment for the full cross-namespace
+# RBAC shape.
+appNamespace: server-apps
+
+# Empty by default — db.yaml's Postgres superuser password falls back to a `lookup` of the
+# already-set value (real `helm install`/`upgrade`) or a fresh `randAlphaNum` on first install.
+# apps/terraform/main.tf sets this to a Terraform-managed `random_password` to keep it stable
+# across that provider's plan-time double-render (see db.yaml.hbs's own comment on this override).
+dbPassword: ""
