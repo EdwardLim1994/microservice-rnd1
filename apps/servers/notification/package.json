@@ -19,6 +19,7 @@
   },
   "scripts": {
     "dev": "bun run index.ts --watch --verbose",
-    "check": "biome check --write"
+    "check": "biome check --write",
+    "test": "bun test"
   }
 }
