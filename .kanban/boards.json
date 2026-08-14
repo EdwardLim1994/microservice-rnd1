@@ -1,13 +1,13 @@
 {
   "meta": {
     "nextId": 40,
-    "activeSprint": null,
+    "activeSprint": "v0.1.0",
     "proposedMilestone": {
       "name": "v0.1.0",
       "goal": "Ship hr-leave-payroll-platform epic (KAN-1) end-to-end through the SDLC pipeline",
       "estimatedDuration": "10 working days (first-pass estimate, see sprint-plan.md)",
       "storyIds": ["KAN-2", "KAN-3", "KAN-4", "KAN-5", "KAN-6"],
-      "status": "awaiting /kickoff approval"
+      "status": "active"
     }
   },
   "cards": [
@@ -233,7 +233,8 @@
       "title": "[DevOps] leave + leave-infra scaffold (Postgres + Debezium)",
       "body": "Branch: devops/KAN-25 from us/KAN-4 (story-level). `turbo gen server` for `leave`, `turbo gen database` + `turbo gen debezium` for `leave-infra`. Unblocks api/KAN-20. Ref: tasks.md 3.2, ADR-2.",
       "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
+      "status": "pr-ready",
+      "assignee": "devops-engineer",
       "links": ["Part of #KAN-4"]
     },
     {
@@ -287,7 +288,8 @@
       "title": "[DevOps] payroll + payroll-infra scaffold (Postgres + Debezium)",
       "body": "Branch: devops/KAN-31 from us/KAN-5 (story-level). `turbo gen server` for `payroll`, `turbo gen database` + `turbo gen debezium` for `payroll-infra`, `turbo gen cron` driver. Unblocks api/KAN-26. Ref: tasks.md 4.2, ADR-2.",
       "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
+      "status": "pr-ready",
+      "assignee": "devops-engineer",
       "links": ["Part of #KAN-5"]
     },
     {
@@ -350,7 +352,8 @@
       "title": "[DevOps] employee + employee-infra scaffold (Postgres)",
       "body": "Branch: devops/KAN-38 from us/KAN-2 (story-level). `turbo gen server` for `employee`, `turbo gen database` for `employee-infra`. No Debezium needed (nothing consumes employee CDC in this epic). Unblocks api/KAN-12. Ref: tasks.md 1.3.",
       "labels": ["type: devops", "priority: TBD"],
-      "status": "backlog",
+      "status": "pr-ready",
+      "assignee": "devops-engineer",
       "links": ["Part of #KAN-2"]
     },
     {
