@@ -1,0 +1,26 @@
+{
+	"name": "notification-graphql",
+	"module": "index.ts",
+	"type": "module",
+	"version": "0.0.1",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@graphql-codegen/add": "^7.0.1",
+		"@graphql-codegen/cli": "^7.1.2",
+		"@graphql-codegen/schema-ast": "^6.0.1",
+		"@graphql-codegen/typescript": "^6.0.2",
+		"@graphql-codegen/typescript-resolvers": "^6.0.2"
+	},
+	"dependencies": {
+		"server": "workspace:*",
+		"config": "workspace:*",
+		"script": "workspace:*",
+		"graphql": "^16.14.2",
+		"api": "workspace:*"
+	},
+	"scripts": {
+		"dev": "bun run index.ts --watch --verbose",
+		"gen": "bun ../../../packages/script/src/bin/generate-api.ts"
+	}
+}
