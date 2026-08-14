@@ -38,7 +38,7 @@ WORKDIR /app
 
 COPY --from=pruner /app/out/json/ .
 
-RUN bun install --ignore-scripts
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ── builder ────────────────────────────────────────────────────────────────────
 # Stops right after workspace deps (packages/server etc.) are built — every downstream stage
@@ -67,7 +67,7 @@ WORKDIR /app/apps/servers/"${SERVER_NAME}"
 # missing, non-fatal to the overall build) and left an image with no generated/prisma/ at
 # all, crashing at runtime instead of at build time. A dedicated RUN here fails the build
 # loudly if this ever breaks again, instead of shipping a broken image.
-RUN bunx prisma generate
+RUN ./node_modules/.bin/prisma generate
 
 # ── development ───────────────────────────────────────────────────────────────
 # Runs index.ts directly via bun (no compile step), so source edits synced into the running
