@@ -1,0 +1,1 @@
+export type NotificationGraphqlContextType = Record<string, never>;
