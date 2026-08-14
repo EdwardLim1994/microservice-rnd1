@@ -1,0 +1,46 @@
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.14", import: ["@key"])
+
+type Query {
+  employees(page: Int, pageSize: Int): EmployeeListResult!
+  employee(id: ID!): Employee
+}
+
+type Mutation {
+  registerEmployee(input: RegisterEmployeeInput!): RegisterEmployeeResult!
+  updateEmployee(id: ID!, input: UpdateEmployeeInput!): Employee!
+}
+
+input RegisterEmployeeInput {
+  fullName: String!
+  personalEmail: String!
+  monthlyRate: Float!
+  supervisorId: ID
+}
+
+# One-time credential response shown in success dialog (ADR-3: mocked delivery, no email sent)
+type RegisterEmployeeResult {
+  employee: Employee!
+  generatedPassword: String!
+}
+
+input UpdateEmployeeInput {
+  monthlyRate: Float
+  supervisorId: ID
+}
+
+type Employee @key(fields: "id") {
+  id: ID!
+  fullName: String!
+  personalEmail: String!
+  monthlyRate: Float!
+  supervisorId: ID
+  supervisor: Employee
+  createdAt: String!
+  updatedAt: String!
+}
+
+type EmployeeListResult {
+  employees: [Employee!]!
+  total: Int!
+}

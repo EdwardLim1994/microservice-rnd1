@@ -1,0 +1,1 @@
+export type EmployeeGraphqlContextType = Record<string, never>;

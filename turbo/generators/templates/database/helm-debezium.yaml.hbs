@@ -1,6 +1,6 @@
 # One Debezium Server process captures {{ name }}-db only — not a shared Kafka Connect cluster
-# (see root CLAUDE.md's CDC note). Lives in {{ name }}'s own chart, next to db.yaml, but as its own
-# Deployment so it restarts/redeploys independently of the app container.
+# (see root CLAUDE.md's CDC note). Lives in {{ name }}-infra chart alongside db.yaml, deployed
+# independently of the app container so each can restart/redeploy on its own schedule.
 apiVersion: v1
 kind: ConfigMap
 metadata:

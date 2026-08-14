@@ -1,0 +1,16 @@
+version: v2
+
+clean: true
+
+plugins:
+  - local: protoc-gen-ts_proto
+    out: ../../../packages/api/src/generated/employee/proto/
+    opt:
+      - outputServices=grpc-js
+      - esModuleInterop=true
+      - useOptionals=messages
+      - stringEnums=true
+      - outputTypeRegistry=true
+
+inputs:
+  - directory: ./src/schemas/proto/
