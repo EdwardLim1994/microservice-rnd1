@@ -1,3 +1,8 @@
+{{- $employeeDbSecret := lookup "v1" "Secret" "server-infra" "employee-db-secret" }}
+{{- $employeeDbPassword := "employee-placeholder-db-password" }}
+{{- if $employeeDbSecret }}
+{{- $employeeDbPassword = index $employeeDbSecret.data "password" | b64dec }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,5 +17,25 @@ data:
   # fine as-is in-cluster, same namespace, no FQDN rewrite needed.
   datasources.yaml: |
 {{ .Files.Get "files/grafana-datasources.yaml" | indent 4 }}
+  # Real copy of apps/servers/employee/grafana-datasources.yaml, inlined
+  # for the same reason as the other per-server datasource keys above (Go-templating the
+  # password substitution in).
+  employee-datasources.yaml: |
+    apiVersion: 1
+
+    datasources:
+      - name: employee Postgres
+        uid: employee-postgres
+        type: grafana-postgresql-datasource
+        access: proxy
+        url: employee-db.server-infra.svc.cluster.local:5432
+        database: employee
+        user: myuser
+        editable: false
+        jsonData:
+          sslmode: disable
+          postgresVersion: 1500
+        secureJsonData:
+          password: {{ $employeeDbPassword }}
   dashboards.yaml: |
 {{ .Files.Get "files/grafana-dashboards.yaml" | indent 4 }}

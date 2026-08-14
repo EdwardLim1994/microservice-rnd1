@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: employee
+  template:
+    metadata:
+      labels:
+        app: employee
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-employee-db
+          image: postgres:15.3-alpine
+          command: ["sh", "-c", "until pg_isready -h employee-db.{{ .Values.infraNamespace }}.svc.cluster.local -p 5432 -U myuser; do sleep 2; done"]
+          resources:
+            limits:
+              memory: 64Mi
+      containers:
+        - name: employee
+          image: employee:latest
+          envFrom:
+            - configMapRef:
+                name: employee-log-env
+            - configMapRef:
+                name: employee-env
+            - secretRef:
+                name: employee-secret
+          resources:
+            limits:
+              memory: 256Mi
