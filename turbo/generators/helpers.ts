@@ -242,7 +242,8 @@ export function injectDriverEntry(
 	buildEntry: (itemIndent: string) => string,
 	extraImports: string[] = [],
 ): string {
-	let raw = fs.readFileSync(absAppPath, "utf-8");
+	// Normalize CRLF → LF so regex patterns work on Windows-generated template files.
+	let raw = fs.readFileSync(absAppPath, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes(driverName)) {
 		return `${relToRoot(absAppPath)} already has ${driverName}`;
 	}
@@ -578,7 +579,8 @@ function findIndentedBodyEnd(
  * `<name>-graphql-env` callers). Idempotent per port number.
  */
 export function wireHelmContainerPort(absDeploymentPath: string, port: number): string {
-	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
+	// Normalize CRLF → LF so regex patterns using \n work on Windows-generated template files.
+	const raw = fs.readFileSync(absDeploymentPath, "utf-8").replace(/\r\n/g, "\n");
 	if (new RegExp(`containerPort: ${port}\\b`).test(raw)) {
 		return `${relToRoot(absDeploymentPath)} already exposes port ${port}`;
 	}
@@ -624,7 +626,8 @@ export function wireHelmDeploymentConfigMap(
 	configMapName: string,
 	refKind: "configMapRef" | "secretRef" = "configMapRef",
 ): string {
-	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
+	// Normalize CRLF → LF so regex patterns using \n work on Windows-generated template files.
+	const raw = fs.readFileSync(absDeploymentPath, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes(`name: ${configMapName}`)) {
 		return `${relToRoot(absDeploymentPath)} already references ${configMapName}`;
 	}
@@ -669,7 +672,8 @@ export function wireHelmInitContainerWait(
 	image: string,
 	waitCommand: string,
 ): string {
-	const raw = fs.readFileSync(absDeploymentPath, "utf-8");
+	// Normalize CRLF → LF so regex patterns using \n work on Windows-generated template files.
+	const raw = fs.readFileSync(absDeploymentPath, "utf-8").replace(/\r\n/g, "\n");
 	if (raw.includes(`name: ${name}`)) {
 		return `${relToRoot(absDeploymentPath)} already has initContainer ${name}`;
 	}
