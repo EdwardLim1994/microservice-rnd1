@@ -2,6 +2,7 @@ import type {
 	SubmitLeaveRequest,
 	SubmitLeaveResponse,
 } from "api/src/generated/leave/proto/leave";
+import type { KafkaProducer } from "server";
 import { BaseUseCase } from "server";
 import type { LeaveRepository } from "../repositories/LeaveRepository";
 import {
@@ -15,7 +16,12 @@ export class SubmitLeaveUseCase extends BaseUseCase<
 	SubmitLeaveRequest,
 	SubmitLeaveResponse
 > {
-	constructor(private readonly deps: { leaveRepository: LeaveRepository }) {
+	constructor(
+		private readonly deps: {
+			leaveRepository: LeaveRepository;
+			kafkaProducer: KafkaProducer;
+		},
+	) {
 		super();
 	}
 
@@ -75,6 +81,12 @@ export class SubmitLeaveUseCase extends BaseUseCase<
 		});
 
 		const balance = await repo.getOrCreateBalance(req.employeeId, year);
+
+		await this.deps.kafkaProducer.send("notification-events", {
+			recipientId: req.employeeId,
+			type: "LEAVE_REQUEST_RECEIVED",
+			message: `Your ${leaveTypeStr.toLowerCase()} leave request (${totalDays} day(s)) has been received and is pending review.`,
+		});
 
 		return {
 			$type: "leave.SubmitLeaveResponse",

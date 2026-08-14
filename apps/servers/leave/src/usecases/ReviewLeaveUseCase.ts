@@ -2,6 +2,7 @@ import type {
 	ReviewLeaveRequest,
 	ReviewLeaveResponse,
 } from "api/src/generated/leave/proto/leave";
+import type { KafkaProducer } from "server";
 import { BaseUseCase } from "server";
 import type { LeaveRepository } from "../repositories/LeaveRepository";
 import { grpcInvalidArg, grpcNotFound, toProtoLeaveRequest } from "./helpers";
@@ -10,7 +11,12 @@ export class ReviewLeaveUseCase extends BaseUseCase<
 	ReviewLeaveRequest,
 	ReviewLeaveResponse
 > {
-	constructor(private readonly deps: { leaveRepository: LeaveRepository }) {
+	constructor(
+		private readonly deps: {
+			leaveRepository: LeaveRepository;
+			kafkaProducer: KafkaProducer;
+		},
+	) {
 		super();
 	}
 
@@ -30,6 +36,13 @@ export class ReviewLeaveUseCase extends BaseUseCase<
 			req.leaveRequestId,
 			decision,
 		);
+
+		await this.deps.kafkaProducer.send("notification-events", {
+			recipientId: existing.employeeId,
+			type: "LEAVE_REQUEST_DECIDED",
+			message: `Your leave request has been ${decision.toLowerCase()}.`,
+		});
+
 		return {
 			$type: "leave.ReviewLeaveResponse",
 			leaveRequest: toProtoLeaveRequest(updated),

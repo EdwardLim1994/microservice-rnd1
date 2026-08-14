@@ -18,7 +18,8 @@
 		"script": "workspace:*",
 		"@grpc/grpc-js": "^1.14.4",
 		"ts-proto": "^2.11.8",
-		"api": "workspace:*"
+		"api": "workspace:*",
+		"kafkajs": "^2.2.4"
 	},
 	"scripts": {
 		"dev": "bun run index.ts --watch --verbose",
